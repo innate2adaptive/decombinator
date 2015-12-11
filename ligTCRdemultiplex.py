@@ -1,36 +1,59 @@
-# FuzzyDid.py v1.0
-# James M. Heather, May 2015, UCL
+# ligTCRdemultiplex.py v1.0
+# James M. Heather, December 2015, UCL
 
 ##################
 ### BACKGROUND ###
 ##################
 
-# A derivate of DualIndexDemultiplexing.py, that allows fuzzy index matching
+# A derivate of DualIndexDemultiplexing.py/FuzzyDID, fuzzily demultiplexes ligation TCR sequencing protocol FASTQ data 
   # i.e. allows a specified number of mismatches in the index sequence
 # Takes all three reads and simultaneously demultiplexes and formats read 1 for vDCR.py analysis
-  # i.e. the first 12 nucleotides of the read make up the random barcode, with any V(D)J information downstream
+  # i.e. adds the first 30 nucleotides of R2 to R1
+  # This will contain the random barcode followed by any V(D)J information downstream, allowing collapsing
 # Demultiplexes using a combination of indexes from third read and another index nested in read 1
 
 ##################
 ###### INPUT #####
 ##################
 
-# Takes command line input of 4 file names:
-  # First 3 are (Illumina encoded) fastq files, relating to reads 1, 2 (index read) and 3 respectively
-  # Fourth is a comma delimited file detailing sample index specifics, one per line:
+# Requires the command line input of at least 3file names, giving the three Illumina reads
+  # Files may be uncompressed, or gzipped (and be named accordingly, e.g. File.fastq.gz)
+# A fourth optional comma delimited file detailing sample index specifics is strongly recommended, allowing production of correctly named files
+  # File must give the following details, one sample (or index combination) per line, with no empty lines:
     # Sample name, SP1/R1 index (I), SP2/R2 index (L):
-    # eg: P005v1,1,11
-# Run: python DualIndexDemultiplexing.py read1.fastq read2.fastq read3.fastq indexes.ndx
+      # e.g.: P005v1,1,11
+# e.g. run: python ligTCRdemultiplex.py -r1 read1.fastq -r2 read2.fastq -i1 indexread1.fastq -ix indexes.ndx
+
+# Other optional flags:
+  
+  # -s/--summary: Output a summary file containing details of the run into a 'Logs' directory. Default = True
+  
+  # -a/--outputall: Output the results of all possible index combinations currently used in protocol
+    # e.g. Useful in finding potential cross-contaminating or incorrectly indexed samples
+    # NB - This option can be run even if an index list is provided (although only those provided by the index list will be named)
+  
+  # -t/--threshold: Specifies the threshold by which indexes can be clustered by fuzzy string matching, allowing for sequencing errors
+    # Default = 2. Setting to zero turns off fuzzy matching, i.e. only allowing exact string matching
+  
+  # -z/--gzip: Specify whether or not to gzip compress the output, demultiplexed FASTQs. Default = True
+  
+  # -c/--count: Specify whether or not to show the running line count, every 100,000 reads. 
+    # Helps in monitoring progress of large batches. Default = True.
+
+# To see all options, run: python ligTCRdemultiplex.py -h
 
 ##################
 ##### OUTPUT #####  
 ##################
     
 # A fastq file will be produced for each sample listed in the index file, in the modified format, containing all reads that matched
-# So we go from:        R1 - [N1|X1|----VDJ-----]
+# So we go from:        R1 - [6s|X1|----VDJ-----]
 #                       R2 - [X2]
-#                       R3 - [N2|-----5'UTR-----]
-# To: ========>         out- [N2|N1|X1|X2|----VDJ-----]         
+#                       R3 - [8s|N1|8s|N2|2s|-----5'UTR-----]
+# To: ========>         out- [8s|N1|8s|N2|2s|X1|X2|----VDJ-----]         
+# Where X = hexamer index sequence, N = random barcode sequence, and Ys = spacer sequences of length Y
+  # The 8s sequences can be used downstream to identify the presence and location of random barcode N sequences
+  # 2s is also kept to allow for the possibility finding N sequences produced from slipped reads
 
 ##################
 #### PACKAGES ####  
@@ -40,43 +63,50 @@ from __future__ import division
 from Bio import SeqIO
 from time import time, clock
 from itertools import izip
+from multiprocessing import Pool
 import sys
+import argparse
+import gzip
 import os
 import Levenshtein as lev
-
-####################
-#### THRESHOLD! ####  
-####################
-
-# This sets the edit distance threshold allowed for fuzzy indexing
-
-threshold = 2
-
-# Users can also choose whether or not to output a list of those reads that were demultiplexed using fuzzy matching
-
-fuzz_ids = True
+import collections as col
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
 
-filename = ""
+def args():
+  """args(): Obtains command line arguments which dictate the script's behaviour"""
 
-if (len(sys.argv) <> 5):
-  print "Please supply the three read fastq files and sample/index file (e.g. python DualIndexDemultiplexing.py read1.fastq read2.fastq read3.fastq indexes.ndx)"
-  sys.exit()
-else:
-  rd1file = str(sys.argv[1])
-  rd2file = str(sys.argv[2])
-  rd3file = str(sys.argv[3])
-  indexfile = str(sys.argv[4])
+  # Help flag
+  parser = argparse.ArgumentParser(
+      description='Script to demultiplex FASTQ data produced using the ligation TCRseq protocol')
+  # Add arguments
+  parser.add_argument(
+      '-r1', '--read1', type=str, help='Read 1 FASTQ file', required=True)
+  parser.add_argument(
+      '-r2', '--read2', type=str, help='Read 1 FASTQ file', required=True)
+  parser.add_argument(
+      '-i1', '--index1', type=str, help='Index read FASTQ file', required=True)
+  parser.add_argument(
+      '-ix', '--indexlist', type=str, help='File containing sample/index table', required=False)
+  parser.add_argument(
+      '-s', '--summary', type=bool, help='Output summary data (True/False)', required=False, default=True)
+  parser.add_argument(
+      '-a', '--outputall', type=bool, help='Output all possible index combinations (True/False)', required=False, default=False)
+  parser.add_argument(
+      '-t', '--threshold', type=int, help='Edit distance allowed for fuzzy-string index matching (default=2)', required=False, default=2)
+  parser.add_argument(
+      '-z', '--gzip', type=bool, help='Gzip compress output FASTQ files (True/False)', required=False, default=True)
+  parser.add_argument(
+      '-c', '--count', type=bool, help='Show the count (True/False)', required=False, default=True)
+  
 
-fq1 = SeqIO.parse(open(rd1file), "fastq")
-fq2 = SeqIO.parse(open(rd2file), "fastq")
-fq3 = SeqIO.parse(open(rd3file), "fastq")
+  return parser.parse_args()
 
+inputargs = vars(args())
 
-### Create dictionaries of the two kinds of indices
+############# FIX - remember to add a check so that if output all = true and indexlist given, it will produce named output for the given ones
 
 ##########################################################
 ############ CREATE DICTIONARIES FOR INDEXES #############
@@ -92,13 +122,25 @@ X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", 
 ########### GENERATE SAMPLE-NAMED OUTPUT FILES ###########
 ##########################################################
 
+
 failed = open("Undetermined.fq", "w")
 
-indexes = list(open(indexfile, "rU"))
+outputfiles = ["Undetermined.fq"]
+
+# If given an indexlist, use that to generate named output files
+if inputargs['indexlist']:
+  indexes = list(open(inputargs['indexlist'], "rU"))
+else:
+  print "No index list file provided."
+  sys.exit()
 
 XXdict = {}
 
 for x in indexes:
+  
+  if x == "\n":
+    print "Empty line detected in index file, presumed end of file."
+    break
 
   elements = x.strip("\n").split(",")
 
@@ -110,7 +152,8 @@ for x in indexes:
   
   XXdict[compound_index] = open(sample + ".fq", "a")
   
-  ## ADD IF INDEX ERROR STOP -> ENSURE NO EMPTY LINE AT END OF INDEX FILE
+  outputfiles.append(sample + ".fq")
+  
 
 count = 0
 dmpd_count = 0          # number successfully demultiplexed 
@@ -127,11 +170,32 @@ t0 = time() # Begin timer
 ######## PROCESS INTO CORRECT FORMAT & DEMULTIPLEX #######
 ##########################################################
 
+print "Reading input files..."
+
+# Open read files
+if inputargs['read1'].endswith('.gz'):
+  fq1 = SeqIO.parse(gzip.open(inputargs['read1']), "fastq")
+else:
+  fq1 = SeqIO.parse(open(inputargs['read1']), "fastq")
+  
+if inputargs['index1'].endswith('.gz'):
+  fq2 = SeqIO.parse(gzip.open(inputargs['index1']), "fastq")
+else:
+  fq2 = SeqIO.parse(open(inputargs['index1']), "fastq")
+
+
+if inputargs['read2'].endswith('.gz'):
+  fq3 = SeqIO.parse(gzip.open(inputargs['read2']), "fastq")
+else:
+  fq3 = SeqIO.parse(open(inputargs['read2']), "fastq")
+
+print "Demultiplexing data..."
+
 for record1, record2, record3 in izip(fq1, fq2, fq3):
   
   count += 1  
 
-  if count % 100000 == 0:
+  if count % 100000 == 0 and inputargs['count'] == True:
     print '\t read', count
   
 ### NB For non-standard Illumina encoded fastqs, might need to change which fields are carried into fq_* vars
@@ -178,7 +242,7 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
     
     for ndx in XXdict.keys():
       
-      if lev.distance(ndx, seqX) <= threshold:
+      if lev.distance(ndx, seqX) <= inputargs['threshold']:
         matches.append(ndx)
     
     if len(matches) == 1:
@@ -200,14 +264,30 @@ for x in XXdict.values():
 
 failed.close()
 
+# Gzip compress output
+
+print "Compressing demultiplexed files..."
+
+if inputargs['gzip'] == True:
+  for f in outputfiles:  
+    
+    with open(f) as infile, gzip.open(f + '.gz', 'wb') as outfile:
+        outfile.writelines(infile)
+    os.unlink(f)
+
 ##########################################################
 #################### STDOUT STATISTICS ###################
 ##########################################################
 
 timed = time() - t0
-
+took = round(timed,2)
 #print count, 'reads processed from', rd1file, 'and', fq2file, 'and output into', outfq #FIX
-print '\t\t\t\t\t\t\t\t\tTook', round(timed,2), 'seconds to jimmy indexes and hexamers around'
+if took < 60:
+  print '\t\t\t\t\t\t\t\t\tTook', took, 'seconds to demultiplex samples'
+else:
+  print '\t\t\t\t\t\t\t\t\tTook', round((timed/60),2), 'minutes to jimmy indexes and hexamers around'
+
+
 print count, "reads processed"
 print dmpd_count, "reads demultiplexed"
 print fuzzy_count, "reads demultiplexed using fuzzy index matching"
@@ -218,7 +298,7 @@ if clash_count > 0:
 
 # Write out list of fuzzy matched sequences, so can fish out later if needed
 
-if fuzz_ids == True:
+if inputargs['threshold'] > 0:
   
   print "\nOutputting list of reads demultiplexed using fuzzy index matching"
 
@@ -227,4 +307,7 @@ if fuzz_ids == True:
     print >> fuzzout, f
 
   fuzzout.close()
+else:
+  
+  print "Fuzzy index matching not used (threshold = 0)"
 
