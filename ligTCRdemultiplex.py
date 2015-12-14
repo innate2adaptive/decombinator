@@ -255,7 +255,7 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
     XXdict[seqX].write(new_record)
     
     dmpd_count += 1
-    outputreads[str(XXdict[seqX]).split("\'")[1][:len(suffix)]] += 1
+    outputreads[str(XXdict[seqX]).split("\'")[1][:-len(suffix)]] += 1
     
   else:
     # Otherwise allow fuzzy matching
@@ -273,7 +273,7 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
       dmpd_count += 1
       fuzzy_count += 1
       fuzzies.append(fq_id)
-      outputreads[str(XXdict[matches[0]]).split("\'")[1][:len(suffix)]] += 1
+      outputreads[str(XXdict[matches[0]]).split("\'")[1][:-len(suffix)]] += 1
       
     else:
       
@@ -315,9 +315,9 @@ timed = time.time() - t0
 took = round(timed,2)
 #print count, 'reads processed from', rd1file, 'and', fq2file, 'and output into', outfq #FIX
 if took < 60:
-  print '\t\t\t\t\t\t\t\t\tTook', took, 'seconds to demultiplex samples'
+  print '\t\t\t\t\t\t\tTook', took, 'seconds to demultiplex samples'
 else:
-  print '\t\t\t\t\t\t\t\t\tTook', round((timed/60),2), 'minutes to jimmy indexes and hexamers around'
+  print '\t\t\t\t\t\t\tTook', round((timed/60),2), 'minutes to jimmy indexes and hexamers around'
 
 
 print count, "reads processed"
