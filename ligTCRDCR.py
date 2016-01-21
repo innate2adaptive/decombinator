@@ -577,7 +577,12 @@ if __name__ == '__main__':
       for readid, seq, qual in readfq(f):
         #print readid
         start_time = time()
+        
+        bc = seq[:30]  
         vdj = seq[30:]
+        
+        if "N" in bc and inputargs['allowNs'] == False:                          # Ambiguous base in barcode region
+          counts['dcrfilter_barcodeN'] += 1
         
         counts['read_count'] += 1
         if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
@@ -600,7 +605,6 @@ if __name__ == '__main__':
         if recom:
           counts['vj_count'] += 1
           
-          bc = seq[:30]  
           bcQ = qual[:30]
           
           vdjqual = qual[30:]
@@ -690,7 +694,8 @@ if __name__ == '__main__':
 
     
     # Number reads filtered out
-    summstr = summstr + "\n\nReadsFilteredOut:,\nAmbiguousBaseCall," + str(counts['dcrfilter_intertagN']) \
+    summstr = summstr + "\n\nReadsFilteredOut:,\nAmbiguousBaseCall(DCR)," + str(counts['dcrfilter_intertagN']) \
+      + "\nAmbiguousBaseCall(Barcode)," + str(counts['dcrfilter_barcodeN']) \
       + "\nOverlongInterTagSeq," + str(counts['dcrfilter_toolong_intertag']) \
       + "\nImpossibleDeletions," + str(counts['dcrfilter_imposs_deletion']) \
       + "\nOverlappingTagBoundaries," + str(counts['dcrfilter_tag_overlap']) \
