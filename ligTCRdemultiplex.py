@@ -35,9 +35,9 @@
   # -t/--threshold: Specifies the threshold by which indexes can be clustered by fuzzy string matching, allowing for sequencing errors
     # Default = 2. Setting to zero turns off fuzzy matching, i.e. only allowing exact string matching
   
-  # -z/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. Default = False
+  # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. Default = False
   
-  # -c/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
+  # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
     # Helps in monitoring progress of large batches. Default = False.
 
 # To see all options, run: python ligTCRdemultiplex.py -h
@@ -60,7 +60,6 @@
 ##################
 
 from __future__ import division
-from Bio import SeqIO
 from itertools import izip
 import time
 import sys
@@ -68,7 +67,7 @@ import argparse
 import gzip
 import os
 import Levenshtein as lev
-import collections as col
+import collections as coll
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -96,14 +95,77 @@ def args():
   parser.add_argument(
       '-a', '--outputall', type=bool, help='Output all possible index combinations (True/False)', required=False, default=False)
   parser.add_argument(
-      '-z', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
+      '-dz', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
   parser.add_argument(
-      '-c', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
+      '-dc', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
   parser.add_argument(
       '-fl', '--fuzzylist', type=bool, help='Output a list of thosereads that demultiplexed using fuzzy index matching (True/False)', required=False, default=False)  
   parser.add_argument(
       '-ex', '--extension', type=str, help='Specify the file extension of the output FASTQ files. Default = \"fq\"', required=False, default="fq")
   return parser.parse_args()
+
+############################################
+############# FASTQ PROCESSING #############
+############################################
+
+def fastq_check(infile):
+  """fastq_check(file): Performs a rudimentary sanity check to see whether a file is indeed a FASTQ file"""
+  
+  success = True
+    
+  if infile.endswith('.gz'):
+    with gzip.open(infile) as possfq:
+      read = [next(possfq) for x in range(4)]
+  else:
+    with open(infile) as possfq:
+      read = [next(possfq) for x in range(4)]    
+  
+  # @ check
+  if read[0][0] <> "@":
+    success = False
+  # Descriptor check
+  if read[2][0] <> "+":
+    success = False
+  # Read/quality match check
+  if len(read[1]) <> len(read[3]):
+    success = False  
+  
+  return(success)
+
+def readfq(fp): 
+    """readfq(file):Heng Li's Python implementation of his readfq function 
+    See https://github.com/lh3/readfq/blob/master/readfq.py"""
+    
+    last = None # this is a buffer keeping the last unprocessed line
+    while True: # mimic closure; is it a bad idea?
+        if not last: # the first record or a record following a fastq
+            for l in fp: # search for the start of the next record
+                if l[0] in '>@': # fasta/q header line
+                    last = l[:-1] # save this line
+                    break
+        if not last: break
+        name, seqs, last = last[1:].partition(" ")[0], [], None
+        for l in fp: # read the sequence
+            if l[0] in '@+>':
+                last = l[:-1]
+                break
+            seqs.append(l[:-1])
+        if not last or last[0] != '+': # this is a fasta record
+            yield name, ''.join(seqs), None # yield a fasta record
+            if not last: break
+        else: # this is a fastq record
+            seq, leng, seqs = ''.join(seqs), 0, []
+            for l in fp: # read the quality
+                seqs.append(l[:-1])
+                leng += len(l) - 1
+                if leng >= len(seq): # have read enough quality
+                    last = None
+                    yield name, seq, ''.join(seqs); # yield a fastq record
+                    break
+            if last: # reach EOF before reading enough quality
+                yield name, seq, None # yield a fasta record instead
+                break
+
 
 inputargs = vars(args())
 
@@ -111,6 +173,11 @@ if inputargs['outputall'] == False and not inputargs['indexlist']:
   print "No indexing file provided, and output all option not enabled; one (or both) is required."
   sys.exit()
 
+for f in [inputargs['read1'], inputargs['read2'], inputargs['index1']]:
+  if fastq_check(f) == False:
+    print "FASTQ sanity check failed reading", f, "- please ensure that this file is properly formatted and/or gzip compressed."
+    sys.exit()
+  
 ##########################################################
 ############ CREATE DICTIONARIES FOR INDEXES #############
 ##########################################################
@@ -127,15 +194,14 @@ X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", 
 ########### GENERATE SAMPLE-NAMED OUTPUT FILES ###########
 ##########################################################
 
-
 suffix = "." + inputargs['extension']
 
 failed = open("Undetermined" + suffix, "w")
 
-outputreads = col.Counter()
+outputreads = coll.Counter()
 outputreads["Undetermined"] = 0
 
-usedindexes = col.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
+usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
 
 XXdict = {}
 
@@ -182,10 +248,10 @@ if inputargs['outputall'] == True:
 
 count = 0
 dmpd_count = 0          # number successfully demultiplexed 
-fuzzy_count = 0		# number of sequences that were demultiplexed using non-exact index matches
-clash_count = 0		# number of fuzzy ID clashes
+fuzzy_count = 0         # number of sequences that were demultiplexed using non-exact index matches
+clash_count = 0         # number of fuzzy ID clashes
 
-fuzzies = []		# list to record IDs matched using fuzzy indexes
+fuzzies = []            # list to record IDs matched using fuzzy indexes
 
 t0 = time.time() # Begin timer
   
@@ -198,25 +264,26 @@ print "Reading input files..."
 
 # Open read files
 if inputargs['read1'].endswith('.gz'):
-  fq1 = SeqIO.parse(gzip.open(inputargs['read1']), "fastq")
+  fq1 = readfq(gzip.open(inputargs['read1']))
 else:
-  fq1 = SeqIO.parse(open(inputargs['read1']), "fastq")
+  fq1 = readfq(open(inputargs['read1']))
   
 if inputargs['index1'].endswith('.gz'):
-  fq2 = SeqIO.parse(gzip.open(inputargs['index1']), "fastq")
+  fq2 = readfq(gzip.open(inputargs['index1']))
 else:
-  fq2 = SeqIO.parse(open(inputargs['index1']), "fastq")
+  fq2 = readfq(open(inputargs['index1']))
 
 
 if inputargs['read2'].endswith('.gz'):
-  fq3 = SeqIO.parse(gzip.open(inputargs['read2']), "fastq")
+  fq3 = readfq(gzip.open(inputargs['read2']))
 else:
-  fq3 = SeqIO.parse(open(inputargs['read2']), "fastq")
+  fq3 = readfq(open(inputargs['read2']))
 
 print "Demultiplexing data..."
 
 for record1, record2, record3 in izip(fq1, fq2, fq3):
-  
+  # Readfq function with return each read from each file as a 3 part tuple
+    # ('ID', 'SEQUENCE', 'QUALITY')
   count += 1  
 
   if count % 100000 == 0 and inputargs['dontcount'] == False:
@@ -224,21 +291,21 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
   
 ### NB For non-standard Illumina encoded fastqs, might need to change which fields are carried into fq_* vars
   
-  fq_id = record1.id
+  fq_id = record1[0]
 
   # N relates to barcode random nucleotides, X denotes index bases
   
   ### FORMATTING OUTPUT READ ###
   
-  Nseq = record3.format("fastq").split('\n')[1][0:30]
-  X1seq = record1.format("fastq").split('\n')[1][6:12]
-  X2seq = str(record2.seq)
-  readseq = str(record1.seq)[12:]
+  Nseq = record3[1][0:30]
+  X1seq = record1[1][6:12]
+  X2seq = record2[1]
+  readseq = record1[1][12:]
 
-  Nqual = record3.format("fastq").split('\n')[3][0:30]
-  X1qual = record1.format("fastq").split('\n')[3][6:12]
-  X2qual = record2.format("fastq").split('\n')[3]
-  readqual = record1.format("fastq").split('\n')[3][12:]
+  Nqual = record3[2][0:30]
+  X1qual = record1[2][6:12]
+  X2qual = record2[2]
+  readqual = record1[2][12:]
     
   fq_seq = Nseq + X1seq + X2seq + readseq
   fq_qual = Nqual + X1qual + X2qual + readqual
@@ -278,8 +345,8 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
     else:
       
       if len(matches) > 1:
-	clash_count += 1
-	
+        clash_count += 1
+        
       failed.write(new_record)
       outputreads['Undetermined'] += 1
   
@@ -287,6 +354,9 @@ for x in XXdict.values():
   x.close()
 
 failed.close()
+fq1.close()
+fq2.close()
+fq3.close()
 
 # If output all is allowed, delete all unused index combinations
 if inputargs['outputall'] == True:
@@ -334,8 +404,19 @@ if inputargs['suppresssummary'] == False:
   if not os.path.exists('Logs'):
     os.makedirs('Logs')
   date = time.strftime("%Y_%m_%d")
-  summaryfile = open("Logs/" + date + "_Demultiplexing_Summary.csv", "w")
   
+  # Check for existing date-stamped file
+  summaryname = "Logs/" + date + "_Demultiplexing_Summary.csv"
+  if not os.path.exists(summaryname): 
+    summaryfile = open(summaryname, "w")
+  else:
+    # If one exists, start an incremental day stamp
+    for i in range(2,10000):
+      summaryname = "Logs/" + date + "_Demultiplexing_Summary_" + str(i) + ".csv"
+      if not os.path.exists(summaryname): 
+        summaryfile = open(summaryname, "w")
+        break
+      
   # Generate string to write to summary file
   
   summstr = "Property,Value\nDirectory," + os.getcwd() + "\nDateFinished," + date + "\nTimeFinished," + time.strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timed,2)) + "\n"

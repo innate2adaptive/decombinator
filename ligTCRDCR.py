@@ -19,7 +19,6 @@
 
 # FIX - add a warning/error message if assignment rate is below a certain value? check species/chain 
 # FIX - remove "print v/j" etc, and then find where the missing unassigned are going
-import traceback    
 import sys          
 import os
 import urllib2
@@ -554,11 +553,13 @@ if __name__ == '__main__':
 
   suffix = "." + inputargs['extension']
   samplenam = str(inputargs['fastq'].split(".")[0]) 
-
+  
+  ##FIX = naming conventions, allow specified prefix
+  
   if inputargs['tags'] == "original":
     name_results = "vDCR_" + chainnams[chain] + "_" + samplenam
   elif inputargs['tags'] == "extended":
-    name_results = "V3.2_" + chainnams[chain] + "_" + samplenam
+    name_results = "V3_2_" + chainnams[chain] + "_" + samplenam
   else:
     print "Name of tag set not recognised. Please edit code so that -tg = either \'original\' or \'extended\'"
     sys.exit()
@@ -650,9 +651,6 @@ if __name__ == '__main__':
   print "Analysed", str(counts['read_count']), "reads, finding", str(counts['vj_count']), chainnams[chain], "VJ rearrangements"
   print "Reading from", inputargs['fastq'] + ", writing to", outfilenam
   print "Took", str(round(timetaken,2)), "seconds"
-  #print np.mean(times)
-
-
 
   # Write data to summary file
   if inputargs['suppresssummary'] == False:
