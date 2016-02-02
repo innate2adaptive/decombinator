@@ -5,18 +5,19 @@
 ### BACKGROUND ###
 ##################
 
-# A derivate of DualIndexDemultiplexing.py/FuzzyDID, fuzzily demultiplexes ligation TCR sequencing protocol FASTQ data 
-  # i.e. allows a specified number of mismatches in the index sequence
 # Takes all three reads and simultaneously demultiplexes and formats read 1 for vDCR.py analysis
   # i.e. adds the first 30 nucleotides of R2 to R1
   # This will contain the random barcode followed by any V(D)J information downstream, allowing collapsing
 # Demultiplexes using a combination of indexes from third read and another index nested in read 1
 
+# A derivate of DualIndexDemultiplexing.py/FuzzyDID, fuzzily demultiplexes ligation TCR sequencing protocol FASTQ data 
+  # i.e. allows a specified number of mismatches in the index sequence
+  
 ##################
 ###### INPUT #####
 ##################
 
-# Requires the command line input of at least 3file names, giving the three Illumina reads
+# Requires the command line input of at least 3 file names, giving the three Illumina reads
   # Files may be uncompressed, or gzipped (and be named accordingly, e.g. File.fastq.gz)
 # A fourth optional comma delimited file detailing sample index specifics is strongly recommended, allowing production of correctly named files
   # File must give the following details, one sample (or index combination) per line, with no empty lines:
@@ -36,11 +37,18 @@
     # Default = 2. Setting to zero turns off fuzzy matching, i.e. only allowing exact string matching
   
   # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. Default = False
-  
+    # 'True' would make script execute faster, but data will require more storage space.
+    
   # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
     # Helps in monitoring progress of large batches. Default = False.
+    
+  # -fz/--fuzzylist: Output a list of FASTQ IDs of reads which are demultiplexed using fuzzy (i.e. non-exact) index matching, within the specified threshold.
+    # Default = False, but can be useful to investigate suspected cases of poor quality index reads or clashing sequences.
+
+  # -ex/--extension: Allows users to specify the file extension of the demultiplexed FASTQ files produced.
 
 # To see all options, run: python ligTCRdemultiplex.py -h
+
 
 ##################
 ##### OUTPUT #####  
@@ -99,7 +107,7 @@ def args():
   parser.add_argument(
       '-dc', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
   parser.add_argument(
-      '-fl', '--fuzzylist', type=bool, help='Output a list of thosereads that demultiplexed using fuzzy index matching (True/False)', required=False, default=False)  
+      '-fl', '--fuzzylist', type=bool, help='Output a list of those reads that demultiplexed using fuzzy index matching (True/False)', required=False, default=False)  
   parser.add_argument(
       '-ex', '--extension', type=str, help='Specify the file extension of the output FASTQ files. Default = \"fq\"', required=False, default="fq")
   return parser.parse_args()
@@ -166,6 +174,11 @@ def readfq(fp):
                 yield name, seq, None # yield a fasta record instead
                 break
 
+def sort_permissions(fl):
+  # Need to ensure proper file permissions on output data
+    # If users are running pipeline through Docker might otherwise require root access
+  if oct(os.stat(fl).st_mode)[4:] != '666':
+    os.chmod(fl, 0o666)
 
 inputargs = vars(args())
 
@@ -352,8 +365,10 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
   
 for x in XXdict.values():
   x.close()
+  sort_permissions(x)
 
 failed.close()
+sort_permissions(failed)
 fq1.close()
 fq2.close()
 fq3.close()
@@ -375,6 +390,7 @@ if inputargs['dontgzip'] == False:
     
     with open(f + suffix) as infile, gzip.open(f + suffix + '.gz', 'wb') as outfile:
         outfile.writelines(infile)
+        sort_permissions(outfile)
     os.unlink(f + suffix)
 
 #################################################

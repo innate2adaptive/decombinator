@@ -1,44 +1,95 @@
-# ligTCRDCR.py v1.0
+# ligTCRDCR.py v1.0 = Decombinator v3.0
 # James M. Heather, January 2016, UCL
 
 ##################
 ### BACKGROUND ###
 ##################
 
-# FIX - sort notes
+# Searches FASTQ reads (produced through ligTCRdemultiplex.py) for rearranged TCR chains
+# Can currently analyse human and mouse TCRs, both alpha/beta and gamma/delta chains
+  # NB: Human alpha/beta TCRs are the most thoroughly tested, due to the nature of the data we generated. YMMV.
 
+# Current version (v3) is optimised for interpretation of data generated using our wet lab protocol, but could be modified to work on any data.
+
+# Script represents improvements upon a combination of the two previously in use Decombinator versions
+  # i.e. Decombinator V2.2 (written primarily by Nic Thomas, see Thomas et al, Bioinformatics 2013, DOI: 10.1093/bioinformatics/btt004)
+  # and vDCR (which was v1.4 modified by James Heather, see Heather et al, Frontiers in Immunology 2016, DOI: 10.3389/fimmu.2015.00644)
+  # Now faster, more accurate and easier to use than either of the previous versions.
+  
 ##################
 ###### INPUT #####
 ##################
 
+# As with entire pipeline, ligTCRDCR using command line arguments to provide user parameters
+  # All arguments can be read by viewing the help data, by running python ligTCRDCR.py -h
+
+# Takes FASTQ reads produced by ligTCRdemultiplex.py (unzipped or gzipped), which is the minimum required command line input, using the -fq flag
+  # NB: Data must have been generated using the appropriate 5'RACE ligation protocol, using the correct SP2-I8-6N-I8-6N oligonucleotide
+
+# The TCR chain locus to look for can be explicitly specified using the -c flag 
+  # Users can use their choice of chain identifiers from this list (case insensitive): a/b/g/d/alpha/beta/gamma/delta/TRA/TRB/TRG/TRD/TCRA/TCRB/TCRG/TCRD
+  # If no chain is provided (or if users which to minimise input arguments), script can infer chain from the FASTQ filename
+    # I.e. "alpha_sample.fq" would be searched for alpha chain recombinations
+    # NB: This autodetection only works if there is only ONE TCR locus present in name (which must be spelt out in full)
+
+# Other optional flags:
+  
+  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. Default = False
+      
+  # -dz/--dontgzip: Suppress the automatic compression of output decombined TCR files with gzip. Default = False
+    # 'True' would make script execute faster, but data will require more storage space.
+    
+  # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
+    # Helps in monitoring progress of large batches. Default = False.
+  
+  # -dk/--dontcheck: Suppress the FASTQ sanity check. Default = False.
+    # Strongly recommended to leave alone: sanity check inspects first FASTQ read for basic FASTQ parameters.
+  
+  # -pf/--prefix: Allows users to specify the prefix of the Decombinator TCR index files produced. Default = 'dcr_'
+  
+  # -ex/--extension: Allows users to specify the file extension of the Decombinator TCR index files produced. Default = '.n12'
+
+  # -fr/--frames: Allows users to specify which DNA orientations to check for TCR reads. Default = reverse only, as that's what the protocol produces.
+    # This will likely need to be changed for analysing data produced by protocols other than our own.
+
+  # -tg/--tags: Allows users to specify which tag set they wish to use. For human alpha/beta TCRs, a new 'extended' tag set is recommended, as it covers more genes.
+    # Unfortunately an extended tag set is only currently available for human a/b genes.
+
+  # -sp/--species: Current options are only human or mouse. Help could potentially be provided for generation of tags for different species upon request.
+  
+  # -N/--allowNs: Provides users the option to allow 'N's (ambiguous base calls), overriding the filter that typically removes rearrangements that contain them.
+    # Default = False, recommended to leave as such, as such bases are both themselves low quality data and predict reads that are generally less trustworthy.
+    
+  # -ln/--lenthreshold: The length threshold which (the inter-tag region of) successful rearrangements must be under to be accepted. Default = 130.
+  
+  # -tfdir/--tagfastadir: The path to a local copy of a folder containing the FASTA and Decombinator tag files required for offline analysis.
+    # Ordinarily such files can be downloaded on the fly, reducing local clutter.
+    # By default the script looks for the required files in the present working directory, then in a subdirectory called "Decombinator-Tags-FASTAs", then online.
+    # Files are currently hosted on GitHub, here: https://github.com/JamieHeather/Decombinator-Tags-FASTAs
 
 ##################
 ##### OUTPUT #####  
 ##################
 
+# Produces a '.n12' file, which is a standard comma-delimited Decombinator output file with several additional fields:
+  # V index, J index, # V deletions, # J deletions, insert, ID, tcr sequence, tcr quality, barcode sequence, barcode quality
 
-# FIX - add a warning/error message if assignment rate is below a certain value? check species/chain 
-# FIX - remove "print v/j" etc, and then find where the missing unassigned are going
+##################
+#### PACKAGES ####  
+##################
+
 import sys          
 import os
 import urllib2
-import numpy as np
-import decimal as dec
 import string
-import operator as op
 import collections as coll
 import argparse
 import gzip
+import Levenshtein as lev
 from Bio import SeqIO
 from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
-from string import Template
-from operator import itemgetter, attrgetter
-import Levenshtein as lev
-
-# ADD
-  # species/gamma delta
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -60,9 +111,13 @@ def args():
   parser.add_argument(
       '-dz', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
   parser.add_argument(
+      '-dk', '--dontcheck', type=bool, help='Skip the FASTQ check (True/False). Default = False', required=False, default=False)  
+  parser.add_argument(
       '-dc', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
   parser.add_argument(
       '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"n12\"', required=False, default="n12")
+  parser.add_argument(
+      '-pf', '--prefix', type=str, help='Specify the prefix of the output DCR file. Default = \"dcr_\"', required=False, default="dcr_")
   parser.add_argument(
       '-fr', '--frames', type=str, help='Specify the frames to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")
   parser.add_argument(
@@ -73,9 +128,11 @@ def args():
       '-N', '--allowNs', type=bool, help='Whether to allow VJ rearrangements containing ambiguous base calls (\'N\'). Default = False', required=False, default=False)
   parser.add_argument(
       '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
+  parser.add_argument(
+      '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
+      Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
 
   return parser.parse_args()
-
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
@@ -109,6 +166,31 @@ def revcomp(read):
   """rc(read): Wrapper for SeqIO reverse complement function"""
   return str(Seq(read).reverse_complement())
 
+def read_tcr_file(species, tagset, gene, filetype):
+  """ Reads in the FASTA and tag data for the appropriate TCR locus """
+  
+  # Define expected file name
+  expected_file = species + "_" + tagset + "_" + "TR" + chain.upper() + gene.upper() + "." + filetype
+
+  # First check whether the files are available locally (in pwd or in bundled directory)
+  if os.path.isfile(expected_file):
+    fl = expected_file
+    fl_opener = ope
+  elif os.path.isfile(inputargs['tagfastadir'] + os.sep + expected_file):
+    fl = inputargs['tagfastadir'] + os.sep + expected_file
+    fl_opener = open
+  else:
+    try:
+      fl = "https://raw.githubusercontent.com/JamieHeather/Decombinator-Tags-FASTAs/master/" + expected_file
+      urllib2.urlopen(urllib2.Request(fl))      # Request URL, see whether is found
+      fl_opener = urllib2.urlopen
+    except:
+      print "Cannot find following file locally or online:", expected_file
+      print "Please either run Decombinator with internet access, or point Decombinator to local copies of the tag and FASTA files with the \'-tf\' flag."
+      sys.exit()
+  
+  # Return opened file, for either FASTA or tag file parsing
+  return fl_opener(fl)
 
 def readfq(fp): 
     """
@@ -146,8 +228,6 @@ def readfq(fp):
                 yield name, seq, None # yield a fasta record instead
                 break
 
-
-
 #####################################
 ############# DECOMBINE #############
 #####################################
@@ -167,7 +247,6 @@ def vanalysis(read):
     v_seq_start = hold_v[0][1]      
     end_v_v_dels = get_v_deletions( read, v_match, temp_end_v, v_regions )      
     if end_v_v_dels: # If the number of deletions has been found
-      #print "v"
       return v_match, end_v_v_dels[0], end_v_v_dels[1], v_seq_start
       
   else:
@@ -186,8 +265,9 @@ def vanalysis(read):
               end_v_v_dels = get_v_deletions( read, v_match, temp_end_v, v_regions )
               if end_v_v_dels:
                 v_seq_start = hold_v1[i][1]  
-                #print "v"
                 return v_match, end_v_v_dels[0], end_v_v_dels[1], v_seq_start
+      counts['foundv1notv2'] += 1
+      return
     
     else:
       
@@ -204,10 +284,12 @@ def vanalysis(read):
                 end_v_v_dels = get_v_deletions( read, v_match, temp_end_v, v_regions )
                 if end_v_v_dels:
                   v_seq_start = hold_v2[i][1] - v_half_split      
-                  #print "v"
                   return v_match, end_v_v_dels[0], end_v_v_dels[1], v_seq_start
+        counts['foundv2notv1'] += 1
+        return
+              
       else:
-        counts['no_v_assigned'] += 1
+        counts['no_vtags_found'] += 1
         return
       
 def janalysis(read):
@@ -227,7 +309,6 @@ def janalysis(read):
     start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
     
     if start_j_j_dels: # If the number of deletions has been found
-      #print "j"
       return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
           
   else:
@@ -245,8 +326,9 @@ def janalysis(read):
               j_seq_end = hold_j1[i][1] + len(hold_j1[i][0]) + j_half_split                                              
               start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
               if start_j_j_dels:
-                #print "j"
                 return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
+      counts['foundj1notj2'] += 1
+      return              
             
     else:        
       hold_j2 = half2_j_key.findall(read)
@@ -262,8 +344,10 @@ def janalysis(read):
                 j_seq_end = hold_j2[i][1] + len(hold_j2[i][0])                                                
                 start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
                 if start_j_j_dels:
-                  #print "j"
                   return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
+        counts['foundv2notv1'] += 1
+        return
+      
       else:
          counts['no_j_assigned'] += 1
          return
@@ -280,7 +364,6 @@ def dcr(read):
   vdat = vanalysis(read)
   
   if not vdat:
-    #counts['VTEST'] += 1 #FIXDEL
     return
 
   jdat = janalysis(read)
@@ -305,11 +388,9 @@ def dcr(read):
     counts['VJ_assignment_failed'] += 1
     return
   
-
 ###########################################################
 ############# ANCILLARY DECOMBINING FUNCTIONS #############
 ###########################################################
-
 
 def get_v_deletions( read, v_match, temp_end_v, v_regions_cut ):
     # This function determines the number of V deletions in sequence read
@@ -325,7 +406,8 @@ def get_v_deletions( read, v_match, temp_end_v, v_regions_cut ):
       return
       
     while is_v_match == 0 and 0 <= function_temp_end_v < len(read):
-        if str(v_regions_cut[v_match])[pos] == read[function_temp_end_v] and str(v_regions_cut[v_match])[pos-1] == read[function_temp_end_v-1] and str(v_regions_cut[v_match])[pos-2] == read[function_temp_end_v-2]:
+        if str(v_regions_cut[v_match])[pos] == read[function_temp_end_v] and str(v_regions_cut[v_match])[pos-1] == read[function_temp_end_v-1] \
+          and str(v_regions_cut[v_match])[pos-2] == read[function_temp_end_v-2]:
             is_v_match = 1
             deletions_v = -pos - 1
             end_v = function_temp_end_v
@@ -348,7 +430,8 @@ def get_j_deletions( read, j_match, temp_start_j, j_regions_cut ):
     is_j_match = 0
     
     while is_j_match == 0 and 0 <= function_temp_start_j+2 < len(str(read)):
-        if str(j_regions_cut[j_match])[pos] == read[function_temp_start_j] and str(j_regions_cut[j_match])[pos+1] == read[function_temp_start_j+1] and str(j_regions_cut[j_match])[pos+2] == read[function_temp_start_j+2]:
+        if str(j_regions_cut[j_match])[pos] == read[function_temp_start_j] and str(j_regions_cut[j_match])[pos+1] == read[function_temp_start_j+1] \
+          and str(j_regions_cut[j_match])[pos+2] == read[function_temp_start_j+2]:
             is_j_match = 1
             deletions_j = pos
             start_j = function_temp_start_j
@@ -363,8 +446,7 @@ def get_j_deletions( read, j_match, temp_start_j, j_regions_cut ):
         return 
 
 def get_v_tags(file_v, half_split):
-    import string
-    
+    #"""Read V tags in from file"""
     v_seqs = [] # Holds all V tags
     jump_to_end_v = [] # Holds the number of jumps to make to look for deletions for each V region once the corresponding tag has been found
     for line in file_v:
@@ -382,8 +464,7 @@ def get_v_tags(file_v, half_split):
     return [v_seqs, half1_v_seqs, half2_v_seqs, jump_to_end_v]
 
 def get_j_tags(file_j, half_split):
-    import string
-    
+    """Read J tags in from file"""
     j_seqs = [] # Holds all J tags
     jump_to_start_j = [] # Holds the number of jumps to make to look for deletions for each J region once the corresponding tag has been found
 
@@ -401,12 +482,15 @@ def get_j_tags(file_j, half_split):
 
     return [j_seqs, half1_j_seqs, half2_j_seqs, jump_to_start_j]
 
-
+def sort_permissions(fl):
+  # Need to ensure proper file permissions on output data
+    # If users are running pipeline through Docker might otherwise require root access
+  if oct(os.stat(fl).st_mode)[4:] != '666':
+    os.chmod(fl, 0o666)
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
-
 
 if __name__ == '__main__':
 
@@ -416,134 +500,113 @@ if __name__ == '__main__':
   counts['start_time'] = time()
 
   # Brief FASTQ sanity check
-  if fastq_check(inputargs['fastq']) <> True:
-    print "FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is properly formatted and/or gzip compressed."
-    sys.exit()
+  if inputargs['dontcheck'] == False:
+    if fastq_check(inputargs['fastq']) <> True:
+      print "FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is a properly formatted FASTQ."
+      sys.exit()
 
   # Get chain information
-  if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
-    chain = "a" 
-  elif inputargs['chain'].upper() in ['B', 'BETA', 'TRB', 'TCRB']:
-    chain = "b" 
-  elif inputargs['chain'].upper() in ['G', 'GAMMA', 'TRG', 'TCRG']:
-    chain = "g" 
-  elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
-    chain = "d" 
+  chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
+   
+  nochain_error = "TCR chain not recognised. \n \
+  Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
+  or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
+  
+  if inputargs['chain']:
+    if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
+      chain = "a" 
+    elif inputargs['chain'].upper() in ['B', 'BETA', 'TRB', 'TCRB']:
+      chain = "b" 
+    elif inputargs['chain'].upper() in ['G', 'GAMMA', 'TRG', 'TCRG']:
+      chain = "g" 
+    elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
+      chain = "d" 
+    else:
+      print nochain_error
+      sys.exit()
   else:
-    print "TCR chain not recognised. Please choose from a/b/g/d (case-insensitive)."
-    sys.exit()
-
-
+    # If no chain provided, try and infer from filename
+    inner_filename_chains = [x for x in chainnams.values() if x in inputargs['fastq'].lower()]
+    if len(inner_filename_chains) == 1:
+      chain = inner_filename_chains[0][0]  
+    else:
+      print nochain_error
+      sys.exit()
+      
   #################################################
   ############# GET GENES, BUILD TRIE #############
   #################################################
 
-  chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
+  print 'Importing TCR', chainnams[chain], 'gene sequences...'
 
-  print 'Importing', chainnams[chain], 'TCR gene sequences...'
-
-  # Do not change - V tags are split at position 10, J at position 10, to look for half tags if no full tag is found.
-  v_half_split, j_half_split = [10,10] 
-
-  # FIX - need to use appropriate tag splitting options depending on tag set (which is also species dependent)
-
+  # First check that valid tag/species combinations have been used
+  if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
+    print "Please note that there is currently no extended tag set for mouse TCR genes.\n \
+    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+    In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original)."
+    inputargs['tags'] = "original"
+  
+  if inputargs['tags'] == "extended" and ( chain == 'g' or chain == 'd' ):
+    print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
+    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+    In future, consider editing the script to change the default, or use the appropriate flags."
+    inputargs['tags'] = "original"
+    
+  # Set tag split position, and check tag set. Note that original tags use shorter length J half tags, as these tags were originally shorter.
+  if inputargs['tags'] == "extended":
+    v_half_split, j_half_split = [10,10] 
+  elif inputargs['tags'] == "original":
+    v_half_split, j_half_split = [10,6] 
+  else:
+    print "Tag set unrecognised; should be either \'extended\' or \'original\' for human, or just \'original\' for mouse. \n \
+    Please check tag set and species flag."
+    sys.exit()
+  
+  # Check species information
+  if inputargs['species'] not in ["human", "mouse"]:
+    print "Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n \
+    If mouse is required by default, consider changing the default value in the script."
+    sys.exit()    
     
   # Look for tag and V/J fasta and tag files: if these cannot be found in the working directory, source them from GitHub repositories
-  if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
-    print "There is currently not an extended tag set for mouse TCR genes.\n \
-    Please use the following flags: -sp mouse -tg original"
-    sys.exit()
-
-  if inputargs['tags'] == "extended":
-    for gene in ['v', 'j']:
-      local_fasta = "exthuman_TR" + chain.upper() + gene.upper() + "_region.fasta"
-      if os.path.isfile(local_fasta):
-        with open(local_fasta) as infile:
-          vars()[gene + "_genes"] = list(SeqIO.parse(infile, "fasta"))
-      else:
-        online_fasta = urllib2.urlopen("https://raw.githubusercontent.com/JamieHeather/tcr-analysis/master/exthuman_TR" + chain.upper() + gene.upper() + "_region.fasta")
-        vars()[gene + "_genes"] = list(SeqIO.parse(online_fasta, "fasta"))
-        online_fasta.close()
-          
-  elif inputargs['tags'] == "original":  
-    for gene in ['v', 'j']:
-      local_fasta = inputargs['species'] + "_TR" + chain.upper() + gene.upper() + "_region.fasta"
-      if os.path.isfile(local_fasta):
-        with open(local_fasta) as infile:
-          vars()[gene + "_genes"] = list(SeqIO.parse(iinfile, "fasta"))
-      else:
-        online_fasta = urllib2.urlopen("https://raw.githubusercontent.com/uclinfectionimmunity/Decombinator/master/" + inputargs['species'] \
-          + "_TR" + chain.upper() + gene.upper() + "_region.fasta")
-        vars()[gene + "_genes"] = list(SeqIO.parse(online_fasta, "fasta"))
-        online_fasta.close()
+    # Note that fasta/tag files fit the pattern "species_tagset_gene.[fasta/tags]"
+    # I.e. "[human/mouse]_[extended/original]_TR[A/B/G/D][V/J].[fasta/tags]"
+    
+  for gene in ['v', 'j']:
+    # Get FASTA data
+    fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta")  
+    vars()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
+    fasta_file.close()
+    
+    vars()[gene+"_regions"] = []
+    for g in range(0, len(vars()[gene+"_genes"])):
+        vars()[gene+"_regions"].append(string.upper(vars()[gene+"_genes"][g].seq))  
         
-  else:
-    print "Tag set unrecognised. Check tag set and species flag."
-    sys.exit()
+    # Get tag data
+    tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "tags")  # get tag data
+    if gene == 'v': jumpfunction = "jump_to_end_v"
+    elif gene == 'j': jumpfunction = "jump_to_start_j"
+    vars()[gene+"_seqs"], vars()["half1_"+gene+"_seqs"], vars()["half2_"+gene+"_seqs"], vars()[jumpfunction] = \
+      vars()["get_"+gene+"_tags"](tag_file, vars()[gene+"_half_split"])
+    tag_file.close()
+    
+    # Build Aho-Corasick tries
+    vars()[gene+"_builder"] = AcoraBuilder()
+    for i in range(0,len(vars()[gene+"_seqs"])):
+        vars()[gene+"_builder"].add(str(vars()[gene+"_seqs"][i])) # Add all V tags to keyword trie
 
-  v_regions = []
-  for j in range(0, len(v_genes)):
-      v_regions.append(string.upper(v_genes[j].seq))
+    vars()[gene+"_key"] = vars()[gene+"_builder"].build()
 
-  j_regions = []
-  for j in range(0, len(j_genes)):
-      j_regions.append(string.upper(j_genes[j].seq))
+    # And tries for split, half-tags
+    vars()[gene+"_half1_builder"] = AcoraBuilder()
+    for i in range(0,len(vars()["half1_"+gene+"_seqs"])):
+        vars()[gene+"_half1_builder"].add(str(vars()["half1_"+gene+"_seqs"][i]))
+    vars()["half1_"+gene+"_key"] = vars()[gene+"_half1_builder"].build()
 
-
-
-  ##############
-  ## Build keyword tries of V and J inputargs['tags'] for fast assignment
-    # FIX need to sort this out to be species and gene specific
-  if inputargs['tags'] == "original":
-    if os.path.isfile("tags_tr" + chain.lower() + "v.txt") and os.path.isfile("tags_tr" + chain.lower() + "j.txt"):
-      v_seqs, half1_v_seqs, half2_v_seqs, jump_to_end_v = get_v_tags(open("tags_tr" + chain.lower() + "v.txt", "rU"), v_half_split)
-      j_seqs, half1_j_seqs, half2_j_seqs, jump_to_start_j = get_j_tags(open("tags_tr" + chain.lower() + "j.txt", "rU"), j_half_split)
-    else:
-      v_seqs, half1_v_seqs, half2_v_seqs, jump_to_end_v = get_v_tags(urllib2.urlopen("https://raw.githubusercontent.com/uclinfectionimmunity/Decombinator/master/humantags_tr" + chain.lower() + "v.txt"), v_half_split)
-      j_seqs, half1_j_seqs, half2_j_seqs, jump_to_start_j = get_j_tags(urllib2.urlopen("https://raw.githubusercontent.com/uclinfectionimmunity/Decombinator/master/humantags_tr" + chain.lower() + "j.txt"), j_half_split)               
-  elif inputargs['tags'] == "extended":
-    if os.path.isfile("exttags_tr" + chain.lower() + "v.txt") and os.path.isfile("exttags_tr" + chain.lower() + "j.txt"):  
-      v_seqs, half1_v_seqs, half2_v_seqs, jump_to_end_v = get_v_tags(open("exttags_tr" + chain.lower() + "v.txt", "rU"), v_half_split)
-      j_seqs, half1_j_seqs, half2_j_seqs, jump_to_start_j = get_j_tags(open("exttags_tr" + chain.lower() + "j.txt", "rU"), j_half_split)
-    else:
-      v_seqs, half1_v_seqs, half2_v_seqs, jump_to_end_v = get_v_tags(urllib2.urlopen("https://raw.githubusercontent.com/JamieHeather/tcr-analysis/master/exttags_tr" + chain.lower() + "v.txt"), v_half_split)
-      j_seqs, half1_j_seqs, half2_j_seqs, jump_to_start_j = get_j_tags(urllib2.urlopen("https://raw.githubusercontent.com/JamieHeather/tcr-analysis/master/exttags_tr" + chain.lower() + "j.txt"), j_half_split) 
-
-  v_builder = AcoraBuilder()
-  for i in range(0,len(v_seqs)):
-      v_builder.add(str(v_seqs[i])) # Add all V tags to keyword trie
-
-  v_key = v_builder.build()
-
-  j_builder = AcoraBuilder()
-  for i in range(0,len(j_seqs)):
-      j_builder.add(str(j_seqs[i])) # Add all J tags to keyword trie
-
-  j_key = j_builder.build()
-
-  ##############
-  ## Build keyword tries for first and second halves of both V and J tags
-  v_half1_builder = AcoraBuilder()
-  for i in range(0,len(half1_v_seqs)):
-      v_half1_builder.add(str(half1_v_seqs[i]))
-  half1_v_key = v_half1_builder.build()
-
-  v_half2_builder = AcoraBuilder()
-  for i in range(0,len(half2_v_seqs)):
-      v_half2_builder.add(str(half2_v_seqs[i]))
-  half2_v_key = v_half2_builder.build()
-
-  j_half1_builder = AcoraBuilder()
-  for i in range(0,len(half1_j_seqs)):
-      j_half1_builder.add(str(half1_j_seqs[i]))
-  half1_j_key = j_half1_builder.build()
-
-  j_half2_builder = AcoraBuilder()
-  for i in range(0,len(half2_j_seqs)):
-      j_half2_builder.add(str(half2_j_seqs[i]))
-  half2_j_key = j_half2_builder.build()
-
-
+    vars()[gene+"_half2_builder"] = AcoraBuilder()
+    for i in range(0,len(vars()["half2_"+gene+"_seqs"])):
+        vars()[gene+"_half2_builder"].add(str(vars()["half2_"+gene+"_seqs"][i]))
+    vars()["half2_"+gene+"_key"] = vars()[gene+"_half2_builder"].build()
 
   #########################################################
   ############# SCROLL THROUGH FILE & ANALYSE #############
@@ -553,18 +616,12 @@ if __name__ == '__main__':
 
   suffix = "." + inputargs['extension']
   samplenam = str(inputargs['fastq'].split(".")[0]) 
-  
-  ##FIX = naming conventions, allow specified prefix
-  
-  if inputargs['tags'] == "original":
-    name_results = "vDCR_" + chainnams[chain] + "_" + samplenam
-  elif inputargs['tags'] == "extended":
-    name_results = "V3_2_" + chainnams[chain] + "_" + samplenam
-  else:
-    print "Name of tag set not recognised. Please edit code so that -tg = either \'original\' or \'extended\'"
-    sys.exit()
+  if os.sep in samplenam: # Cope with situation where specified FQ file is in a subdirectory
+    samplenam = samplenam.split(os.sep)[-1]
 
-  stemplate = Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')      
+  name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
+    
+  stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')      
 
   with open(name_results + suffix, 'w') as outfile:
 
@@ -576,13 +633,12 @@ if __name__ == '__main__':
     with opener(inputargs['fastq']) as f:
       
       for readid, seq, qual in readfq(f):
-        #print readid
         start_time = time()
         
         bc = seq[:30]  
         vdj = seq[30:]
         
-        if "N" in bc and inputargs['allowNs'] == False:                          # Ambiguous base in barcode region
+        if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
           counts['dcrfilter_barcodeN'] += 1
         
         counts['read_count'] += 1
@@ -623,9 +679,6 @@ if __name__ == '__main__':
             tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
                                 
           outfile.write(dcr_string + '\n')
-        
-        #times.append(time() - start_time)
-        
 
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']
@@ -640,15 +693,14 @@ if __name__ == '__main__':
     outfilenam = name_results + suffix + ".gz"
   else:
     outfilenam = name_results + suffix
-
-
+    
+  sort_permissions(outfilenam)
+  
   ##############################################
   ############# WRITE SUMMARY DATA #############
   ##############################################
-    
-    # FIX make these all proper comma formatted number types
 
-  print "Analysed", str(counts['read_count']), "reads, finding", str(counts['vj_count']), chainnams[chain], "VJ rearrangements"
+  print "Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), chainnams[chain], "VJ rearrangements"
   print "Reading from", inputargs['fastq'] + ", writing to", outfilenam
   print "Took", str(round(timetaken,2)), "seconds"
 
@@ -672,24 +724,18 @@ if __name__ == '__main__':
           summaryfile = open(summaryname, "w")
           break
         
-    # Generate string to write to summary file
-    
+    # Generate string to write to summary file 
     summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] + "\nOutputFile," + outfilenam \
-      + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\n"
-    
+      + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\nInputArguments:,\n"
     for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'frames', 'lenthreshold']:
       summstr = summstr + s + "," + str(inputargs[s]) + "\n"
-    
     summstr = summstr + "\nNumberReadsInput," + str(counts['read_count']) + "\nNumberReadsDecombined," + str(counts['vj_count']) 
-  
-    ######################### FIX - MAKE AN EXTENDED OUTPUT OPTION FOR THE FOLLOWING?
-    
+
     # Half tag matching details
     summstr = summstr + "\n\nReadsAssignedUsingHalfTags:,\nV1error," + str(counts['verr1']) \
       + "\nV2error," + str(counts['verr2']) \
       + "\nJ1error," + str(counts['jerr1']) \
       + "\nJ2error," + str(counts['jerr2'])
-
     
     # Number reads filtered out
     summstr = summstr + "\n\nReadsFilteredOut:,\nAmbiguousBaseCall(DCR)," + str(counts['dcrfilter_intertagN']) \
@@ -699,26 +745,20 @@ if __name__ == '__main__':
       + "\nOverlappingTagBoundaries," + str(counts['dcrfilter_tag_overlap']) \
         
     ##########################!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!##########################
-    # NEEDS FIXING - sum of all failures does not match the number of reads that failed to decombine, need to figure out why
-    # Number reads failed to assign 
-    #summstr = summstr + "\n\nReadsFailedAssignment:,\nMultipleVtagMatches," + str(counts['multiple_v_matches']) \
-      #+ "\nVTagAtEndRead," + str(counts['v_del_failed_tag_at_end']) \
-      #+ "\nVDeletionsUndetermined," + str(counts['v_del_failed']) \
-      #+ "\nNoVDetected," + str(counts['no_v_assigned']) \
-      #+ "\nMultipleJTagMatches," + str(counts['multiple_j_matches']) \
-      #+ "\nJDeletionsUndermined," + str(counts['j_del_failed']) \
-      #+ "\nNoJDetected," + str(counts['no_j_assigned']) \
+    summstr = summstr + "\n\nReadsFailedAssignment:,\nMultipleVtagMatches," + str(counts['multiple_v_matches']) \
+      + "\nVTagAtEndRead," + str(counts['v_del_failed_tag_at_end']) \
+      + "\nVDeletionsUndetermined," + str(counts['v_del_failed']) \
+      + "\nFoundV1HalfTagNotV2," + str(counts['foundv1notv2']) \
+      + "\nFoundV2HalfTagNotV1," + str(counts['foundv2notv1']) \
+      + "\nNoVDetected," + str(counts['no_vtags_found']) \
+      + "\nMultipleJTagMatches," + str(counts['multiple_j_matches']) \
+      + "\nJDeletionsUndermined," + str(counts['j_del_failed']) \
+      + "\nFoundJ1HalfTagNotJ2," + str(counts['foundj1notj2']) \
+      + "\nFoundJ2HalfTagNotJ1," + str(counts['foundj2notj1']) \
+      + "\nNoJDetected," + str(counts['no_j_assigned']) 
       #+ "\nVJGeneAssignmentFailed," + str(counts['VJ_assignment_failed'])     
         
     print >> summaryfile, summstr 
-    
     summaryfile.close()
-    
-
-
-
-
+    sort_permissions(summaryname)
   sys.exit()
-
-
-

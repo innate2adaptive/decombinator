@@ -92,14 +92,14 @@ def args():
   parser.add_argument(
       '-di', '--dontcheckinput', type=bool, help='Override the inputfile sanity check (True/False). Default = False.', required=False, default=False)
   parser.add_argument(
-      '-bd', '--barcodeduplication', type=bool, help='Optionally output a file containing the final list of clustered barcodes, and their frequencies. Default = False.', required=False, default=False)
+      '-bd', '--barcodeduplication', type=bool, help='Optionally output a file containing the final list of clustered barcodes, and their frequencies. Default = False.',\
+        required=False, default=False)
   
   return parser.parse_args()
 
     
 ########################################################################################################################
 # Functions
-
 
 def num_check(poss_int):
     """ Check whether string is feasibly an integer value of zero or greater """
@@ -377,8 +377,7 @@ def collapsinate(barcode_quality_parameters,
     ###########################################
     ############# READING DATA IN #############
     ###########################################        
-    
-    
+        
     # Check whether file appears to contain suitable verbose Decombinator output for collapsing
     if inputargs['dontcheckinput'] == False:
       if check_dcr_file(infile) != True:
