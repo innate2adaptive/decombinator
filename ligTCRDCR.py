@@ -72,7 +72,8 @@
 ##################
 
 # Produces a '.n12' file, which is a standard comma-delimited Decombinator output file with several additional fields:
-  # V index, J index, # V deletions, # J deletions, insert, ID, tcr sequence, tcr quality, barcode sequence, barcode quality
+  # V index, J index, # V deletions, # J deletions, insert, ID, TCR sequence, TCR quality, barcode sequence, barcode quality
+  # NB The TCR sequence given here is the 'inter-tag' region, i.e. the sequence between the start of the found V tag the end of the found J tag 
 
 ##################
 #### PACKAGES ####  
@@ -166,7 +167,7 @@ def revcomp(read):
   """rc(read): Wrapper for SeqIO reverse complement function"""
   return str(Seq(read).reverse_complement())
 
-def read_tcr_file(species, tagset, gene, filetype):
+def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
   """ Reads in the FASTA and tag data for the appropriate TCR locus """
   
   # Define expected file name
@@ -176,8 +177,8 @@ def read_tcr_file(species, tagset, gene, filetype):
   if os.path.isfile(expected_file):
     fl = expected_file
     fl_opener = ope
-  elif os.path.isfile(inputargs['tagfastadir'] + os.sep + expected_file):
-    fl = inputargs['tagfastadir'] + os.sep + expected_file
+  elif os.path.isfile(expected_dir_name + os.sep + expected_file):
+    fl = expected_dir_name + os.sep + expected_file
     fl_opener = open
   else:
     try:
@@ -352,12 +353,14 @@ def janalysis(read):
          counts['no_j_assigned'] += 1
          return
        
-def dcr(read):
+def dcr(read, inputargs):
 
   """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
     Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
       insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
-
+  if "counts" not in dir():
+    global counts
+    counts = coll.Counter()
   v_seq_start = 0     
   j_seq_end = 0      
   
@@ -391,6 +394,116 @@ def dcr(read):
 ###########################################################
 ############# ANCILLARY DECOMBINING FUNCTIONS #############
 ###########################################################
+
+def import_tcr_info(inputargs):
+  """ import_tcr_info: Gathers the required TCR chain information for Decombining """
+    
+  # Get chain information
+  global chainnams, chain
+  chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
+    
+  nochain_error = "TCR chain not recognised. \n \
+  Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
+  or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
+  
+  if inputargs['chain']:
+    if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
+      chain = "a" 
+    elif inputargs['chain'].upper() in ['B', 'BETA', 'TRB', 'TCRB']:
+      chain = "b" 
+    elif inputargs['chain'].upper() in ['G', 'GAMMA', 'TRG', 'TCRG']:
+      chain = "g" 
+    elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
+      chain = "d" 
+    else:
+      print nochain_error
+      sys.exit()
+  else:
+    # If no chain provided, try and infer from filename
+    inner_filename_chains = [x for x in chainnams.values() if x in inputargs['fastq'].lower()]
+    if len(inner_filename_chains) == 1:
+      chain = inner_filename_chains[0][0]  
+    else:
+      print nochain_error
+      sys.exit()
+      
+  #################################################
+  ############# GET GENES, BUILD TRIE #############
+  #################################################
+  
+  # Long term fix: need to put trie generation into a function, for ease of use in importing Decombinator functions to other scripts
+  
+  print 'Importing TCR', chainnams[chain], 'gene sequences...'
+
+  # First check that valid tag/species combinations have been used
+  if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
+    print "Please note that there is currently no extended tag set for mouse TCR genes.\n \
+    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+    In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original)."
+    inputargs['tags'] = "original"
+  
+  if inputargs['tags'] == "extended" and ( chain == 'g' or chain == 'd' ):
+    print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
+    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+    In future, consider editing the script to change the default, or use the appropriate flags."
+    inputargs['tags'] = "original"
+
+  # Set tag split position, and check tag set. Note that original tags use shorter length J half tags, as these tags were originally shorter.
+  global v_half_split, j_half_split
+  if inputargs['tags'] == "extended":
+    v_half_split, j_half_split = [10,10] 
+  elif inputargs['tags'] == "original":
+    v_half_split, j_half_split = [10,6] 
+  else:
+    print "Tag set unrecognised; should be either \'extended\' or \'original\' for human, or just \'original\' for mouse. \n \
+    Please check tag set and species flag."
+    sys.exit()
+    
+  # Check species information
+  if inputargs['species'] not in ["human", "mouse"]:
+    print "Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n \
+    If mouse is required by default, consider changing the default value in the script."
+    sys.exit()    
+    
+  # Look for tag and V/J fasta and tag files: if these cannot be found in the working directory, source them from GitHub repositories
+    # Note that fasta/tag files fit the pattern "species_tagset_gene.[fasta/tags]"
+    # I.e. "[human/mouse]_[extended/original]_TR[A/B/G/D][V/J].[fasta/tags]"
+  
+  for gene in ['v', 'j']:
+    # Get FASTA data
+    fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])  
+    globals()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
+    fasta_file.close()
+    
+    globals()[gene+"_regions"] = []
+    for g in range(0, len(globals()[gene+"_genes"])):
+        globals()[gene+"_regions"].append(string.upper(globals()[gene+"_genes"][g].seq))  
+        
+    # Get tag data
+    tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "tags", inputargs['tagfastadir'])  # get tag data
+    if gene == 'v': jumpfunction = "jump_to_end_v"
+    elif gene == 'j': jumpfunction = "jump_to_start_j"
+    globals()[gene+"_seqs"], globals()["half1_"+gene+"_seqs"], globals()["half2_"+gene+"_seqs"], globals()[jumpfunction] = \
+      globals()["get_"+gene+"_tags"](tag_file, globals()[gene+"_half_split"])
+    tag_file.close()
+    
+    # Build Aho-Corasick tries
+    globals()[gene+"_builder"] = AcoraBuilder()
+    for i in range(0,len(globals()[gene+"_seqs"])):
+        globals()[gene+"_builder"].add(str(globals()[gene+"_seqs"][i])) # Add all V tags to keyword trie
+    globals()[gene+"_key"] = globals()[gene+"_builder"].build()
+
+    # And tries for split, half-tags
+    globals()[gene+"_half1_builder"] = AcoraBuilder()
+    for i in range(0,len(globals()["half1_"+gene+"_seqs"])):
+        globals()[gene+"_half1_builder"].add(str(globals()["half1_"+gene+"_seqs"][i]))
+    globals()["half1_"+gene+"_key"] = globals()[gene+"_half1_builder"].build()
+
+    globals()[gene+"_half2_builder"] = AcoraBuilder()
+    for i in range(0,len(globals()["half2_"+gene+"_seqs"])):
+        globals()[gene+"_half2_builder"].add(str(globals()["half2_"+gene+"_seqs"][i]))
+    globals()["half2_"+gene+"_key"] = globals()[gene+"_half2_builder"].build()
+
 
 def get_v_deletions( read, v_match, temp_end_v, v_regions_cut ):
     # This function determines the number of V deletions in sequence read
@@ -504,110 +617,10 @@ if __name__ == '__main__':
     if fastq_check(inputargs['fastq']) <> True:
       print "FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is a properly formatted FASTQ."
       sys.exit()
-
-  # Get chain information
-  chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
-   
-  nochain_error = "TCR chain not recognised. \n \
-  Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
-  or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
   
-  if inputargs['chain']:
-    if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
-      chain = "a" 
-    elif inputargs['chain'].upper() in ['B', 'BETA', 'TRB', 'TCRB']:
-      chain = "b" 
-    elif inputargs['chain'].upper() in ['G', 'GAMMA', 'TRG', 'TCRG']:
-      chain = "g" 
-    elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
-      chain = "d" 
-    else:
-      print nochain_error
-      sys.exit()
-  else:
-    # If no chain provided, try and infer from filename
-    inner_filename_chains = [x for x in chainnams.values() if x in inputargs['fastq'].lower()]
-    if len(inner_filename_chains) == 1:
-      chain = inner_filename_chains[0][0]  
-    else:
-      print nochain_error
-      sys.exit()
-      
-  #################################################
-  ############# GET GENES, BUILD TRIE #############
-  #################################################
-
-  print 'Importing TCR', chainnams[chain], 'gene sequences...'
-
-  # First check that valid tag/species combinations have been used
-  if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
-    print "Please note that there is currently no extended tag set for mouse TCR genes.\n \
-    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
-    In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original)."
-    inputargs['tags'] = "original"
+  # Get TCR gene information
+    import_tcr_info(inputargs)
   
-  if inputargs['tags'] == "extended" and ( chain == 'g' or chain == 'd' ):
-    print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
-    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
-    In future, consider editing the script to change the default, or use the appropriate flags."
-    inputargs['tags'] = "original"
-    
-  # Set tag split position, and check tag set. Note that original tags use shorter length J half tags, as these tags were originally shorter.
-  if inputargs['tags'] == "extended":
-    v_half_split, j_half_split = [10,10] 
-  elif inputargs['tags'] == "original":
-    v_half_split, j_half_split = [10,6] 
-  else:
-    print "Tag set unrecognised; should be either \'extended\' or \'original\' for human, or just \'original\' for mouse. \n \
-    Please check tag set and species flag."
-    sys.exit()
-  
-  # Check species information
-  if inputargs['species'] not in ["human", "mouse"]:
-    print "Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n \
-    If mouse is required by default, consider changing the default value in the script."
-    sys.exit()    
-    
-  # Look for tag and V/J fasta and tag files: if these cannot be found in the working directory, source them from GitHub repositories
-    # Note that fasta/tag files fit the pattern "species_tagset_gene.[fasta/tags]"
-    # I.e. "[human/mouse]_[extended/original]_TR[A/B/G/D][V/J].[fasta/tags]"
-    
-  for gene in ['v', 'j']:
-    # Get FASTA data
-    fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta")  
-    vars()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
-    fasta_file.close()
-    
-    vars()[gene+"_regions"] = []
-    for g in range(0, len(vars()[gene+"_genes"])):
-        vars()[gene+"_regions"].append(string.upper(vars()[gene+"_genes"][g].seq))  
-        
-    # Get tag data
-    tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "tags")  # get tag data
-    if gene == 'v': jumpfunction = "jump_to_end_v"
-    elif gene == 'j': jumpfunction = "jump_to_start_j"
-    vars()[gene+"_seqs"], vars()["half1_"+gene+"_seqs"], vars()["half2_"+gene+"_seqs"], vars()[jumpfunction] = \
-      vars()["get_"+gene+"_tags"](tag_file, vars()[gene+"_half_split"])
-    tag_file.close()
-    
-    # Build Aho-Corasick tries
-    vars()[gene+"_builder"] = AcoraBuilder()
-    for i in range(0,len(vars()[gene+"_seqs"])):
-        vars()[gene+"_builder"].add(str(vars()[gene+"_seqs"][i])) # Add all V tags to keyword trie
-
-    vars()[gene+"_key"] = vars()[gene+"_builder"].build()
-
-    # And tries for split, half-tags
-    vars()[gene+"_half1_builder"] = AcoraBuilder()
-    for i in range(0,len(vars()["half1_"+gene+"_seqs"])):
-        vars()[gene+"_half1_builder"].add(str(vars()["half1_"+gene+"_seqs"][i]))
-    vars()["half1_"+gene+"_key"] = vars()[gene+"_half1_builder"].build()
-
-    vars()[gene+"_half2_builder"] = AcoraBuilder()
-    for i in range(0,len(vars()["half2_"+gene+"_seqs"])):
-        vars()[gene+"_half2_builder"].add(str(vars()["half2_"+gene+"_seqs"][i]))
-    vars()["half2_"+gene+"_key"] = vars()[gene+"_half2_builder"].build()
-
   #########################################################
   ############# SCROLL THROUGH FILE & ANALYSE #############
   #########################################################
@@ -647,16 +660,16 @@ if __name__ == '__main__':
     
         # Get details of the VJ recombination
         if inputargs['frames'] == 'reverse':
-          recom = dcr(revcomp(vdj))
+          recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
         elif inputargs['frames'] == 'forward':
-          recom = dcr(vdj)
+          recom = dcr(vdj, inputargs)
           frame = 'forward'
         elif inputargs['frames'] == 'both':
-          recom = dcr(revcomp)
+          recom = dcr(revcomp, inputargs)
           frame = 'reverse'
           if not recom:
-            recom = dcr(vdj)
+            recom = dcr(vdj, inputargs)
             frame = 'forward'
                         
         if recom:
