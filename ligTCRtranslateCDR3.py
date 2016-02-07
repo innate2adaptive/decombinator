@@ -31,7 +31,14 @@
 # Takes any text file in comma-space (", ") delimited decombinator format
   # 5-part TCR identifier must come first, followed by any additional fields, such as frequency
 
-# FIX - sort documentation
+# BIG FIX - sort documentation
+
+# BIG FIX - make translation files for original/mouse/gammadelta
+
+
+# Note that in addition to the same FASTA files that Decombinator makes use of, this script requires additional '.translate' files
+  # These contain four comma-delimited fields, which allow for the correct translation of TCR sequences from DCR indexes
+  # Those fields are: Gene name, conserved position (of cysteine or FGXG motif), conserved residue (when the C/FGXG differs), and designated functionality
 
 ##################
 ##### OUTPUT #####  
@@ -91,6 +98,8 @@ def args():
     parser.add_argument(
         '-sp', '--species', type=str, help='Specify which species TCR repertoire the data consists of (human or mouse). Default = human', required=False, default="human")
     parser.add_argument(
+        '-tg', '--tags', type=str, help='Specify which Decombinator tag set to use (extended or original). Default = extended', required=False, default="extended")
+    parser.add_argument(
         '-s', '--suppresssummary', type=bool, help='Output summary data (True/False)', required=False, default=False)
     parser.add_argument(
         '-dz', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
@@ -102,9 +111,14 @@ def args():
         '-do', '--dcroutput', type=bool, help='Optionally include Decombinator TCR index along with the CDR3 sequence and frequency. Default = False', \
         required=False, default=False)
     parser.add_argument(
+        '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
+        Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")    
+    parser.add_argument(
         '-gxg', '--includeGXG', type=bool, help='Optionally include the \"GXG\" motif following the conserved phenylalanine residue that terminates the CDR3 region. Defaut = False', required=False, default=False)
     parser.add_argument(
         '-np', '--nonproductive', type=bool, help='Optionally output an additional file containing the non-productive TCR rearrangements. Default =  False', required=False, default=False)
+    
+    # fix - add option to change suffixes (productive, non-prod and dcr containing)
     
     return parser.parse_args()
 
@@ -117,7 +131,34 @@ def findfile(testfile):
         print 'Cannot find the specified input file. Please try again'
         sys.exit()
 
-def import_gene_information(species, chain):            
+
+def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
+  """ Reads in the FASTA and tag data for the appropriate TCR locus """
+  
+  # Define expected file name
+  expected_file = species + "_" + tagset + "_" + "TR" + chain.upper() + gene.upper() + "." + filetype
+
+  # First check whether the files are available locally (in pwd or in bundled directory)
+  if os.path.isfile(expected_file):
+    fl = expected_file
+    fl_opener = open
+  elif os.path.isfile(expected_dir_name + os.sep + expected_file):
+    fl = expected_dir_name + os.sep + expected_file
+    fl_opener = open
+  else:
+    try:
+      fl = "https://raw.githubusercontent.com/JamieHeather/Decombinator-Tags-FASTAs/master/" + expected_file
+      urllib2.urlopen(urllib2.Request(fl))      # Request URL, see whether is found
+      fl_opener = urllib2.urlopen
+    except:
+      print "Cannot find following file locally or online:", expected_file
+      print "Please either run Decombinator with internet access, or point Decombinator to local copies of the tag and FASTA files with the \'-tf\' flag."
+      sys.exit()
+  
+  # Return opened file, for either FASTA or tag file parsing
+  return fl_opener(fl)
+
+def import_gene_information(inputargs):            
     """ Obtains gene-specific information for translation """
     
     # Runs first: reads in V and J gene sequence and name data (from fasta files)
@@ -129,39 +170,49 @@ def import_gene_information(species, chain):
       # Where possible, the nearest suitable C residue is used, where not an arbitrary position of 0 is given
       # Somewhat moot, as most psuedogenes contain a number of stop codons and thus cannot produce productive rearrangements 
       
-    if os.path.isfile("exthuman_TR" +string.upper(chain[0])+ "V_region.fasta"):
-      vfile = "exthuman_TR" +string.upper(chain[0])+ "V_region.fasta"
-      with open(vfile, 'r') as f:
-        vfasta = list(SeqIO.parse(f, 'fasta'))
-    else:
-      onlineV = "https://raw.githubusercontent.com/JamieHeather/tcr-analysis/master/exthuman_TR" + string.upper(chain[0]) + "V_region.fasta"
+    # First check that valid tag/species combinations have been used
+    if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
+      print "Please note that there is currently no extended tag set for mouse TCR genes.\n \
+      Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+      In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original)."
+      inputargs['tags'] = "original"
+    
+    if inputargs['tags'] == "extended" and ( chain == 'g' or chain == 'd' ):
+      print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
+      Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+      In future, consider editing the script to change the default, or use the appropriate flags."
+      inputargs['tags'] = "original"
 
-      vfasta = list(SeqIO.parse(urllib2.urlopen(onlineV), 'fasta'))
-        
-    vregions = [str(string.upper(item.seq)) for item in vfasta]  
-    vnames = [str(string.upper(item.id).split("|")[1]) for item in vfasta]    
-
-    if os.path.isfile("exthuman_TR" +string.upper(chain[0])+ "J_region.fasta"):
-      vfile = "exthuman_TR" +string.upper(chain[0])+ "J_region.fasta"
-      with open(vfile, 'r') as f:
-        jfasta = list(SeqIO.parse(f, 'fasta'))
-    else:
-      onlineJ = "https://raw.githubusercontent.com/JamieHeather/tcr-analysis/master/exthuman_TR" + string.upper(chain[0]) + "J_region.fasta"
-      jfasta = list(SeqIO.parse(urllib2.urlopen(onlineJ), 'fasta'))
-
-    jregions = [str(string.upper(item.seq)) for item in jfasta]  
-    jnames = [str(string.upper(item.id).split("|")[1]) for item in jfasta]    
-
-    if os.path.isfile("TR" +string.upper(chain[0])+ "V_ConservedC.txt"):
-      with open("TR" +string.upper(chain[0])+ "V_ConservedC.txt", 'r') as f:
-        vconservedc = [int(line.rstrip('\n')) for line in f]
-    else:
-      onlineVC = "https://raw.githubusercontent.com/JamieHeather/tcr-analysis/master/TR" + string.upper(chain[0]) + "V_ConservedC.txt"
-      vconservedc = [int(line.rstrip('\n')) for line in urllib2.urlopen(onlineVC)]
+    # Check species information
+    if inputargs['species'] not in ["human", "mouse"]:
+      print "Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n \
+      If mouse is required by default, consider changing the default value in the script."
+      sys.exit()    
       
-    return vregions, jregions, vnames, jnames, vconservedc
+    # Look for tag and V/J fasta and cysteine position files: if these cannot be found in the working directory, source them from GitHub repositories
+      # Note that fasta/tag files fit the pattern "species_tagset_gene.[fasta/tags]"
+      # I.e. "[human/mouse]_[extended/original]_TR[A/B/G/D][V/J].[fasta/tags]"
+    
+    for gene in ['v', 'j']:
+      # Get FASTA data
+      fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])  
+      globals()[gene+"_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
+      fasta_file.close()
+      globals()[gene+"_regions"] = [str(string.upper(item.seq)) for item in globals()[gene+"_genes"]]  
+      globals()[gene+"_names"] = [str(string.upper(item.id).split("|")[1]) for item in globals()[gene+"_genes"]]  
+      
+      # Get conserved translation residue sites and functionality data
+      translation_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "translate", inputargs['tagfastadir'])  
+      translate_data = [x.rstrip() for x in list(translation_file)]
+      translation_file.close()
+      globals()[gene+"_translate_position"] = [int(x.split(",")[1]) for x in translate_data]
+      globals()[gene+"_translate_residue"] = [x.split(",")[2] for x in translate_data]
+      globals()[gene+"_functionality"] = [x.split(",")[3] for x in translate_data]
+      
+    return v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue,\
+      v_functionality, j_functionality
 
-def get_cdr3(dcr, chain, vregions, jregions, vconservedc):
+def get_cdr3(dcr, chain, vregions, jregions, vtranslate_pos, vtranslate_res, jtranslate_pos, jtranslate_res):
     """ Checks the productivity of a given DCR-assigned rearrangement 
     Returns a 1 if productive, 0 if not """
     
@@ -192,6 +243,7 @@ def get_cdr3(dcr, chain, vregions, jregions, vconservedc):
       v_used = vregions[v]
     else:
       v_used = vregions[v][:-vdel]
+      
     j_used = jregions[j][jdel:]
 
     nt = ''.join([v_used, ins_nt, j_used])
@@ -208,7 +260,6 @@ def get_cdr3(dcr, chain, vregions, jregions, vconservedc):
       else:
         return "OOF_without_stop"
 
-
     # 4. Check for stop codons in the in-frame rearrangements
     if '*' not in aa:
       no_stop = 1
@@ -216,14 +267,12 @@ def get_cdr3(dcr, chain, vregions, jregions, vconservedc):
       return "IF_with_stop"
 
     # 5. Check for conserved cysteine in the V gene
-    if aa[vconservedc[v]-1] == 'C':
+    cdr3_start = vtranslate_pos
+    cdr3_c = vtranslate_res
+    
+    if aa[vtranslate_pos[v]-1] == vtranslate_res[v]:
       found_c = 1
-      start_cdr3 = vconservedc[v]-1
-    elif chain == "beta" and v in [45, 56]: # Allow for TRBV17 and TRBV26, which use Y instead of C to start CDR3s
-      if aa[vconservedc[v]-1] == 'Y':
-        found_c = 1
-        start_cdr3 = vconservedc[v]-1
-      
+      start_cdr3 = vtranslate_pos[v]-1
     else:
       return "No_conserved_cysteine"
     
@@ -231,75 +280,16 @@ def get_cdr3(dcr, chain, vregions, jregions, vconservedc):
     downstream_c = aa[start_cdr3:]
 
     # 6. Check for presence of FGXG motif (or equivalent)
-    if chain == 'alpha':      
-
-      # TRAJs get a little more interesting with their conserved sequences than the other genes
-        # All TRAJ FGXGs are at the -11 position apart from one
-          # TRAJ59 (DCR 58) is truncated in its 3', and thus its FGXG is at -9:-5
-        # All TRAJS use FGXG as their CDR3 ending motif, apart from the following:
-          #TRAJ16 (DCR 6) = FARG
-          #TRAJ33 (DCR 22) = WGAG
-          #TRAJ38 (DCR 26) = WGLG
-          #TRAJ35 (DCR 54) = CGSG
-          #TRAJ51 (DCR 55) = FGKE
-          #TRAJ55 (DCR 56) = WGKG
-          #TRAJ61 (DCR 60) = FGAN      
-      
-      if j <> 58:
-        site = downstream_c[-11:-7]
-        
-        if re.findall('FG.G', site):
-          if inputargs['includeGXG'] == True: 
-            end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 4 
-          else:
-            end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 1
-        
-        else: # Allow for the non-canonical FGXGs in TRAJ      
-
-          awkward_ajs = [6, 22, 26, 54, 55, 56, 60]
-          alt_aj_motifs = ['FARG', 'WGAG', 'WGLG', 'CGSG', 'FGKE', 'WGKG', 'FGAN']
-          
-          if j in awkward_ajs and site == alt_aj_motifs[awkward_ajs.index(j)]:
-            if inputargs['includeGXG'] == True:       
-              end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 4       
-            else:
-              end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 1
+    site = downstream_c[jtranslate_pos[j]:jtranslate_pos[j]+4]
     
-          else:
-            return "No_conserved_FGXG"
-            
-      else: # TRAJ59
-        site = downstream_c[-9:-5]     
-        
-        if re.findall('FG.G', site):
-          if inputargs['includeGXG'] == True: 
-            end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 4 
-          else:
-            end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 1 
-      
-    elif chain == 'beta':
-      # All F TRBJ FGXGs being at -10 position
-        # TRBJ2-2P is at -8:-4 (although I am unaware of any evidence in our own or others' data that it gets recombined)
-      
-      site = downstream_c[-10:-6]
-      
-      if re.findall('FG.G', site):
-        if inputargs['includeGXG'] == True:
-          end_cdr3 = len(downstream_c) - 10 + start_cdr3 + 4 
-        else:
-          end_cdr3 = len(downstream_c) - 10 + start_cdr3 + 1
-
-      elif j == 13: # TRBJ2-2Ps
-        site = downstream_c[-8:-4]
-        
-        if re.findall('LGGG', site):
-          if inputargs['includeGXG'] == True:
-            end_cdr3 = len(downstream_c) - 8 + start_cdr3 + 4 
-          else:
-            end_cdr3 = len(downstream_c) - 8 + start_cdr3 + 1      
-
+    if re.findall(jtranslate_res[j], site):
+      if inputargs['includeGXG'] == True: 
+        end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 4 
       else:
-        return "No_conserved_FGXG"
+        end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 1
+    
+    else:
+      return "No_conserved_FGXG"
     
     return aa[start_cdr3:end_cdr3]    
 
@@ -309,9 +299,9 @@ def get_cdr3(dcr, chain, vregions, jregions, vconservedc):
 
 if __name__ == '__main__':
     
-
     # Get parameters 
     inputargs = vars(args())
+    counts = coll.Counter()
     
     if inputargs['infile'].endswith('.gz'):
         opener = gzip.open
@@ -342,62 +332,19 @@ if __name__ == '__main__':
     
     suffix = "." + inputargs['extension']
 
-    #inputargs['dcroutput'] = True       # False => .cdr3 files / True => .dcrcdr3 files
-    #inputargs['includeGXG'] = False     # Whether to include the last 3 residues of the CDR3 ending motif
-    #inputargs['nonproductive'] = True           # Outputs a second file containing rearrangements that do not encode productive CDR3s
-    stats = True            # Whether to print summary results to stdout
-      
     filename = inputargs['infile']
     findfile(filename)
     
-  ######### FIX - RM
-    #if (len(sys.argv) == 3): 
-
-      ## If chain is explicitly provided:
-      
-      #filename = str(sys.argv[1])
-      #findfile(filename)
-      #inputchain = str(sys.argv[2])
-      #if inputchain == "a" or inputchain == "alpha":
-        #chain = "alpha"
-      #elif inputchain == "b" or inputchain == "beta":
-        #chain = "beta"
-      #else:
-        #print "Can't assign chain. Indicate chain with either \'a\' or \'b\', or include in filename"
-        #sys.exit
-    
-    #elif (len(sys.argv) == 2):
-      
-      ## If chain read from input file name:
-      #filename = str(sys.argv[1])
-      #a = "alpha"
-      #b = "beta"
-      #if a.upper() in filename.upper():
-        #chain = "alpha"
-      #elif b.upper() in filename.upper():
-        #chain = "beta"
-      #else:
-        #print "Can't assign chain. Make sure decombined file name contains either \'alpha\' or \'beta\'"
-        #sys.exit()
-    
-    #else:
-      
-      #print "Incorrect input command. Please supply either a filename containing a chain, or both a file and a chain letter"
-      #print "e.g.: python CDR3ulator.py FILE.txt a"
-      #print "or: python CDR3ulator.py FILE_beta.freq"       
-   ########### RM ^^
-
     ####################################
     ########## EXTRACT CDR3s ###########
     ####################################
 
-    info = import_gene_information("human", chain)
-      # Returns: vregions, jregions, vnames, jnames, vconservedc
+    v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue, \
+      v_functionality, j_functionality = import_gene_information(inputargs)
 
     infile = open(filename, "rU")
 
-    line_count = 0
-    F_count = 0
+    counts['line_count'] = 0
 
     # Count non-productive rearrangments
     fail_count = coll.Counter()
@@ -411,30 +358,30 @@ if __name__ == '__main__':
 
     np_cdr3_count = coll.Counter()
 
-    # Count the number of F, ORF and P genes used for both productive and non-productive rearrangements
-    pVf = 0
-    pVorf = 0
-    pVp = 0
-    pJf = 0
-    pJorf = 0
-    pJp = 0
+    ## Count the number of F, ORF and P genes used for both productive and non-productive rearrangements # FIX rm - change so adds to counts
+    #pVf = 0
+    #pVorf = 0
+    #pVp = 0
+    #pJf = 0
+    #pJorf = 0
+    #pJp = 0
 
-    npVf = 0
-    npVorf = 0
-    npVp = 0
-    npJf = 0
-    npJorf = 0
-    npJp = 0
+    #npVf = 0
+    #npVorf = 0
+    #npVp = 0
+    #npJf = 0
+    #npJorf = 0
+    #npJp = 0
 
     for line in infile:
       
-      line_count += 1
+      counts['line_count'] += 1
       
       comma = [m.start() for m in re.finditer(',', line)]           
 
       in_dcr = str(line[:comma[4]])
       
-      cdr3 = get_cdr3(in_dcr, chain, info[0], info[1], info[4])
+      cdr3 = get_cdr3(in_dcr, chain, v_regions, j_regions, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue)
       
       frequency = int(line[comma[4]+2:].rstrip())
       
@@ -443,91 +390,32 @@ if __name__ == '__main__':
       v = int(line[:comma[0]])
       j = int(line[comma[0]+2:comma[1]])
       
-      if cdr3 not in fails:
       
-        F_count += 1    
+          #info = import_gene_information(inputargs) # FIX - rm these old two lines if not used
+      # Returns: 0 v_regions, 1 j_regions, 2 v_names, 3 j_names, 4 v_translate, 5 j_translate
+    #v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue \
+      #= import_gene_information(inputargs)
+
+      
+      
+      
+      if cdr3 not in fails:
+        counts['prod_recomb'] += 1    
+        productivity = "P"
         
         if inputargs['dcroutput'] == False:
           cdr3_count[cdr3] += frequency
         elif inputargs['dcroutput'] == True:
           dcr_cdr3_count[dcr_cdr3] += frequency
             
-        # Count the number of number of each type of gene functionality (by IMGT definitions)
-      
-        # TRAV: 0 -> 46 = F; 47 = ORF; 48 -> 55 = P
-        # TRBV: 0 -> 44 = F; 45 -> 50 = ORF; 51 -> 62 = P
-            # NB 45 + 56 USE Y INSTEAD OF C
-        # TRAJ: 0 -> 49 = F; [50,51,52,53,54,57,58,60] = ORF; [55, 56, 59] = P
-        # TRBJ: 0 -> 12 = F; 13 = ORF
-            
-        # NB Many P V genes lack conserved cysteine residues: if there is a neighbouring C, that has been used
-          # Similarly many P J genes lack conserved FGXG motifs: nearest conserved motif used
-        
-        if chain == "alpha":
-          if v <= 46:
-            pVf += 1
-          elif v == 47:
-            pVorf += 1
-          elif v >= 48:
-            pVp += 1    
-          
-          if j <= 49:
-            pJf += 1
-          elif j in [50,51,52,53,54,57,58,60]:
-            pJorf += 1
-          elif j in [55, 56, 59]:
-            pJp += 1
-          
-        elif chain == "beta":
-          if v <= 44:
-            pVf += 1
-          elif v >= 45 and v <= 50:
-            pVorf += 1
-          elif v >= 51:
-            pVp += 1    
-            
-          if j <= 12:
-            pJf += 1
-          elif j == 13:    
-            pJorf += 1
-        
-      else:
-        
+      else:  
         np_cdr3_count[dcr_cdr3] += frequency
         fail_count[cdr3] += 1
-        
-        # And again for the non-productively rearranged receptors
-
-        if chain == "alpha":
-          if v <= 46:
-            npVf += 1
-          elif v == 47:
-            npVorf += 1
-          elif v >= 48:
-            npVp += 1    
-          
-          if j <= 49:
-            npJf += 1
-          elif j in [50,51,52,53,54,57,58,60]:
-            npJorf += 1
-          elif j in [55, 56, 59]:
-            npJp += 1
-          
-        elif chain == "beta":
-          if v <= 44:
-            npVf += 1
-          elif v >= 45 and v <= 50:
-            npVorf += 1
-          elif v >= 51:
-            npVp += 1    
-            
-          if j <= 12:
-            npJf += 1
-          elif j == 13:    
-            npJorf += 1    
-            
-    # Uncomment to output information on each line read in (for debugging purposes)    
-      #print v, info[2][v], j, info[3][j], "\t", cdr3 
+        productivity = "NP"
+      
+      # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic gene) #fix RM
+      counts[productivity + "_" + "V-" + v_functionality[v]] += 1
+      counts[productivity + "_" + "J-" + j_functionality[j]] += 1
       
     if inputargs['dcroutput'] == True:
 
@@ -568,25 +456,26 @@ if __name__ == '__main__':
     ##### RESULTS #####
     ###################
 
+    sys.exit()
     # fix output stats to summary file
-    if stats == True:
-      print "Reading", str(line_count), "Decombinator-assigned rearrangements from", str(filename) + ", and writing out to", str(outfilename), "\n"
+  
+    print "Reading", str(counts['line_count']), "Decombinator-assigned rearrangements from", str(filename) + ", and writing out to", str(outfilename), "\n"
 
-      print '{0:,}'.format(F_count), "productive rearrangements detected" 
-      print "\tV gene usage:\t" + '{0:,}'.format(pVf), "F;\t" + '{0:,}'.format(pVorf), "ORF;\t" +  '{0:,}'.format(pVp), "P"
-      print "\tJ gene usage:\t" + '{0:,}'.format(pJf), "F;\t" + '{0:,}'.format(pJorf), "ORF;\t" + '{0:,}'.format(pJp), "P\n"
+    print '{0:,}'.format(counts['prod_recomb']), "productive rearrangements detected" 
+    print "\tV gene usage:\t" + '{0:,}'.format(pVf), "F;\t" + '{0:,}'.format(pVorf), "ORF;\t" +  '{0:,}'.format(pVp), "P"
+    print "\tJ gene usage:\t" + '{0:,}'.format(pJf), "F;\t" + '{0:,}'.format(pJorf), "ORF;\t" + '{0:,}'.format(pJp), "P\n"
 
-      print '{0:,}'.format(NP_count), "non-productive rearrangements detected"
-      print "\tV gene usage:\t" + '{0:,}'.format(npVf), "F;\t" + '{0:,}'.format(npVorf), "ORF;\t" +  '{0:,}'.format(npVp), "P"
-      print "\tJ gene usage:\t" + '{0:,}'.format(npJf), "F;\t" + '{0:,}'.format(npJorf), "ORF;\t" + '{0:,}'.format(npJp), "P\n"
+    print '{0:,}'.format(NP_count), "non-productive rearrangements detected"
+    print "\tV gene usage:\t" + '{0:,}'.format(npVf), "F;\t" + '{0:,}'.format(npVorf), "ORF;\t" +  '{0:,}'.format(npVp), "P"
+    print "\tJ gene usage:\t" + '{0:,}'.format(npJf), "F;\t" + '{0:,}'.format(npJorf), "ORF;\t" + '{0:,}'.format(npJp), "P\n"
 
-      print 'Non-productive rearrangement statistics:'
-      print '\tOut of frame, no stop codon:\t {:.2%}'.format(fail_count['OOF_without_stop']/NP_count) + "\t(" + str(fail_count['OOF_without_stop']) + ")"
-      print '\tOut of frame, with stop codon:\t {:.2%}'.format(fail_count['OOF_with_stop']/NP_count) + "\t(" + str(fail_count['OOF_with_stop']) + ")"
-      print '\tIn frame, with stop codon:\t {:.2%}'.format(fail_count['IF_with_stop']/NP_count) + "\t(" + str(fail_count['IF_with_stop']) + ")"
-      print '\tNo conserved cysteine at start:\t {:.2%}'.format(fail_count['No_conserved_cysteine']/NP_count) + "\t(" + str(fail_count['No_conserved_cysteine']) + ")"
-      print '\tNo conserved FGXG at end:\t {:.2%}'.format(fail_count['No_conserved_FGXG']/NP_count) + "\t(" + str(fail_count['No_conserved_FGXG']) + ")"
+    print 'Non-productive rearrangement statistics:'
+    print '\tOut of frame, no stop codon:\t {:.2%}'.format(fail_count['OOF_without_stop']/NP_count) + "\t(" + str(fail_count['OOF_without_stop']) + ")"
+    print '\tOut of frame, with stop codon:\t {:.2%}'.format(fail_count['OOF_with_stop']/NP_count) + "\t(" + str(fail_count['OOF_with_stop']) + ")"
+    print '\tIn frame, with stop codon:\t {:.2%}'.format(fail_count['IF_with_stop']/NP_count) + "\t(" + str(fail_count['IF_with_stop']) + ")"
+    print '\tNo conserved cysteine at start:\t {:.2%}'.format(fail_count['No_conserved_cysteine']/NP_count) + "\t(" + str(fail_count['No_conserved_cysteine']) + ")"
+    print '\tNo conserved FGXG at end:\t {:.2%}'.format(fail_count['No_conserved_FGXG']/NP_count) + "\t(" + str(fail_count['No_conserved_FGXG']) + ")"
 
-    if (F_count + NP_count) <> line_count:
+    if (counts['prod_recomb'] + NP_count) <> line_count:
       print "\nError detected: Sum of productive and non-productive sorted sequences does not equal total number of input sequences"
-      
+    

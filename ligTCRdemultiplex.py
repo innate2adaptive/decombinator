@@ -178,7 +178,7 @@ def sort_permissions(fl):
   # Need to ensure proper file permissions on output data
     # If users are running pipeline through Docker might otherwise require root access
   if oct(os.stat(fl).st_mode)[4:] != '666':
-    os.chmod(fl, 0o666)
+    os.chmod(str(fl), 0o666)
 
 inputargs = vars(args())
 
@@ -365,10 +365,10 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
   
 for x in XXdict.values():
   x.close()
-  sort_permissions(x)
+  sort_permissions(x.name)
 
 failed.close()
-sort_permissions(failed)
+sort_permissions(failed.name)
 fq1.close()
 fq2.close()
 fq3.close()
@@ -390,7 +390,7 @@ if inputargs['dontgzip'] == False:
     
     with open(f + suffix) as infile, gzip.open(f + suffix + '.gz', 'wb') as outfile:
         outfile.writelines(infile)
-        sort_permissions(outfile)
+        sort_permissions(outfile.name)
     os.unlink(f + suffix)
 
 #################################################
@@ -455,6 +455,7 @@ if inputargs['suppresssummary'] == False:
   print >> summaryfile, summstr 
   
   summaryfile.close()
+  sort_permissions(summaryname)
   
 # Write out list of fuzzy matched sequences, so can fish out later if needed
 if inputargs['threshold'] > 0 and inputargs['fuzzylist'] == True:
@@ -466,9 +467,12 @@ if inputargs['threshold'] > 0 and inputargs['fuzzylist'] == True:
     os.makedirs('Logs')
   date = time.strftime("%Y_%m_%d")
   
-  fuzzout = open("Logs/" + date + "_FuzzyMatchedIDs.txt", "w")
+  fuzzname = "Logs/" + date + "_FuzzyMatchedIDs.txt"
+  fuzzout = open(fuzzname, "w")
   for f in fuzzies:
     print >> fuzzout, f
 
   fuzzout.close()
+  sort_permissions(fuzzname)
+  
 
