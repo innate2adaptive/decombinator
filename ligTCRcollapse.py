@@ -389,7 +389,6 @@ def collapsinate(barcode_quality_parameters,
     print 'Reading data in...'
     t0 = time()
     barcode_dcretc = coll.defaultdict(list)
-    global input_dcr_counts # fix rm
     input_dcr_counts = coll.Counter()
     inhandle = opener(infile, 'r')
     
@@ -409,6 +408,7 @@ def collapsinate(barcode_quality_parameters,
                 barcode = fields[8][bc_locs[0]:bc_locs[1]] + "S" * n1_diff_len + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[1]] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
             elif (bc_locs[1] - bc_locs[0]) > 6:
+                n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
                 barcode = fields[8][bc_locs[0]:bc_locs[0]+5] + "L" + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[0]+5] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
                             # L and S characters get quality scores of "?", representative of Q30 scores
