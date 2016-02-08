@@ -124,7 +124,13 @@ def check_dcr_file(infile):
     # Check first few lines    
     with opener(infile) as poss_dcr: 
       for i in range(5):
-        fields = next(poss_dcr).rstrip().split(", ")
+
+        # Check it's a comma-delimited file
+        if "," not in next(poss_dcr):
+          print 'Input Decombinator file sanity check fail: seemingly not comma-delimited text file.'
+          return False
+        else:
+          fields = next(poss_dcr).rstrip().split(", ")
         
         # Check lines contain correct number of fields
         if len(fields) != 10:
@@ -402,15 +408,17 @@ def collapsinate(barcode_quality_parameters,
             if (bc_locs[1] - bc_locs[0]) == 6:
                 barcode = fields[8][bc_locs[0]:bc_locs[1]] + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[1]] + fields[9][bc_locs[2]:bc_locs[3]]
-              
+            
             elif (bc_locs[1] - bc_locs[0]) < 6:
                 n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
                 barcode = fields[8][bc_locs[0]:bc_locs[1]] + "S" * n1_diff_len + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[1]] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
+                counts['readdata_short_barcode'] += 1
             elif (bc_locs[1] - bc_locs[0]) > 6:
                 n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
                 barcode = fields[8][bc_locs[0]:bc_locs[0]+5] + "L" + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[0]+5] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
+                counts['readdata_long_barcode'] += 1
                             # L and S characters get quality scores of "?", representative of Q30 scores
             
             if not barcode_quality_check(barcode_qualstring, barcode_quality_parameters):
