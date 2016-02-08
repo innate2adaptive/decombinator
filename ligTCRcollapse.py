@@ -120,11 +120,18 @@ def check_dcr_file(infile):
     Perform sanity check on input Decombinator file
     Check first few lines to see whether they fit the correct criteria this script relies on
     """
-
+    # Check whether file a) exists and b) is not empty
+    if os.path.isfile(fpath) == False:
+      print 'Cannot find file, please double-check path.'
+      return False
+    if os.path.getsize(fpath) == 0:
+      print 'Input file appears to be empty; please double-check path.'
+      return False
+    
     # Check first few lines    
     with opener(infile) as poss_dcr: 
       for i in range(5):
-
+              
         # Check it's a comma-delimited file
         if "," not in next(poss_dcr):
           print 'Input Decombinator file sanity check fail: seemingly not comma-delimited text file.'
