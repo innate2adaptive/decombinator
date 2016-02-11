@@ -121,10 +121,10 @@ def check_dcr_file(infile):
     Check first few lines to see whether they fit the correct criteria this script relies on
     """
     # Check whether file a) exists and b) is not empty
-    if os.path.isfile(fpath) == False:
+    if os.path.isfile(infile) == False:
       print 'Cannot find file, please double-check path.'
       return False
-    if os.path.getsize(fpath) == 0:
+    if os.path.getsize(infile) == 0:
       print 'Input file appears to be empty; please double-check path.'
       return False
     
