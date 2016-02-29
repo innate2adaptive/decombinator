@@ -38,7 +38,7 @@
 
 # Note that in addition to the same FASTA files that Decombinator makes use of, this script requires additional '.translate' files
   # These contain four comma-delimited fields, which allow for the correct translation of TCR sequences from DCR indexes
-  # Those fields are: Gene name, conserved position (of cysteine or FGXG motif), conserved residue (when the C/FGXG differs), and designated functionality
+  # Those fields are: Gene name, conserved position (of cysteine or FGXG motif), conserved residue (when the C/FGXG differs), and IMGT-designated functionality
 
 ##################
 ##### OUTPUT #####  
@@ -73,6 +73,7 @@ import collections as coll
 import os
 import urllib2
 import warnings
+import gzip
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore") 
@@ -342,7 +343,7 @@ if __name__ == '__main__':
     v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue, \
       v_functionality, j_functionality = import_gene_information(inputargs)
 
-    infile = open(filename, "rU")
+    infile = opener(filename, "rU")
 
     counts['line_count'] = 0
 
@@ -357,21 +358,10 @@ if __name__ == '__main__':
       dcr_cdr3_count = coll.Counter()
 
     np_cdr3_count = coll.Counter()
-
-    ## Count the number of F, ORF and P genes used for both productive and non-productive rearrangements # FIX rm - change so adds to counts
-    #pVf = 0
-    #pVorf = 0
-    #pVp = 0
-    #pJf = 0
-    #pJorf = 0
-    #pJp = 0
-
-    #npVf = 0
-    #npVorf = 0
-    #npVp = 0
-    #npJf = 0
-    #npJorf = 0
-    #npJp = 0
+    
+    chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
+    
+    print "Translating", chainnams[chain], "chain CDR3s from", inputargs['infile']
 
     for line in infile:
       
@@ -389,16 +379,8 @@ if __name__ == '__main__':
       
       v = int(line[:comma[0]])
       j = int(line[comma[0]+2:comma[1]])
-      
-      
-          #info = import_gene_information(inputargs) # FIX - rm these old two lines if not used
-      # Returns: 0 v_regions, 1 j_regions, 2 v_names, 3 j_names, 4 v_translate, 5 j_translate
-    #v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue \
-      #= import_gene_information(inputargs)
-
-      
-      
-      
+     
+     
       if cdr3 not in fails:
         counts['prod_recomb'] += 1    
         productivity = "P"
