@@ -159,6 +159,12 @@ def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
   # Return opened file, for either FASTA or tag file parsing
   return fl_opener(fl)
 
+def sort_permissions(fl):
+  # Need to ensure proper file permissions on output data
+    # If users are running pipeline through Docker might otherwise require root access
+  if oct(os.stat(fl).st_mode)[4:] != '666':
+    os.chmod(fl, 0o666)
+
 def import_gene_information(inputargs):            
     """ Obtains gene-specific information for translation """
     
@@ -285,9 +291,9 @@ def get_cdr3(dcr, chain, vregions, jregions, vtranslate_pos, vtranslate_res, jtr
     
     if re.findall(jtranslate_res[j], site):
       if inputargs['includeGXG'] == True: 
-        end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 4 
+        end_cdr3 = len(downstream_c) + jtranslate_pos[j] + start_cdr3 + 4 
       else:
-        end_cdr3 = len(downstream_c) - 11 + start_cdr3 + 1
+        end_cdr3 = len(downstream_c) + jtranslate_pos[j] + start_cdr3 + 1
     
     else:
       return "No_conserved_FGXG"
@@ -399,6 +405,10 @@ if __name__ == '__main__':
       counts[productivity + "_" + "V-" + v_functionality[v]] += 1
       counts[productivity + "_" + "J-" + j_functionality[j]] += 1
       
+    ##########################
+    ##### OUTPUT RESULTS #####
+    ##########################
+
     if inputargs['dcroutput'] == True:
 
       outfilename = filename.split(".")[0]+".dcrcdr3"
@@ -422,7 +432,25 @@ if __name__ == '__main__':
           
       infile.close()
       outfile.close()
+      
+    # Compress output
+    if inputargs['dontgzip'] == False:
+      print "Compressing CDR3 output file,", outfilename, "..."
+      
+      with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wb') as outfile:
+          outfile.writelines(infile)
+      os.unlink(outfilename)
 
+      outfilenam = outfilename + ".gz"
+      
+    else:
+      outfilenam = outfilename
+      
+    sort_permissions(outfilenam)
+      
+    # Output non-productive rearrangements  
+    inputargs['NP_count'] = sum(fail_count.values())
+    
     if inputargs['nonproductive'] == True:  
       npfilename = filename.split(".")[0]+".np"
       npfile = open(npfilename, "w")
@@ -431,12 +459,18 @@ if __name__ == '__main__':
         outtext = x + ", " + str(np_cdr3_count[x])
         print >> npfile, outtext
       npfile.close()    
+         
+      if inputargs['dontgzip'] == False:
+        print "Compressing non-productive rearrangement output file,", npfilename, "..."
         
-    NP_count = sum(fail_count.values())
+        with open(npfilename) as infile, gzip.open(npfilename + '.gz', 'wb') as outfile:
+            outfile.writelines(infile)
+        os.unlink(npfilename)
+
+        npfilename = npfilename + ".gz"
+        
+      sort_permissions(npfilename)  
             
-    ###################
-    ##### RESULTS #####
-    ###################
 
     sys.exit()
     # fix output stats to summary file
