@@ -360,9 +360,6 @@ def dcr(read, inputargs):
   """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
     Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
       insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
-  if "counts" not in dir():
-    global counts
-    counts = coll.Counter()
   v_seq_start = 0     
   j_seq_end = 0      
   
@@ -661,6 +658,8 @@ if __name__ == '__main__':
         if inputargs['nobarcoding'] == False:
           if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
             counts['dcrfilter_barcodeN'] += 1
+        
+        print counts
         
         counts['read_count'] += 1
         if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
