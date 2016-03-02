@@ -442,10 +442,16 @@ if inputargs['suppresssummary'] == False:
   
   summstr = summstr + "NumberReadsInput," + str(count) + "\nNumberReadsDemultiplexed," + str(dmpd_count) + "\nNumberFuzzyDemultiplexed," + str(fuzzy_count) + "\nNumberIndexClash," + str(clash_count) + "\n\nOutputFile,IndexUsed\n" 
   
-  
-  # Write out number of reads in and details of each individual output file
+    # Write out number of reads in and details of each individual output file
   for x in sorted(usedindexes.keys()):
     summstr = summstr + x + "," + usedindexes[x] + "\n"
+  
+  if inputargs['indexlist']:
+    summstr = summstr + "\nOutputFile,IndexNumbersUsed(SP1&SP2)\n"
+    for x in indexes:
+      splt = x.rstrip().split(",")
+      summstr = summstr + splt[0] + "," + splt[1] + " & " + splt[2] + "\n"
+  
   
   summstr = summstr + "\nOutputFile,NumberReads\n"
   
