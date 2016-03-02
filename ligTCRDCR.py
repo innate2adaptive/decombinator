@@ -132,6 +132,8 @@ def args():
   parser.add_argument(
       '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
       Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
+  parser.add_argument(
+      '-nbc', '--nobarcoding', type=bool, help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False, default=False)
 
   return parser.parse_args()
 
@@ -176,7 +178,7 @@ def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
   # First check whether the files are available locally (in pwd or in bundled directory)
   if os.path.isfile(expected_file):
     fl = expected_file
-    fl_opener = ope
+    fl_opener = open
   elif os.path.isfile(expected_dir_name + os.sep + expected_file):
     fl = expected_dir_name + os.sep + expected_file
     fl_opener = open
@@ -430,9 +432,7 @@ def import_tcr_info(inputargs):
   #################################################
   ############# GET GENES, BUILD TRIE #############
   #################################################
-  
-  # Long term fix: need to put trie generation into a function, for ease of use in importing Decombinator functions to other scripts
-  
+    
   print 'Importing TCR', chainnams[chain], 'gene sequences...'
 
   # First check that valid tag/species combinations have been used
@@ -633,8 +633,12 @@ if __name__ == '__main__':
     samplenam = samplenam.split(os.sep)[-1]
 
   name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
-    
-  stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')      
+   
+  if inputargs['nobarcoding'] == False:
+    stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
+  else:
+    stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
+    found_tcrs = coll.Counter()
 
   with open(name_results + suffix, 'w') as outfile:
 
@@ -648,11 +652,15 @@ if __name__ == '__main__':
       for readid, seq, qual in readfq(f):
         start_time = time()
         
-        bc = seq[:30]  
-        vdj = seq[30:]
+        if inputargs['nobarcoding'] == False:
+          bc = seq[:30]   
+          vdj = seq[30:]
+        else:
+          vdj = seq[30:]
         
-        if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
-          counts['dcrfilter_barcodeN'] += 1
+        if inputargs['nobarcoding'] == False:
+          if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
+            counts['dcrfilter_barcodeN'] += 1
         
         counts['read_count'] += 1
         if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
@@ -674,11 +682,8 @@ if __name__ == '__main__':
                         
         if recom:
           counts['vj_count'] += 1
+          vdjqual = qual[30:]  
           
-          bcQ = qual[:30]
-          
-          vdjqual = qual[30:]
-        
           if frame == 'reverse':
             tcrseq = revcomp(vdj)[recom[5]:recom[6]]
             tcrQ = vdjqual[::-1][recom[5]:recom[6]]
@@ -686,13 +691,28 @@ if __name__ == '__main__':
             tcrseq = vdj[recom[5]:recom[6]]
             tcrQ = vdjqual[recom[5]:recom[6]]
           
-                
-          dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-            del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
-            tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
-                                
-          outfile.write(dcr_string + '\n')
-
+          if inputargs['nobarcoding'] == False:
+            bcQ = qual[:30]
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
+              del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
+              tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
+            outfile.write(dcr_string + '\n')
+          else:
+            # FIIIIIIIIIIIX shortened write dcr string to counter, then at end print all to outfile
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
+              del_j = str(recom[3]) + ',', nt_insert = recom[4])      
+            found_tcrs[dcr_string] += 1
+  
+  if inputargs['nobarcoding'] == True:
+    # Write out non-barcoded results, with frequencies
+    if inputargs['extension'] == 'n12':
+      print "Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'."
+      suffix = '.nbc'
+    with open(name_results + suffix, 'w') as outfile:
+      for x in found_tcrs.most_common():
+        outfile.write(x[0] + ", " + str(found_tcrs[x[0]]) + '\n')
+      
+  
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']
 
