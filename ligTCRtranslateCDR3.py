@@ -107,7 +107,9 @@ def args():
     parser.add_argument(
         '-dc', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
     parser.add_argument(
-        '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"n12\"', required=False, default="n12")
+        '-ex', '--extension', type=str, help='Specify the file extension of the output translation file. Default = \"cdr3\"', required=False, default="cdr3")
+    parser.add_argument(
+        '-npx', '--npextension', type=str, help='Specify the file extension of the output nonproductive file. Default = \"np\"', required=False, default="np")
     parser.add_argument(
         '-do', '--dcroutput', type=bool, help='Optionally include Decombinator TCR index along with the CDR3 sequence and frequency. Default = False', \
         required=False, default=False)
@@ -178,6 +180,10 @@ def import_gene_information(inputargs):
       # Somewhat moot, as most psuedogenes contain a number of stop codons and thus cannot produce productive rearrangements 
       
     # First check that valid tag/species combinations have been used
+    
+    global chainnams, chain
+    chain = inputargs['chain']
+    
     if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
       print "Please note that there is currently no extended tag set for mouse TCR genes.\n \
       Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
@@ -219,7 +225,7 @@ def import_gene_information(inputargs):
     return v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue,\
       v_functionality, j_functionality
 
-def get_cdr3(dcr, chain, vregions, jregions, vtranslate_pos, vtranslate_res, jtranslate_pos, jtranslate_res):
+def get_cdr3(dcr, chain, vregions, jregions, vtranslate_pos, vtranslate_res, jtranslate_pos, jtranslate_res, includefgxg):
     """ Checks the productivity of a given DCR-assigned rearrangement 
     Returns a 1 if productive, 0 if not """
     
@@ -290,7 +296,7 @@ def get_cdr3(dcr, chain, vregions, jregions, vtranslate_pos, vtranslate_res, jtr
     site = downstream_c[jtranslate_pos[j]:jtranslate_pos[j]+4]
     
     if re.findall(jtranslate_res[j], site):
-      if inputargs['includeGXG'] == True: 
+      if includefgxg == True: 
         end_cdr3 = len(downstream_c) + jtranslate_pos[j] + start_cdr3 + 4 
       else:
         end_cdr3 = len(downstream_c) + jtranslate_pos[j] + start_cdr3 + 1
@@ -300,9 +306,9 @@ def get_cdr3(dcr, chain, vregions, jregions, vtranslate_pos, vtranslate_res, jtr
     
     return aa[start_cdr3:end_cdr3]    
 
-####################################
-######## CHECK INPUT FILES #########
-####################################
+###################################################
+######## CHECK INPUT FILES AND PARAMETERS #########
+###################################################
 
 if __name__ == '__main__':
     
@@ -320,7 +326,7 @@ if __name__ == '__main__':
         # If chain not given, try and infer from input file name 
         chaincheck = [x for x in ["alpha", "beta", "gamma", "delta"] if x in inputargs['infile'].lower()]
         if len(chaincheck) == 1:
-            chain = chaincheck[0]
+            chain = chaincheck[0][0]
         else:
             print "TCR chain not recognised. Please choose from a/b/g/d (case-insensitive)."
             sys.exit()          
@@ -336,11 +342,22 @@ if __name__ == '__main__':
         else:
             print "TCR chain not recognised. Please choose from a/b/g/d (case-insensitive)."
             sys.exit()
+            
+    inputargs['chain'] = chain        # Correct inputarg chain value so that import gene function gets correct input
     
     suffix = "." + inputargs['extension']
 
     filename = inputargs['infile']
     findfile(filename)
+    
+    if inputargs['nonproductive'] == False and inputargs['npextension'] != 'np':
+      print "Warning: a non-default extension was provided for the non-productive output data (-nxt), yet that data was not output (-np False)."
+      print "Script will assume you meant to output NP data and do so."
+      inputargs['nonproductive'] = True    
+      
+    if inputargs['extension'] == inputargs['npextension']:
+      print "Error: Extensions for output CDR3s (-ex) and output non-productive sequences (-npx) cannot be the same. Please edit and re-run."
+      sys.exit()
     
     ####################################
     ########## EXTRACT CDR3s ###########
@@ -377,7 +394,7 @@ if __name__ == '__main__':
 
       in_dcr = str(line[:comma[4]])
       
-      cdr3 = get_cdr3(in_dcr, chain, v_regions, j_regions, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue)
+      cdr3 = get_cdr3(in_dcr, chain, v_regions, j_regions, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue, inputargs['includeGXG'])
       
       frequency = int(line[comma[4]+2:].rstrip())
       
@@ -410,8 +427,10 @@ if __name__ == '__main__':
     ##########################
 
     if inputargs['dcroutput'] == True:
-
-      outfilename = filename.split(".")[0]+".dcrcdr3"
+      if inputargs['extension'] == 'cdr3': # Keep default suffixes unless specified otherwise
+        suffix = '.dcrcdr3'
+        
+      outfilename = filename.split(".")[0] + suffix
       outfile = open(outfilename, "w")
         
       for x in dcr_cdr3_count:
@@ -422,8 +441,8 @@ if __name__ == '__main__':
       outfile.close()
       
     elif inputargs['dcroutput'] == False:
-
-      outfilename = filename.split(".")[0]+".cdr3"
+      suffix = "." + inputargs['extension']
+      outfilename = filename.split(".")[0] + suffix
       outfile = open(outfilename, "w")
 
       for x in cdr3_count:
@@ -435,7 +454,7 @@ if __name__ == '__main__':
       
     # Compress output
     if inputargs['dontgzip'] == False:
-      print "Compressing CDR3 output file,", outfilename, "..."
+      print "Compressing CDR3 output file to", outfilename + ".gz"
       
       with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wb') as outfile:
           outfile.writelines(infile)
@@ -450,9 +469,11 @@ if __name__ == '__main__':
       
     # Output non-productive rearrangements  
     inputargs['NP_count'] = sum(fail_count.values())
-    
+        
     if inputargs['nonproductive'] == True:  
-      npfilename = filename.split(".")[0]+".np"
+      npsuffix = inputargs['npextension']
+
+      npfilename = filename.split(".")[0]+"." + npsuffix
       npfile = open(npfilename, "w")
 
       for x in np_cdr3_count:
@@ -470,7 +491,7 @@ if __name__ == '__main__':
         npfilename = npfilename + ".gz"
         
       sort_permissions(npfilename)  
-            
+               
 
     sys.exit()
     # fix output stats to summary file

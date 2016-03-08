@@ -91,7 +91,7 @@ def args():
   parser.add_argument(
       '-r1', '--read1', type=str, help='Read 1 FASTQ file', required=True)
   parser.add_argument(
-      '-r2', '--read2', type=str, help='Read 1 FASTQ file', required=True)
+      '-r2', '--read2', type=str, help='Read 2 FASTQ file', required=True)
   parser.add_argument(
       '-i1', '--index1', type=str, help='Index read FASTQ file', required=True)
   parser.add_argument(

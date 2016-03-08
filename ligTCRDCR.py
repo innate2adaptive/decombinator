@@ -398,7 +398,8 @@ def import_tcr_info(inputargs):
   """ import_tcr_info: Gathers the required TCR chain information for Decombining """
     
   # Get chain information
-  global chainnams, chain
+  global chainnams, chain, counts
+  counts = coll.Counter()
   chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
     
   nochain_error = "TCR chain not recognised. \n \
@@ -507,22 +508,26 @@ def get_v_deletions( read, v_match, temp_end_v, v_regions_cut ):
     # by comparing it to v_match, beginning by making comparisons at the
     # end of v_match and at position temp_end_v in read.
     function_temp_end_v = temp_end_v
-    pos = -1
+    pos = len(v_regions_cut[v_match]) -10    # changed from -1 for new checking technique
     is_v_match = 0
     
     # Catch situations in which the temporary end of the V exists beyond the end of the read
     if function_temp_end_v >= len(read):
       counts['v_del_failed_tag_at_end'] += 1
       return
-      
+    
+    function_temp_end_v += 1
+    num_del = 0
+
     while is_v_match == 0 and 0 <= function_temp_end_v < len(read):
-        if str(v_regions_cut[v_match])[pos] == read[function_temp_end_v] and str(v_regions_cut[v_match])[pos-1] == read[function_temp_end_v-1] \
-          and str(v_regions_cut[v_match])[pos-2] == read[function_temp_end_v-2]:
+        # Require a 10 base match to determine where end of germ-line sequence lies
+        if str(v_regions_cut[v_match])[pos:pos+10] == read[function_temp_end_v-10:function_temp_end_v]:
             is_v_match = 1
-            deletions_v = -pos - 1
-            end_v = function_temp_end_v
+            deletions_v = num_del            
+            end_v = temp_end_v - num_del
         else:
             pos -= 1
+            num_del += 1
             function_temp_end_v -= 1
 
     if is_v_match == 1:
@@ -538,10 +543,9 @@ def get_j_deletions( read, j_match, temp_start_j, j_regions_cut ):
     function_temp_start_j = temp_start_j
     pos = 0
     is_j_match = 0
-    
     while is_j_match == 0 and 0 <= function_temp_start_j+2 < len(str(read)):
-        if str(j_regions_cut[j_match])[pos] == read[function_temp_start_j] and str(j_regions_cut[j_match])[pos+1] == read[function_temp_start_j+1] \
-          and str(j_regions_cut[j_match])[pos+2] == read[function_temp_start_j+2]:
+        # Require a 10 base match to determine where end of germ-line sequence lies
+        if str(j_regions_cut[j_match])[pos:pos+10] == read[function_temp_start_j:function_temp_start_j+10]:
             is_j_match = 1
             deletions_j = pos
             start_j = function_temp_start_j
@@ -606,9 +610,6 @@ if __name__ == '__main__':
 
   inputargs = vars(args())
 
-  counts = coll.Counter()
-  counts['start_time'] = time()
-
   # Brief FASTQ sanity check
   if inputargs['dontcheck'] == False:
     if fastq_check(inputargs['fastq']) <> True:
@@ -616,7 +617,9 @@ if __name__ == '__main__':
       sys.exit()
   
   # Get TCR gene information
-    import_tcr_info(inputargs)
+  import_tcr_info(inputargs)
+  
+  counts['start_time'] = time()
   
   #########################################################
   ############# SCROLL THROUGH FILE & ANALYSE #############
@@ -659,8 +662,6 @@ if __name__ == '__main__':
           if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
             counts['dcrfilter_barcodeN'] += 1
         
-        print counts
-        
         counts['read_count'] += 1
         if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
           print '\t read', counts['read_count'] 
@@ -696,6 +697,7 @@ if __name__ == '__main__':
               del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
             outfile.write(dcr_string + '\n')
+
           else:
             # FIIIIIIIIIIIX shortened write dcr string to counter, then at end print all to outfile
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
