@@ -65,6 +65,7 @@ from __future__ import division
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
+from time import strftime       # fix - add script timer
 import argparse
 import string
 import re
@@ -419,8 +420,9 @@ if __name__ == '__main__':
         productivity = "NP"
       
       # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic gene) #fix RM
-      counts[productivity + "_" + "V-" + v_functionality[v]] += 1
-      counts[productivity + "_" + "J-" + j_functionality[j]] += 1
+      if inputargs['tags'] == 'extended' and inputargs['species'] == 'human': 
+        counts[productivity + "_" + "V-" + v_functionality[v]] += 1
+        counts[productivity + "_" + "J-" + j_functionality[j]] += 1
       
     ##########################
     ##### OUTPUT RESULTS #####
@@ -468,7 +470,7 @@ if __name__ == '__main__':
     sort_permissions(outfilenam)
       
     # Output non-productive rearrangements  
-    inputargs['NP_count'] = sum(fail_count.values())
+    counts['NP_count'] = sum(fail_count.values())
         
     if inputargs['nonproductive'] == True:  
       npsuffix = inputargs['npextension']
@@ -492,27 +494,74 @@ if __name__ == '__main__':
         
       sort_permissions(npfilename)  
                
-
+    #sys.exit()  
+    
+    # Write data to summary file
+    if inputargs['suppresssummary'] == False:
+      
+      # Check for directory and make summary file
+      if not os.path.exists('Logs'):
+        os.makedirs('Logs')
+      date = strftime("%Y_%m_%d")
+      
+      # Check for existing date-stamped file
+      summaryname = "Logs/" + date + "_" + filename.split(".")[0] + "_CDR3_Translation_Summary.csv"
+      if not os.path.exists(summaryname): 
+        summaryfile = open(summaryname, "w")
+      else:
+        # If one exists, start an incremental day stamp
+        for i in range(2,10000):
+          summaryname = "Logs/" + date + "_" + filename.split(".")[0] + "_CDR3_Translation_Summary" + str(i) + ".csv"
+          if not os.path.exists(summaryname): 
+            summaryfile = open(summaryname, "w")
+            break
+          
+      # Generate string to write to summary file 
+      summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] + "\nOutputFile," + outfilenam \
+        + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\n\nInputArguments:,\n" # + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) # FIX
+      for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'includeGXG',  'dcroutput', 'nonproductive']:
+        summstr = summstr + s + "," + str(inputargs[s]) + "\n"
+      
+      if inputargs['nonproductive'] == True:
+        summstr = summstr + 'npextension,' + inputargs['npextension'] + '\nNPdataOutputFile,' + npfilename + "\n"
+        
+      summstr = summstr + "\nNumberUniqueDCRsInput," + str(counts['line_count']) \
+        + "\nNumberUniqueDCRsProductive," + str(counts['prod_recomb']) \
+        + "\nNumberUniqueDCRsNonProductive," + str(counts['NP_count']) 
+      
+      if inputargs['tags'] == 'extended' and inputargs['species'] == 'human':
+        summstr = summstr + "\n\nFunctionalityOfGermlineGenesUsed,"
+        for p in ['P', 'NP']:
+          for g in ['V', 'J']:
+            for f in ['F', 'ORF', 'P']:
+              target = p + '_' + g + '-' + f
+              summstr = summstr + '\n' + target + ',' + str(counts[target])
+      
+      print >> summaryfile, summstr 
+      summaryfile.close()
+      sort_permissions(summaryname)   
+    
     sys.exit()
     # fix output stats to summary file
-  
-    print "Reading", str(counts['line_count']), "Decombinator-assigned rearrangements from", str(filename) + ", and writing out to", str(outfilename), "\n"
+    
+    
+    #print "Reading", str(counts['line_count']), "Decombinator-assigned rearrangements from", str(filename) + ", and writing out to", str(outfilename), "\n"
 
-    print '{0:,}'.format(counts['prod_recomb']), "productive rearrangements detected" 
-    print "\tV gene usage:\t" + '{0:,}'.format(pVf), "F;\t" + '{0:,}'.format(pVorf), "ORF;\t" +  '{0:,}'.format(pVp), "P"
-    print "\tJ gene usage:\t" + '{0:,}'.format(pJf), "F;\t" + '{0:,}'.format(pJorf), "ORF;\t" + '{0:,}'.format(pJp), "P\n"
+    #print '{0:,}'.format(counts['prod_recomb']), "productive rearrangements detected" 
+    #print "\tV gene usage:\t" + '{0:,}'.format(pVf), "F;\t" + '{0:,}'.format(pVorf), "ORF;\t" +  '{0:,}'.format(pVp), "P"
+    #print "\tJ gene usage:\t" + '{0:,}'.format(pJf), "F;\t" + '{0:,}'.format(pJorf), "ORF;\t" + '{0:,}'.format(pJp), "P\n"
 
-    print '{0:,}'.format(NP_count), "non-productive rearrangements detected"
-    print "\tV gene usage:\t" + '{0:,}'.format(npVf), "F;\t" + '{0:,}'.format(npVorf), "ORF;\t" +  '{0:,}'.format(npVp), "P"
-    print "\tJ gene usage:\t" + '{0:,}'.format(npJf), "F;\t" + '{0:,}'.format(npJorf), "ORF;\t" + '{0:,}'.format(npJp), "P\n"
+    #print '{0:,}'.format(NP_count), "non-productive rearrangements detected"
+    #print "\tV gene usage:\t" + '{0:,}'.format(npVf), "F;\t" + '{0:,}'.format(npVorf), "ORF;\t" +  '{0:,}'.format(npVp), "P"
+    #print "\tJ gene usage:\t" + '{0:,}'.format(npJf), "F;\t" + '{0:,}'.format(npJorf), "ORF;\t" + '{0:,}'.format(npJp), "P\n"
 
-    print 'Non-productive rearrangement statistics:'
-    print '\tOut of frame, no stop codon:\t {:.2%}'.format(fail_count['OOF_without_stop']/NP_count) + "\t(" + str(fail_count['OOF_without_stop']) + ")"
-    print '\tOut of frame, with stop codon:\t {:.2%}'.format(fail_count['OOF_with_stop']/NP_count) + "\t(" + str(fail_count['OOF_with_stop']) + ")"
-    print '\tIn frame, with stop codon:\t {:.2%}'.format(fail_count['IF_with_stop']/NP_count) + "\t(" + str(fail_count['IF_with_stop']) + ")"
-    print '\tNo conserved cysteine at start:\t {:.2%}'.format(fail_count['No_conserved_cysteine']/NP_count) + "\t(" + str(fail_count['No_conserved_cysteine']) + ")"
-    print '\tNo conserved FGXG at end:\t {:.2%}'.format(fail_count['No_conserved_FGXG']/NP_count) + "\t(" + str(fail_count['No_conserved_FGXG']) + ")"
+    #print 'Non-productive rearrangement statistics:'
+    #print '\tOut of frame, no stop codon:\t {:.2%}'.format(fail_count['OOF_without_stop']/NP_count) + "\t(" + str(fail_count['OOF_without_stop']) + ")"
+    #print '\tOut of frame, with stop codon:\t {:.2%}'.format(fail_count['OOF_with_stop']/NP_count) + "\t(" + str(fail_count['OOF_with_stop']) + ")"
+    #print '\tIn frame, with stop codon:\t {:.2%}'.format(fail_count['IF_with_stop']/NP_count) + "\t(" + str(fail_count['IF_with_stop']) + ")"
+    #print '\tNo conserved cysteine at start:\t {:.2%}'.format(fail_count['No_conserved_cysteine']/NP_count) + "\t(" + str(fail_count['No_conserved_cysteine']) + ")"
+    #print '\tNo conserved FGXG at end:\t {:.2%}'.format(fail_count['No_conserved_FGXG']/NP_count) + "\t(" + str(fail_count['No_conserved_FGXG']) + ")"
 
-    if (counts['prod_recomb'] + NP_count) <> line_count:
-      print "\nError detected: Sum of productive and non-productive sorted sequences does not equal total number of input sequences"
+    #if (counts['prod_recomb'] + NP_count) <> line_count:
+      #print "\nError detected: Sum of productive and non-productive sorted sequences does not equal total number of input sequences"
     
