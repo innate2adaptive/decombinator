@@ -35,6 +35,9 @@
 
 # BIG FIX - make translation files for original/mouse/gammadelta
 
+# BIG FIX - make work on any DCR file (including n12) 
+
+# SMALL FIX - gzip NP file output
 
 # Note that in addition to the same FASTA files that Decombinator makes use of, this script requires additional '.translate' files
   # These contain four comma-delimited fields, which allow for the correct translation of TCR sequences from DCR indexes

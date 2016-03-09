@@ -55,10 +55,10 @@
 ##################
     
 # A fastq file will be produced for each sample listed in the index file, in the modified format, containing all reads that matched
-# So we go from:        R1 - [6s|X1|----VDJ-----]
+# So we go from:        R1 - [6s|X1|----J(D)V-----]  
 #                       R2 - [X2]
 #                       R3 - [8s|N1|8s|N2|2s|-----5'UTR-----]
-# To: ========>         out- [8s|N1|8s|N2|2s|X1|X2|----VDJ-----]         
+# To: ========>         out- [8s|N1|8s|N2|2s|X1|X2|----J(D)V-----]         
 # Where X = hexamer index sequence, N = random barcode sequence, and Ys = spacer sequences of length Y
   # The 8s sequences can be used downstream to identify the presence and location of random barcode N sequences
   # 2s is also kept to allow for the possibility finding N sequences produced from slipped reads
