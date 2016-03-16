@@ -33,9 +33,7 @@
 
 # BIG FIX - sort documentation
 
-# BIG FIX - make translation files for original/mouse/gammadelta
-
-# BIG FIX - make work on any DCR file (including n12) 
+# BIG FIX - make translation files for gammadelta
 
 # SMALL FIX - gzip NP file output
 
@@ -395,18 +393,29 @@ if __name__ == '__main__':
       counts['line_count'] += 1
       
       comma = [m.start() for m in re.finditer(',', line)]           
-
-      in_dcr = str(line[:comma[4]])
       
+      if len(comma) == 4: # pure DCR file, just the five fields (no frequency)
+        in_dcr = line.rstrip()
+        use_freq = False
+        frequency = 1
+      elif len(comma) == 5: # assume that we're working from a .freq file (or equivalent)
+        in_dcr = str(line[:comma[4]])
+        frequency = int(line[comma[4]+2:].rstrip())
+        use_freq = True
+      elif len(comma) > 5: # assume that it's an n12 file (no frequency)
+        in_dcr = str(line[:comma[4]])
+        use_freq = False
+        frequency = 1
+      else:
+        print "Based on the number of commas per line, script is unable to determine file type. Please ensure you're inputting a valid file (e.g. .n12 or .freq)."
+        sys.exit()
+        
       cdr3 = get_cdr3(in_dcr, chain, v_regions, j_regions, v_translate_position, v_translate_residue, j_translate_position, j_translate_residue, inputargs['includeGXG'])
-      
-      frequency = int(line[comma[4]+2:].rstrip())
       
       dcr_cdr3 = in_dcr + ":" + cdr3
       
       v = int(line[:comma[0]])
       j = int(line[comma[0]+2:comma[1]])
-     
      
       if cdr3 not in fails:
         counts['prod_recomb'] += 1    
@@ -422,7 +431,7 @@ if __name__ == '__main__':
         fail_count[cdr3] += 1
         productivity = "NP"
       
-      # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic gene) #fix RM
+      # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic gene) 
       if inputargs['tags'] == 'extended' and inputargs['species'] == 'human': 
         counts[productivity + "_" + "V-" + v_functionality[v]] += 1
         counts[productivity + "_" + "J-" + j_functionality[j]] += 1
@@ -439,7 +448,10 @@ if __name__ == '__main__':
       outfile = open(outfilename, "w")
         
       for x in dcr_cdr3_count:
-        outtext = x + ", " + str(dcr_cdr3_count[x])
+        if use_freq == True:
+          outtext = x + ", " + str(dcr_cdr3_count[x])
+        else:
+          outtext = x 
         print >> outfile, outtext
           
       infile.close()
@@ -451,11 +463,15 @@ if __name__ == '__main__':
       outfile = open(outfilename, "w")
 
       for x in cdr3_count:
-        outtext = x + ", " + str(cdr3_count[x])
+        if use_freq == True:
+          outtext = x + ", " + str(cdr3_count[x])
+        else:
+          outtext = x 
         print >> outfile, outtext
           
       infile.close()
       outfile.close()
+    print "CDR3 data written to", outfilename
       
     # Compress output
     if inputargs['dontgzip'] == False:
@@ -482,7 +498,10 @@ if __name__ == '__main__':
       npfile = open(npfilename, "w")
 
       for x in np_cdr3_count:
-        outtext = x + ", " + str(np_cdr3_count[x])
+        if use_freq == True:
+          outtext = x + ", " + str(np_cdr3_count[x])
+        else:
+          outtext = x 
         print >> npfile, outtext
       npfile.close()    
          
@@ -494,10 +513,9 @@ if __name__ == '__main__':
         os.unlink(npfilename)
 
         npfilename = npfilename + ".gz"
-        
+      
+      print "Non-productive rearrangement data written to", npfilename
       sort_permissions(npfilename)  
-               
-    #sys.exit()  
     
     # Write data to summary file
     if inputargs['suppresssummary'] == False:
