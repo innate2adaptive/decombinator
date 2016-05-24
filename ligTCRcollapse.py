@@ -630,22 +630,26 @@ if __name__ == '__main__':
         'lenthreshold', 'percentlevdist', 'avgQthreshold']:
         summstr = summstr + s + "," + str(inputargs[s]) + "\n"
 
-      counts['pc_uniq_dcr_kept'] = ( counts['number_output_unique_dcrs'] / counts['number_input_unique_dcrs'] ) * 100
-      counts['pc_total_dcr_kept'] = ( counts['number_output_total_dcrs'] / counts['number_input_total_dcrs'] ) * 100
+      counts['pc_input_dcrs'] = counts['number_input_total_dcrs'] / counts['readdata_input_dcrs']
+      counts['pc_uniq_dcr_kept'] = ( counts['number_output_unique_dcrs'] / counts['number_input_unique_dcrs'] )
+      counts['pc_total_dcr_kept'] = ( counts['number_output_total_dcrs'] / counts['number_input_total_dcrs'] )
       
       counts['avg_input_tcr_size'] = counts['number_input_total_dcrs'] / counts['number_input_unique_dcrs']
       counts['avg_output_tcr_size'] = counts['number_output_total_dcrs'] / counts['number_output_unique_dcrs']
+      counts['avg_RNA_duplication'] = 1 / counts['pc_total_dcr_kept']
       
       # success properties
       summstr = summstr + "\nInputUncollapsedDCRLines," + str(counts['readdata_input_dcrs']) \
         + "\nUniqueDCRsPassingFilters," + str(counts['number_input_unique_dcrs']) \
         + "\nTotalDCRsPassingFilters," + str(counts['number_input_total_dcrs']) \
+        + "\nPercentDCRPassingFilters(withbarcode)," + str( round(counts['pc_input_dcrs'], 3 ) ) \
         + "\nUniqueDCRsPostCollapsing," + str(counts['number_output_unique_dcrs']) \
         + "\nTotalDCRsPostCollapsing," + str(counts['number_output_total_dcrs']) \
-        + "\nPercentUniqueDCRsKept," + str( round(counts['pc_uniq_dcr_kept'], 2 ) ) + "\%" \
-        + "\nPercentTotalDCRsKept," + str( round(counts['pc_total_dcr_kept'], 2 ) ) + "\%" \
+        + "\nPercentUniqueDCRsKept," + str( round(counts['pc_uniq_dcr_kept'], 3 ) ) \
+        + "\nPercentTotalDCRsKept," + str( round(counts['pc_total_dcr_kept'], 3 ) ) \
         + "\nAverageInputTCRAbundance," + str( round(counts['avg_input_tcr_size'], 3 ) ) \
         + "\nAverageOutputTCRAbundance," + str( round(counts['avg_output_tcr_size'], 3 ) ) \
+        + "\nAverageRNAduplication," + str( round(counts['avg_RNA_duplication'], 3 ) ) \
         + "\n\nBarcodeFail_ContainedNs," + str(counts['getbarcode_fail_N']) \
         + "\nBarcodeFail_SpacersNotFound," + str(counts['readdata_fail_no_bclocs']) \
         + "\nBarcodeFail_LowQuality," + str(counts['readdata_fail_low_barcode_quality']) 
