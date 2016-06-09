@@ -682,10 +682,10 @@ if __name__ == '__main__':
                         
         if recom:
           counts['vj_count'] += 1
-        if inputargs['nobarcoding'] == False:
-          vdjqual = qual[30:]  
-        else:
-          vdjqual = qual
+          if inputargs['nobarcoding'] == False:
+            vdjqual = qual[30:]  
+          else:
+            vdjqual = qual
           
           if frame == 'reverse':
             tcrseq = revcomp(vdj)[recom[5]:recom[6]]
