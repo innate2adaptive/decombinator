@@ -656,7 +656,7 @@ if __name__ == '__main__':
           bc = seq[:30]   
           vdj = seq[30:]
         else:
-          vdj = seq[30:]
+          vdj = seq
         
         if inputargs['nobarcoding'] == False:
           if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
@@ -674,7 +674,7 @@ if __name__ == '__main__':
           recom = dcr(vdj, inputargs)
           frame = 'forward'
         elif inputargs['frames'] == 'both':
-          recom = dcr(revcomp, inputargs)
+          recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
           if not recom:
             recom = dcr(vdj, inputargs)
