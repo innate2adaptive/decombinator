@@ -78,7 +78,7 @@
 ##################
 #### PACKAGES ####  
 ##################
-
+from __future__ import division
 import sys          
 import os
 import urllib2
@@ -682,7 +682,10 @@ if __name__ == '__main__':
                         
         if recom:
           counts['vj_count'] += 1
+        if inputargs['nobarcoding'] == False:
           vdjqual = qual[30:]  
+        else:
+          vdjqual = qual
           
           if frame == 'reverse':
             tcrseq = revcomp(vdj)[recom[5]:recom[6]]
@@ -757,13 +760,16 @@ if __name__ == '__main__':
         if not os.path.exists(summaryname): 
           summaryfile = open(summaryname, "w")
           break
-        
+
     # Generate string to write to summary file 
     summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] + "\nOutputFile," + outfilenam \
       + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\nInputArguments:,\n"
     for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'frames', 'lenthreshold']:
       summstr = summstr + s + "," + str(inputargs[s]) + "\n"
-    summstr = summstr + "\nNumberReadsInput," + str(counts['read_count']) + "\nNumberReadsDecombined," + str(counts['vj_count']) 
+
+    counts['pc_decombined'] = counts['vj_count'] / counts['read_count']
+
+    summstr = summstr + "\nNumberReadsInput," + str(counts['read_count']) + "\nNumberReadsDecombined," + str(counts['vj_count']) + "\nPercentReadsDecombined," + str( round(counts['pc_decombined'], 3))
 
     # Half tag matching details
     summstr = summstr + "\n\nReadsAssignedUsingHalfTags:,\nV1error," + str(counts['verr1']) \
