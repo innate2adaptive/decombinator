@@ -682,10 +682,7 @@ if __name__ == '__main__':
                         
         if recom:
           counts['vj_count'] += 1
-          if inputargs['nobarcoding'] == False:
-            vdjqual = qual[30:]  
-          else:
-            vdjqual = qual
+          vdjqual = qual[30:]  
           
           if frame == 'reverse':
             tcrseq = revcomp(vdj)[recom[5]:recom[6]]
@@ -702,7 +699,7 @@ if __name__ == '__main__':
             outfile.write(dcr_string + '\n')
 
           else:
-            # FIIIIIIIIIIIX shortened write dcr string to counter, then at end print all to outfile
+            # FIX shortened write dcr string to counter, then at end print all to outfile
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
               del_j = str(recom[3]) + ',', nt_insert = recom[4])      
             found_tcrs[dcr_string] += 1
