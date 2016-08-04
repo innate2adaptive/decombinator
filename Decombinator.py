@@ -120,7 +120,7 @@ def args():
   parser.add_argument(
       '-pf', '--prefix', type=str, help='Specify the prefix of the output DCR file. Default = \"dcr_\"', required=False, default="dcr_")
   parser.add_argument(
-      '-fr', '--frames', type=str, help='Specify the frames to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")
+      '-or', '--orientation', type=str, help='Specify the orientation to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")  
   parser.add_argument(
       '-tg', '--tags', type=str, help='Specify which Decombinator tag set to use (extended or original). Default = extended', required=False, default="extended")
   parser.add_argument(
@@ -667,13 +667,13 @@ if __name__ == '__main__':
           print '\t read', counts['read_count'] 
     
         # Get details of the VJ recombination
-        if inputargs['frames'] == 'reverse':
+        if inputargs['orientation'] == 'reverse':
           recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
-        elif inputargs['frames'] == 'forward':
+        elif inputargs['orientation'] == 'forward':
           recom = dcr(vdj, inputargs)
           frame = 'forward'
-        elif inputargs['frames'] == 'both':
+        elif inputargs['orientation'] == 'both':
           recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
           if not recom:
