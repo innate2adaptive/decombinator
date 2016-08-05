@@ -49,7 +49,7 @@
   
   # -ex/--extension: Allows users to specify the file extension of the Decombinator TCR index files produced. Default = '.n12'
 
-  # -fr/--frames: Allows users to specify which DNA orientations to check for TCR reads. Default = reverse only, as that's what the protocol produces.
+  # -or/--orientation: Allows users to specify which DNA orientations to check for TCR reads. Default = reverse only, as that's what the protocol produces.
     # This will likely need to be changed for analysing data produced by protocols other than our own.
 
   # -tg/--tags: Allows users to specify which tag set they wish to use. For human alpha/beta TCRs, a new 'extended' tag set is recommended, as it covers more genes.
@@ -120,7 +120,7 @@ def args():
   parser.add_argument(
       '-pf', '--prefix', type=str, help='Specify the prefix of the output DCR file. Default = \"dcr_\"', required=False, default="dcr_")
   parser.add_argument(
-      '-fr', '--frames', type=str, help='Specify the frames to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")
+      '-or', '--orientation', type=str, help='Specify the orientation to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")  
   parser.add_argument(
       '-tg', '--tags', type=str, help='Specify which Decombinator tag set to use (extended or original). Default = extended', required=False, default="extended")
   parser.add_argument(
@@ -401,10 +401,11 @@ def import_tcr_info(inputargs):
   global chainnams, chain, counts
   counts = coll.Counter()
   chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
-    
-  nochain_error = "TCR chain not recognised. \n \
-  Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
-  or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
+   
+  # Detect whether chain specified in filename
+  inner_filename_chains = [x for x in chainnams.values() if x in inputargs['fastq'].lower()]
+  if len(inner_filename_chains) == 1:
+      counts['chain_detected'] = 1
   
   if inputargs['chain']:
     if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
@@ -419,11 +420,15 @@ def import_tcr_info(inputargs):
       print nochain_error
       sys.exit()
   else:
+    
     # If no chain provided, try and infer from filename
-    inner_filename_chains = [x for x in chainnams.values() if x in inputargs['fastq'].lower()]
-    if len(inner_filename_chains) == 1:
+    if counts['chain_detected'] == 1:
       chain = inner_filename_chains[0][0]  
+          
     else:
+      nochain_error = "TCR chain not recognised. \n \
+      Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
+      or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
       print nochain_error
       sys.exit()
       
@@ -632,8 +637,12 @@ if __name__ == '__main__':
   if os.sep in samplenam: # Cope with situation where specified FQ file is in a subdirectory
     samplenam = samplenam.split(os.sep)[-1]
 
-  name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
-   
+  # If chain had not been autodetected, write it out into output file
+  if counts['chain_detected'] == 1:
+    name_results = inputargs['prefix'] + samplenam
+  else:
+    name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
+  
   if inputargs['nobarcoding'] == False:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
   else:
@@ -667,13 +676,13 @@ if __name__ == '__main__':
           print '\t read', counts['read_count'] 
     
         # Get details of the VJ recombination
-        if inputargs['frames'] == 'reverse':
+        if inputargs['orientation'] == 'reverse':
           recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
-        elif inputargs['frames'] == 'forward':
+        elif inputargs['orientation'] == 'forward':
           recom = dcr(vdj, inputargs)
           frame = 'forward'
-        elif inputargs['frames'] == 'both':
+        elif inputargs['orientation'] == 'both':
           recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
           if not recom:
@@ -761,7 +770,7 @@ if __name__ == '__main__':
     # Generate string to write to summary file 
     summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] + "\nOutputFile," + outfilenam \
       + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\nInputArguments:,\n"
-    for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'frames', 'lenthreshold']:
+    for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'orientation', 'lenthreshold']:
       summstr = summstr + s + "," + str(inputargs[s]) + "\n"
 
     counts['pc_decombined'] = counts['vj_count'] / counts['read_count']
