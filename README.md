@@ -29,10 +29,10 @@ Decombinator addresses the problem of speed by employing a rapid and [highly eff
 
 The Decombinator suite of scripts are written in **Python v2.7**, and the default parameters are set to analyse data as produced by the ligation-mediated 5' RACE TCR amplification pipeline. The pipeline consists of four scripts, which are applied sequentially to the output of the previous starting with TCR-containing FASTQ files (produced using the barcoding 5' RACE protocol):
 
-1. Raw FASTQ files demultiplexed to individual samples
-2. Sample specific files searched for rearranged TCRs with Decombinator
+1. Raw FASTQ files are demultiplexed to individual samples
+2. Sample specific files are then searched for rearranged TCRs with Decombinator
 3. Decombined data is error-corrected ('collapsed') with reference to the random barcode sequences added prior to amplification
-4. Error-corrected data is translated and CDR3 sequences extracted
+4. Error-corrected data is translated and CDR3 sequences are extracted
 
 ---
 
