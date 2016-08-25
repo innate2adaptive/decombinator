@@ -75,7 +75,7 @@ The current version of Decombinator has tag sets for the analysis of alpha/beta 
 
 * All scripts accept gzipped or uncompressed files as input
 * By default, all output files will be gz compressed
- * This can be suppressed by using the "don't zip" flag: `-dz True`
+ * This can be suppressed by using the "don't zip" flag: `-dz`
 * All files also output a summary log file
  * We strongly recommend you familarise yourself with them.
 * All options for a given script can be accessed by using the help flag `-h`
@@ -130,7 +130,7 @@ zcat \*R1\* | gzip > R1.fq.gz
 gunzip -c \*R1\* | gzip > R1.fq.gz
 ```
 
-If you suspect your indexing might be wrong you can use the `'outputall'` flag (`-a True`). This outputs demultiplexed files using all possible combination of indexes used in our protocol, and can be used to identify the actual index combinations contained in a run and locate possible cross-contamination. Note that this is only recommended for troubleshooting and not for standard use as it will decrease the number of successfully demultiplexed reads per samples due to fuzzy index matching. 
+If you suspect your indexing might be wrong you can use the `'outputall'` flag (`-a`). This outputs demultiplexed files using all possible combination of indexes used in our protocol, and can be used to identify the actual index combinations contained in a run and locate possible cross-contamination. Note that this is only recommended for troubleshooting and not for standard use as it will decrease the number of successfully demultiplexed reads per samples due to fuzzy index matching. 
 
 Addition of new index sequences will currently require some slight modification of the code, although if people requested the use of a more easily edited external index file that could be incorporated in the next update.
 
@@ -191,7 +191,7 @@ By default Decombinator assigns a 'dcr_' prefix and '.n12' file extension to the
 As Decombinator uses tags to identify different V/J genes it can only detect those genes that went into the tag set. Both human and mouse have an 'original' tag set, which contains all of the prototypical alleles for each 'functional' TCR gene (as defined by IMGT).
 There is also an 'extended' tag set for human alpha/beta genes, which includes tags for the prototypical alleles of all genes, regardless of predicted functionality. This is the default and recommended tag set for humans (due to increased specificity and sensitivity), but users can change this using the `-tg` flag.
 
-Users wanting to run `Decombinator.py` on their own, non-barcoded data should set the flag `-nbc True`. Choosing this option will stop Decombinator from outputting the additional fields required for demultiplexing: instead each classifier will simply be appended an abundance, indicating how many times each identifier appeared in that run. Note that this changes the default file extension to '.nbc', which users may wish to change.
+Users wanting to run `Decombinator.py` on their own, non-barcoded data should set the flag `-nbc`. Choosing this option will stop Decombinator from outputting the additional fields required for demultiplexing: instead each classifier will simply be appended an abundance, indicating how many times each identifier appeared in that run. Note that this changes the default file extension to '.nbc', which users may wish to change.
 
 The supplementary files required by Decombinator can be downloaded by the script from GitHub as it runs. If running offline, you need to [download the files](https://github.com/innate2adaptive/Decombinator-Tags-FASTAs) to the directory where you run Decombinator, or specifically inform it of the path using the `-tfdir` flag.
 
@@ -286,10 +286,10 @@ python CDR3translator.py -in dcr_AnotherSample1.freq -c b
 Outputs a '.cdr3' file by default, which looks like:
 `CASSISGRLDTQYF, 1`
 
-Alternatively you can use the 'dcr output' flag (`-do True`) to output DCRs alongside the CDR3s they encode, e.g.:
+Alternatively you can use the 'dcr output' flag (`-do`) to output DCRs alongside the CDR3s they encode, e.g.:
 `18, 8, 5, 5, ATCAGCGGGAGATT:CASSISGRLDTQYF, 1`
 
-You can also use the 'nonproductive' flag  (`-np True`) to output non-productive rearrangements to a separate file:
+You can also use the 'nonproductive' flag  (`-np`) to output non-productive rearrangements to a separate file:
 `15, 3, 1, 5, CTGTATCAGGGGGCC:OOF_with_stop, 1`
 
 The residues that make up the 'GXG' section of the 'FGXG' motif can also be included if desired, through use of the `-gxg` flag.
@@ -316,11 +316,11 @@ The residues that make up the 'GXG' section of the 'FGXG' motif can also be incl
  * By far the most common libraries analysed to date are human αβ repertoires
 * If running on mouse and/or gamma/delta repertoires, it may be worth altering the defaults towards the top of the code to save on having to repeatedly have to set the defaults
 * If running on data not produced using our protocol, likely only the Decombinator and translation scripts will be useful 
-  * The `-nbc` (non-barcoding) flag will likely need to be set to `True` (unless you perform analogous UMI-positioning to `Demultiplexor.py`)
+  * The `-nbc` (non-barcoding) flag will likely need to be set (unless you perform analogous UMI-positioning to `Demultiplexor.py`)
   * If your libraries contain TCRs in the forward orientation, or in both, this will also need to set with the `-or` flag
 
 ## Keep track of what's going on
-* Using the 'dontgzip' flag ('-dz True') will stop the scripts automatically compressing the output data, which will minimise processing time (but take more space)
+* Using the 'dontgzip' flag ('-dz') will stop the scripts automatically compressing the output data, which will minimise processing time (but take more space)
  * It is recommend to keep gzipped options as default
  * Compressing/decompressing data slightly slows your analysis, but dramatically reduces the data storage footprint
 * Don't be afraid to look at the code inside the scripts to figure out what's going on
