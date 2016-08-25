@@ -1,32 +1,33 @@
-# ligTCRcollapse.py v1.0
-# Katharine Best and James M. Heather, January 2016, UCL
+# Collapsinator
+# Katharine Best and James M. Heather, August 2016, UCL
+# https://innate2adaptive.github.io/Decombinator/
 
 ##################
 ### BACKGROUND ###
 ##################
 
-# Takes the output files of a verbose Decombinator (specifically ligTCRDCR.py) and performs collapsing and error correction
-# A modified version of KB's script collapsinator_20141126.py
-  # Itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644)
+# Takes the output files of Decombinator (run using the barcoding option) and performs collapsing and error correction
+# This version is a modified version of KB's script collapsinator_20141126.py
+  # That was itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644)
 
 ##################
 ###### INPUT #####
 ##################
 
-  # -t/--threshold: 
-    # Default = 
+# Takes as input .n12 files produced by Decombinator (v3), assuming it has been run on suitably barcoded and demultiplexed data.
 
 # Other optional flags:
   
-  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. Default = False
+  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
   
-  # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. Default = False
+  # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
   
   # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
-    # Helps in monitoring progress of large batches. Default = False.
+    # Helps in monitoring progress of large batches. D
 
-# To see all options, run: python ligTCRcollapse.py -h
+  # The other optional flags are somewhat complex, and caution is advised in their alteration.
 
+# To see all options, run: python Collapsinator.py -h
 
 # Input files need to be in the appropriate format, consisting of:
   # V index, J index, # V deletions, # J deletions, insert, ID, inter-tag TCR sequence, inter-tag quality, barcode sequence, barcode quality
@@ -48,6 +49,8 @@ import gzip
 import regex
 import os, sys
 
+__version__ = '2.1'
+
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
@@ -57,7 +60,7 @@ def args():
 
   # Help flag
   parser = argparse.ArgumentParser(
-      description='Collapse and error correct Decombined TCR sequences produced using the ligation TCRseq protocol')
+      description='Collapse and error correct Decombined TCR sequences produced using the Chain lab\'s ligation TCRseq protocol. Please see https://innate2adaptive.github.io/Decombinator/ for details.')
   # Add arguments
   parser.add_argument(
       '-in', '--infile', type=str, help='File containing raw verbose Decombinator output\ni.e. \
@@ -78,22 +81,22 @@ def args():
       '-bc', '--bcthreshold', type=int, help='Number of sequence edits that are allowed to consider two barcodes to be derived from same originator \
       during clustering. Default = 2.', required=False, default=2)
   parser.add_argument(
-      '-s', '--suppresssummary', type=bool, help='Output summary data (True/False)', required=False, default=False)
+      '-s', '--suppresssummary',  action='store_true', help='Suppress the production of output summary data log', required=False)
   parser.add_argument(
-      '-dz', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
+      '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
   parser.add_argument(
-      '-dc', '--dontcount', type=bool, help='Block the line count from being shown (True/False). Default = False.', required=False, default=False)
+      '-dc', '--dontcount', action='store_true', help='Block the line count from being shown', required=False)
   parser.add_argument(
       '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"freq\"', required=False, default="freq")
   parser.add_argument(
-      '-N', '--allowNs', type=bool, help='Whether to allow VJ rearrangements containing ambiguous base calls (\'N\'). Default = False', required=False, default=False)
+      '-N', '--allowNs', action='store_true', help='Used to allow VJ rearrangements containing ambiguous base calls (\'N\')', required=False)
   parser.add_argument(
       '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
   parser.add_argument(
-      '-di', '--dontcheckinput', type=bool, help='Override the inputfile sanity check (True/False). Default = False.', required=False, default=False)
+      '-di', '--dontcheckinput', action='store_true', help='Override the inputfile sanity check', required=False)
   parser.add_argument(
-      '-bd', '--barcodeduplication', type=bool, help='Optionally output a file containing the final list of clustered barcodes, and their frequencies. Default = False.',\
-        required=False, default=False)
+      '-bd', '--barcodeduplication', action='store_true', help='Optionally output a file containing the final list of clustered barcodes, and their frequencies',\
+        required=False
   
   return parser.parse_args()
 
@@ -176,8 +179,6 @@ def get_barcode(bcseq):
     Returns a list of four numbmers, giving the start and stop positions of N1 and N2 respectively.
     """
     spcr = "GTCGTGAT"
-    
-    # FIX - test whether rejected bc seqs have lower avg qual
     
     if "N" in bcseq and inputargs['allowNs'] == False:    # ambiguous base-call check 
       counts['getbarcode_fail_N'] += 1
@@ -598,7 +599,6 @@ if __name__ == '__main__':
     counts['end_time'] = time()    
     counts['time_taken_total_s'] = counts['end_time'] - counts['start_time']
     
-    
     #######################################
     
     # Write data to summary file
@@ -653,18 +653,7 @@ if __name__ == '__main__':
         + "\n\nBarcodeFail_ContainedNs," + str(counts['getbarcode_fail_N']) \
         + "\nBarcodeFail_SpacersNotFound," + str(counts['readdata_fail_no_bclocs']) \
         + "\nBarcodeFail_LowQuality," + str(counts['readdata_fail_low_barcode_quality']) 
-        #+ "\n," + str(counts['']) 
-        #+ "\n," + str(counts['']) 
-        #+ "\n," + str(counts['']) 
-        #+ "\n," + str(counts['']) 
-        #+ "\n," + str(counts['']) 
-        #+ "\n," + str(counts['']) 
-        #+ "\n," + str(counts['']) 
-        #+ "\n," + str(counts['']) 
-          
+
       print >> summaryfile, summstr 
       summaryfile.close()
-
-
-########################################################################################################################
 

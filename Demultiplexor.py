@@ -1,5 +1,6 @@
-# ligTCRdemultiplex.py v1.0
-# James M. Heather, December 2015, UCL
+# Demultiplexor
+# James M. Heather, August 2016, UCL
+# https://innate2adaptive.github.io/Decombinator/
 
 ##################
 ### BACKGROUND ###
@@ -22,12 +23,14 @@
 # A fourth optional comma delimited file detailing sample index specifics is strongly recommended, allowing production of correctly named files
   # File must give the following details, one sample (or index combination) per line, with no empty lines:
     # Sample name, SP1/R1 index (I), SP2/R2 index (L):
-      # e.g.: P005v1,1,11
-# e.g. run: python ligTCRdemultiplex.py -r1 read1.fastq -r2 read2.fastq -i1 indexread1.fastq -ix indexes.ndx
+      # e.g.: AlphaSample,1,11
+    # If you include one and only one chain description (i.e. alpha, beta, gamma or delta) into your sample name, you need not set chain in Decombinator
+    
+# e.g. run: python Demultiplexor.py -r1 read1.fastq -r2 read2.fastq -i1 indexread1.fastq -ix indexes.ndx
 
 # Other optional flags:
   
-  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. Default = False
+  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
   
   # -a/--outputall: Output the results of all possible index combinations currently used in protocol
     # e.g. Useful in finding potential cross-contaminating or incorrectly indexed samples
@@ -36,18 +39,18 @@
   # -t/--threshold: Specifies the threshold by which indexes can be clustered by fuzzy string matching, allowing for sequencing errors
     # Default = 2. Setting to zero turns off fuzzy matching, i.e. only allowing exact string matching
   
-  # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. Default = False
-    # 'True' would make script execute faster, but data will require more storage space.
+  # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
+    # Using this flag makes the script execute faster, but data will require more storage space. 
     
   # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
-    # Helps in monitoring progress of large batches. Default = False.
+    # Helps in monitoring progress of large batches. 
     
   # -fz/--fuzzylist: Output a list of FASTQ IDs of reads which are demultiplexed using fuzzy (i.e. non-exact) index matching, within the specified threshold.
     # Default = False, but can be useful to investigate suspected cases of poor quality index reads or clashing sequences.
 
   # -ex/--extension: Allows users to specify the file extension of the demultiplexed FASTQ files produced.
 
-# To see all options, run: python ligTCRdemultiplex.py -h
+# To see all options, run: python Demultiplexor.py -h
 
 
 ##################
@@ -77,6 +80,8 @@ import os
 import Levenshtein as lev
 import collections as coll
 
+__version__ = '2.1'
+
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
@@ -86,7 +91,7 @@ def args():
 
   # Help flag
   parser = argparse.ArgumentParser(
-      description='Script to demultiplex FASTQ data produced using the ligation TCRseq protocol')
+      description='Script to demultiplex FASTQ data produced using the Chain labs\' ligation TCRseq protocol. Please see https://innate2adaptive.github.io/Decombinator/ for details.')
   # Add arguments
   parser.add_argument(
       '-r1', '--read1', type=str, help='Read 1 FASTQ file', required=True)
@@ -99,13 +104,13 @@ def args():
   parser.add_argument(
       '-t', '--threshold', type=int, help='Edit distance allowed for fuzzy-string index matching (default=2)', required=False, default=2)
   parser.add_argument(
-      '-s', '--suppresssummary', type=bool, help='Output summary data (True/False)', required=False, default=False)
+      '-s', '--suppresssummary', action='store_true', help='Output summary data', required=False)
   parser.add_argument(
-      '-a', '--outputall', type=bool, help='Output all possible index combinations (True/False)', required=False, default=False)
+      '-a', '--outputall', action='store_true', help='Output all possible index combinations', required=False)
   parser.add_argument(
-      '-dz', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
+      '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False)
   parser.add_argument(
-      '-dc', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
+      '-dc', '--dontcount', action='store_true', help='Show the count (True/False)', required=False)
   parser.add_argument(
       '-fl', '--fuzzylist', type=bool, help='Output a list of those reads that demultiplexed using fuzzy index matching (True/False)', required=False, default=False)  
   parser.add_argument(

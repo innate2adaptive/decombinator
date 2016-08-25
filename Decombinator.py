@@ -1,11 +1,12 @@
-# ligTCRDCR.py v1.0 = Decombinator v3.0
-# James M. Heather, January 2016, UCL
+# Decombinator 
+# James M. Heather, August 2016, UCL
+# https://innate2adaptive.github.io/Decombinator/
 
 ##################
 ### BACKGROUND ###
 ##################
 
-# Searches FASTQ reads (produced through ligTCRdemultiplex.py) for rearranged TCR chains
+# Searches FASTQ reads (produced through Demultiplexor.py) for rearranged TCR chains
 # Can currently analyse human and mouse TCRs, both alpha/beta and gamma/delta chains
   # NB: Human alpha/beta TCRs are the most thoroughly tested, due to the nature of the data we generated. YMMV.
 
@@ -20,10 +21,10 @@
 ###### INPUT #####
 ##################
 
-# As with entire pipeline, ligTCRDCR using command line arguments to provide user parameters
-  # All arguments can be read by viewing the help data, by running python ligTCRDCR.py -h
+# As with entire pipeline, Decombintator is run using command line arguments to provide user parameters
+  # All arguments can be read by viewing the help data, by running python Decombintator.py -h
 
-# Takes FASTQ reads produced by ligTCRdemultiplex.py (unzipped or gzipped), which is the minimum required command line input, using the -fq flag
+# Takes FASTQ reads produced by Demultiplexor.py (unzipped or gzipped), which is the minimum required command line input, using the -fq flag
   # NB: Data must have been generated using the appropriate 5'RACE ligation protocol, using the correct SP2-I8-6N-I8-6N oligonucleotide
 
 # The TCR chain locus to look for can be explicitly specified using the -c flag 
@@ -34,15 +35,15 @@
 
 # Other optional flags:
   
-  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. Default = False
+  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
       
-  # -dz/--dontgzip: Suppress the automatic compression of output decombined TCR files with gzip. Default = False
-    # 'True' would make script execute faster, but data will require more storage space.
+  # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
+    # Using this flag makes the script execute faster, but data will require more storage space. 
     
   # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
-    # Helps in monitoring progress of large batches. Default = False.
+    # Helps in monitoring progress of large batches.
   
-  # -dk/--dontcheck: Suppress the FASTQ sanity check. Default = False.
+  # -dk/--dontcheck: Suppress the FASTQ sanity check. 
     # Strongly recommended to leave alone: sanity check inspects first FASTQ read for basic FASTQ parameters.
   
   # -pf/--prefix: Allows users to specify the prefix of the Decombinator TCR index files produced. Default = 'dcr_'
@@ -58,26 +59,30 @@
   # -sp/--species: Current options are only human or mouse. Help could potentially be provided for generation of tags for different species upon request.
   
   # -N/--allowNs: Provides users the option to allow 'N's (ambiguous base calls), overriding the filter that typically removes rearrangements that contain them.
-    # Default = False, recommended to leave as such, as such bases are both themselves low quality data and predict reads that are generally less trustworthy.
+    # Users are recommended to not allow Ns, as such bases are both themselves low quality data and predict reads that are generally less trustworthy.
     
   # -ln/--lenthreshold: The length threshold which (the inter-tag region of) successful rearrangements must be under to be accepted. Default = 130.
   
   # -tfdir/--tagfastadir: The path to a local copy of a folder containing the FASTA and Decombinator tag files required for offline analysis.
     # Ordinarily such files can be downloaded on the fly, reducing local clutter.
     # By default the script looks for the required files in the present working directory, then in a subdirectory called "Decombinator-Tags-FASTAs", then online.
-    # Files are currently hosted on GitHub, here: https://github.com/JamieHeather/Decombinator-Tags-FASTAs
+    # Files are hosted on GitHub, here: https://github.com/innate2adaptive/Decombinator-Tags-FASTAs
+
+  # -nbc/--nobarcoding: Run Decombinator without any barcoding, i.e. use the whole read. 
+    # Recommended when running on data not produced using the Innate2Adaptive lab's ligation-mediated amplification protocol
 
 ##################
 ##### OUTPUT #####  
 ##################
 
-# Produces a '.n12' file, which is a standard comma-delimited Decombinator output file with several additional fields:
+# Produces a '.n12' file by default, which is a standard comma-delimited Decombinator output file with several additional fields:
   # V index, J index, # V deletions, # J deletions, insert, ID, TCR sequence, TCR quality, barcode sequence, barcode quality
   # NB The TCR sequence given here is the 'inter-tag' region, i.e. the sequence between the start of the found V tag the end of the found J tag 
 
 ##################
 #### PACKAGES ####  
 ##################
+
 from __future__ import division
 import sys          
 import os
@@ -92,6 +97,8 @@ from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
 
+__version__ = '3.1'
+
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
@@ -101,20 +108,20 @@ def args():
 
   # Help flag
   parser = argparse.ArgumentParser(
-      description='Identify rearranged TCR sequences in suitably demultiplexed FASTQ files, producing using the ligation TCRseq protocol.')
+      description='Decombinator v3.1: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
   # Add arguments
   parser.add_argument(
       '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
   parser.add_argument(
       '-c', '--chain', type=str, help='TCR chain (a/b/g/d)', required=False)
   parser.add_argument(
-      '-s', '--suppresssummary', type=bool, help='Output summary data (True/False)', required=False, default=False)
+      '-s', '--suppresssummary', action='store_true', help='Suppress the production of summary data log file', required=False)
   parser.add_argument(
-      '-dz', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
+      '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
   parser.add_argument(
-      '-dk', '--dontcheck', type=bool, help='Skip the FASTQ check (True/False). Default = False', required=False, default=False)  
+      '-dk', '--dontcheck', action='store_true', help='Skip the FASTQ check', required=False, default=False)  
   parser.add_argument(
-      '-dc', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
+      '-dc', '--dontcount', action='store_true', help='Stop Decombinator printing a running count', required=False)
   parser.add_argument(
       '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"n12\"', required=False, default="n12")
   parser.add_argument(
@@ -126,14 +133,14 @@ def args():
   parser.add_argument(
       '-sp', '--species', type=str, help='Specify which species TCR repertoire the data consists of (human or mouse). Default = human', required=False, default="human")
   parser.add_argument(
-      '-N', '--allowNs', type=bool, help='Whether to allow VJ rearrangements containing ambiguous base calls (\'N\'). Default = False', required=False, default=False)
+      '-N', '--allowNs', action='store_true', help='Whether to allow VJ rearrangements containing ambiguous base calls (\'N\'). Default = False', required=False)
   parser.add_argument(
       '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
   parser.add_argument(
       '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
       Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
   parser.add_argument(
-      '-nbc', '--nobarcoding', type=bool, help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False, default=False)
+      '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
 
   return parser.parse_args()
 
@@ -146,13 +153,14 @@ def fastq_check(infile):
   
   success = True
     
-  if infile.endswith('.gz'):
-    with gzip.open(infile) as possfq:
+  #if infile.endswith('.gz'):
+  with opener(infile) as possfq:
+    try:
       read = [next(possfq) for x in range(4)]
-  else:
-    with open(infile) as possfq:
-      read = [next(possfq) for x in range(4)]    
-  
+    except:
+      print "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
+      sys.exit()
+        
   # @ check
   if read[0][0] <> "@":
     success = False
@@ -184,7 +192,7 @@ def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
     fl_opener = open
   else:
     try:
-      fl = "https://raw.githubusercontent.com/JamieHeather/Decombinator-Tags-FASTAs/master/" + expected_file
+      fl = "https://raw.githubusercontent.com/innate2adaptive/Decombinator-Tags-FASTAs/master/" + expected_file
       urllib2.urlopen(urllib2.Request(fl))      # Request URL, see whether is found
       fl_opener = urllib2.urlopen
     except:
@@ -614,6 +622,14 @@ def sort_permissions(fl):
 if __name__ == '__main__':
 
   inputargs = vars(args())
+  
+  print "Running Decombinator version", __version__
+
+  # Determine compression status (and thus opener required)
+  if inputargs['fastq'].endswith('.gz'):
+    opener = gzip.open
+  else:
+    opener = open
 
   # Brief FASTQ sanity check
   if inputargs['dontcheck'] == False:
@@ -648,14 +664,9 @@ if __name__ == '__main__':
   else:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
     found_tcrs = coll.Counter()
-
-  with open(name_results + suffix, 'w') as outfile:
-
-    if inputargs['fastq'].endswith('.gz'):
-      opener = gzip.open
-    else:
-      opener = open
-      
+  
+  # Scroll through input file and find TCRs
+  with open(name_results + suffix, 'w') as outfile:   
     with opener(inputargs['fastq']) as f:
       
       for readid, seq, qual in readfq(f):
@@ -708,7 +719,6 @@ if __name__ == '__main__':
             outfile.write(dcr_string + '\n')
 
           else:
-            # FIX shortened write dcr string to counter, then at end print all to outfile
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
               del_j = str(recom[3]) + ',', nt_insert = recom[4])      
             found_tcrs[dcr_string] += 1
