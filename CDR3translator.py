@@ -1,11 +1,10 @@
-# ligTCRtranslateCDR3.py 
+# CDR3translator
 # James M. Heather, February 2016, UCL
+# https://innate2adaptive.github.io/Decombinator/
 
 ##################
 ### BACKGROUND ###
 ##################
-
-# Built on CDR3ulator.py v2
 
 # Take any decombined data and output the functional CDR3s only
   # CDR3s must be: in-frame; lacking-stop codons, and run from a conserved cysteine to FGXG motif (or appropriate alternatives)
@@ -19,7 +18,8 @@
   # This is typically due to V genes that lack the conserved C residue, or contain stop codons upstream of it.
   # These have been left in, both to provide a single location that describes the whole heterogeneity of the prototypical alpha/beta genes
 
-# New in v2:
+# Built on CDR3ulator.py v2
+# New in v3:
   # Have an option to output a file of non-functional rearrangements 
   # Provides an option to turn off statistics standard out results
     # This now includes the percentages of the different reasons for being assigned non-functional
@@ -30,12 +30,6 @@
 
 # Takes any text file in comma-space (", ") delimited decombinator format
   # 5-part TCR identifier must come first, followed by any additional fields, such as frequency
-
-# BIG FIX - sort documentation
-
-# BIG FIX - make translation files for gammadelta
-
-# SMALL FIX - gzip NP file output
 
 # Note that in addition to the same FASTA files that Decombinator makes use of, this script requires additional '.translate' files
   # These contain four comma-delimited fields, which allow for the correct translation of TCR sequences from DCR indexes
@@ -66,7 +60,7 @@ from __future__ import division
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
-from time import strftime       # fix - add script timer
+from time import strftime       
 import argparse
 import string
 import re
@@ -77,11 +71,10 @@ import urllib2
 import warnings
 import gzip
 
+__version__ = '3.1'
+
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
-warnings.filterwarnings("ignore") 
-   
-   # BIG FIXES - HUMAN/MOUSE, A/B/G/D, NEW SOURCE TAGS ETC
-   
+warnings.filterwarnings("ignore")   
    
 ###################
 #### FUNCTIONS ####
@@ -92,7 +85,7 @@ def args():
 
     # Help flag
     parser = argparse.ArgumentParser(
-        description='Translate and extract CDR3 sequences from Decombinator classifier files.')
+        description='Translate and extract CDR3 sequences from Decombinator classifier files. Please see https://innate2adaptive.github.io/Decombinator/ for details.')
     # Add arguments
     parser.add_argument(
         '-in', '--infile', type=str, help='File containing 5 part Decombinator indexes, (with/without frequencies)', required=True)
@@ -103,28 +96,26 @@ def args():
     parser.add_argument(
         '-tg', '--tags', type=str, help='Specify which Decombinator tag set to use (extended or original). Default = extended', required=False, default="extended")
     parser.add_argument(
-        '-s', '--suppresssummary', type=bool, help='Output summary data (True/False)', required=False, default=False)
+        '-s', '--suppresssummary',  action='store_true', help='Suppress the production of summary data log', required=False)
     parser.add_argument(
-        '-dz', '--dontgzip', type=bool, help='Stop the output FASTQ files automatically being compressed with gzip (True/False)', required=False, default=False)
+        '-dz', '--dontgzip',  action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
     parser.add_argument(
-        '-dc', '--dontcount', type=bool, help='Show the count (True/False)', required=False, default=False)
+        '-dc', '--dontcount', action='store_true', help='Stop printing the running count', required=False)
     parser.add_argument(
         '-ex', '--extension', type=str, help='Specify the file extension of the output translation file. Default = \"cdr3\"', required=False, default="cdr3")
     parser.add_argument(
         '-npx', '--npextension', type=str, help='Specify the file extension of the output nonproductive file. Default = \"np\"', required=False, default="np")
     parser.add_argument(
-        '-do', '--dcroutput', type=bool, help='Optionally include Decombinator TCR index along with the CDR3 sequence and frequency. Default = False', \
-        required=False, default=False)
+        '-do', '--dcroutput',  action='store_true', help='Optionally include Decombinator TCR index along with the CDR3 sequence and frequency', \
+        required=False)
     parser.add_argument(
         '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
         Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")    
     parser.add_argument(
-        '-gxg', '--includeGXG', type=bool, help='Optionally include the \"GXG\" motif following the conserved phenylalanine residue that terminates the CDR3 region. Defaut = False', required=False, default=False)
+        '-gxg', '--includeGXG',  action='store_true', help='Optionally include the \"GXG\" motif following the conserved phenylalanine residue that terminates the CDR3 region', required=False)
     parser.add_argument(
-        '-np', '--nonproductive', type=bool, help='Optionally output an additional file containing the non-productive TCR rearrangements. Default =  False', required=False, default=False)
-    
-    # fix - add option to change suffixes (productive, non-prod and dcr containing)
-    
+        '-np', '--nonproductive',  action='store_true', help='Optionally output an additional file containing the non-productive TCR rearrangements', required=False)
+        
     return parser.parse_args()
 
 def findfile(testfile):
@@ -539,7 +530,7 @@ if __name__ == '__main__':
           
       # Generate string to write to summary file 
       summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] + "\nOutputFile," + outfilenam \
-        + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\n\nInputArguments:,\n" # + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) # FIX
+        + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\n\nInputArguments:,\n" 
       for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'includeGXG',  'dcroutput', 'nonproductive']:
         summstr = summstr + s + "," + str(inputargs[s]) + "\n"
       
@@ -563,26 +554,3 @@ if __name__ == '__main__':
       sort_permissions(summaryname)   
     
     sys.exit()
-    # fix output stats to summary file
-    
-    
-    #print "Reading", str(counts['line_count']), "Decombinator-assigned rearrangements from", str(filename) + ", and writing out to", str(outfilename), "\n"
-
-    #print '{0:,}'.format(counts['prod_recomb']), "productive rearrangements detected" 
-    #print "\tV gene usage:\t" + '{0:,}'.format(pVf), "F;\t" + '{0:,}'.format(pVorf), "ORF;\t" +  '{0:,}'.format(pVp), "P"
-    #print "\tJ gene usage:\t" + '{0:,}'.format(pJf), "F;\t" + '{0:,}'.format(pJorf), "ORF;\t" + '{0:,}'.format(pJp), "P\n"
-
-    #print '{0:,}'.format(NP_count), "non-productive rearrangements detected"
-    #print "\tV gene usage:\t" + '{0:,}'.format(npVf), "F;\t" + '{0:,}'.format(npVorf), "ORF;\t" +  '{0:,}'.format(npVp), "P"
-    #print "\tJ gene usage:\t" + '{0:,}'.format(npJf), "F;\t" + '{0:,}'.format(npJorf), "ORF;\t" + '{0:,}'.format(npJp), "P\n"
-
-    #print 'Non-productive rearrangement statistics:'
-    #print '\tOut of frame, no stop codon:\t {:.2%}'.format(fail_count['OOF_without_stop']/NP_count) + "\t(" + str(fail_count['OOF_without_stop']) + ")"
-    #print '\tOut of frame, with stop codon:\t {:.2%}'.format(fail_count['OOF_with_stop']/NP_count) + "\t(" + str(fail_count['OOF_with_stop']) + ")"
-    #print '\tIn frame, with stop codon:\t {:.2%}'.format(fail_count['IF_with_stop']/NP_count) + "\t(" + str(fail_count['IF_with_stop']) + ")"
-    #print '\tNo conserved cysteine at start:\t {:.2%}'.format(fail_count['No_conserved_cysteine']/NP_count) + "\t(" + str(fail_count['No_conserved_cysteine']) + ")"
-    #print '\tNo conserved FGXG at end:\t {:.2%}'.format(fail_count['No_conserved_FGXG']/NP_count) + "\t(" + str(fail_count['No_conserved_FGXG']) + ")"
-
-    #if (counts['prod_recomb'] + NP_count) <> line_count:
-      #print "\nError detected: Sum of productive and non-productive sorted sequences does not equal total number of input sequences"
-    
