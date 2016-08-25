@@ -63,7 +63,7 @@ def args():
       description='Collapse and error correct Decombined TCR sequences produced using the Chain lab\'s ligation TCRseq protocol. Please see https://innate2adaptive.github.io/Decombinator/ for details.')
   # Add arguments
   parser.add_argument(
-      '-in', '--infile', type=str, help='File containing raw verbose Decombinator output\ni.e. \
+      '-in', '--infile', type=str, help='File containing raw verbose Decombinator output, i.e. \
       5 part classifier plus barcode and inter-tag sequence and quality strings', required=True)
   parser.add_argument(
       '-mq', '--minbcQ', type=int, help='Minimum quality score that barcode nucleotides should be to for that rearrangement to be retained. Default = 20.', \
@@ -96,7 +96,7 @@ def args():
       '-di', '--dontcheckinput', action='store_true', help='Override the inputfile sanity check', required=False)
   parser.add_argument(
       '-bd', '--barcodeduplication', action='store_true', help='Optionally output a file containing the final list of clustered barcodes, and their frequencies',\
-        required=False
+        required=False)
   
   return parser.parse_args()
 
