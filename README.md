@@ -20,6 +20,7 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 * [Collapsing](#collapsing)
 * [CDR3 extraction](#cdr3)
 * [General usage notes](#generalusage)
+* [Calling Decombinator from other scripts](#calldcr)
 
 ---
 
@@ -353,9 +354,45 @@ docker run -it --rm --name dcr -v "$PWD":/usr/src/myapp -w /usr/src/myapp decomb
 
 ---
 
+<h1 id="calldcr">Calling Decombinator from other Python scripts</h1>
+
+As an open source Python script, `Decombinator` (and associated functions) can be called by other scripts, allowing advanced users to incorporate our rapid TCR assignation into their own scripts, permitting the development of highly bespoke functionalities.
+
+If you would like to call Decombinator from other scripts you need to make sure you fulfil the correct requirements upstream of actually looking for rearrangements. You will thus need to:
+* Set up some 'dummy' input arguments, as there are some that Decombinator will expect
+* Run the 'import_tcr_info' function, which sets up your environment with all of the required variables (by reading in the tags and FASTQs, building the tries etc)
+
+An example script which calls Decombinator might therefore look like this:
+
+```python
+import Decombinator as dcr
+
+# Set up dummy command line arguments arguments 
+inputargs = {"chain":"b", "species":"human", "tags":"extended", "tagfastadir":"no", "lenthreshold":130, "allowNs":False, "fastq":"blank"}
+
+# Initalise variables
+dcr.import_tcr_info(inputargs)
+
+testseq = "CACTCTGAAGATCCAGCGCACACAGCAGGAGGACTCCGCCGTGTATCTCTGTGCCAGCAGCTTATTAGTGTTAGCGAGCTCCTACAATGAGCAGTTCTTCGGGCCAGGGACACGGCTCACCGTGCTAGAGGACCTGAAA"
+
+# Try and Decombine this test sequence
+print dcr.dcr(testseq, inputargs)
+```
+
+This script produces the following list output:
+`[42, 6, 2, 0, 'TTAGTGTTAGCGAG', 22, 118]`
+
+The first five fields of this list correspond to the standard DCR index as described above, while the last two indicate the start position of the V tag and the end position of the J tag (thus definining the 'inter-tag region').
+
+Users may wish to therefore loop through their data that requires Decombining, and call this function on each iteration. However bear in mind that run in this manner Decombinator only checks whatever DNA orientation it's given: if you need to check both orientations then I suggest running one orientation through first, checking whether there's output, and if not then running the reverse orientation through again (which can be easily obtained using the Seq functionality of the Biopython package).
+
+<sup>[↑Top](#top)</sup>
+
+---
+
 ### Legacy Decombinator versions
 
-If users wish to view previous versions of Decombinator, v2.2 is available from the old GitHub repo [uclinfectionimmunity / Decombinator](https://github.com/uclinfectionimmunity/Decombinator/). However it is not recommended that this script be used for analysis as it lacks some key error-reduction features that have been integrated to subsequent versions, and is no longer supported.
+If users wish to view previous versions of Decombinator, v2.2 is available from the old GitHub repo [uclinfectionimmunity / Decombinator](https://github.com/uclinfectionimmunity/Decombinator/). However it is not recommended that this script be used for analysis as it lacks some key error-reduction features that have been integrated into subsequent versions, and is no longer supported.
 
 ---
 
