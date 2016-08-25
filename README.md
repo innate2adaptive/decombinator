@@ -367,7 +367,7 @@ An example script which calls Decombinator might therefore look like this:
 ```python
 import Decombinator as dcr
 
-# Set up dummy command line arguments arguments 
+# Set up dummy command line arguments 
 inputargs = {"chain":"b", "species":"human", "tags":"extended", "tagfastadir":"no", "lenthreshold":130, "allowNs":False, "fastq":"blank"}
 
 # Initalise variables
