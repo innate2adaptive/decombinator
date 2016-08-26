@@ -15,6 +15,7 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 
 <h3 id="top">Navigation:</h3>
 * [Installation](#installation)
+* [Test data](#testdata)
 * [Demultiplexing](#demultiplexing)
 * [Decombining](#decombinator)
 * [Collapsing](#collapsing)
@@ -80,6 +81,13 @@ The current version of Decombinator has tag sets for the analysis of alpha/beta 
 * All files also output a summary log file
  * We strongly recommend you familarise yourself with them.
 * All options for a given script can be accessed by using the help flag `-h`
+
+<sub>[↑Top](#top)</sub>
+
+---
+
+<h1 id="testdata">Test data</h1>
+### A small test data set of FASTQ reads produced using the Innate2Adaptive TCR amplification protocol, along with a basic set of instructions, are available [here](https://github.com/innate2adaptive/Decombinator-Test-Data).
 
 <sub>[↑Top](#top)</sub>
 
