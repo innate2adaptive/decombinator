@@ -53,7 +53,7 @@ Python 2.7 is required to run this pipeline, along with the following non-standa
 
 These can be installed via pip (although most will likely appear in other package managers), e.g.:
 ```bash
-pip install python-biopython python-levenshtein regex acora
+pip install biopython python-levenshtein regex acora
 ```
 If users are unable to install Python and the required modules, a Python installation complete with necessary packages has been bundled into a Docker container, which should be runnable on most setups. The appropriate image is located [on Dockerhub, under the name 'dcrpython'](https://hub.docker.com/r/decombinator/dcrpython/).
 
