@@ -49,7 +49,7 @@ import gzip
 import regex
 import os, sys
 
-__version__ = '2.1'
+__version__ = '2.1.2'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -97,6 +97,9 @@ def args():
   parser.add_argument(
       '-bd', '--barcodeduplication', action='store_true', help='Optionally output a file containing the final list of clustered barcodes, and their frequencies',\
         required=False)
+  parser.add_argument(
+      '-pb', '--positionalbarcodes', action='store_true', help='Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible.',\
+        required=False)  
   
   return parser.parse_args()
 
@@ -189,7 +192,7 @@ def get_barcode(bcseq):
     second = bcseq[14:22]   
     
     # if both spacers present and correct, return sequence from expected sites
-    if first == spcr and second == spcr:
+    if (first == spcr and second == spcr) or inputargs['positionalbarcodes'] == True:
       counts['getbarcode_pass_exactmatch'] += 1
       return [8, 14, 22, 28]
     
@@ -210,9 +213,12 @@ def get_barcode(bcseq):
         err_spcrs = regex.findall("(GTCGTGAT){2i+2d+1s<=2}", bcseq) 
         positions = [bcseq.find(x) for x in err_spcrs]
         lens = [len(x) for x in err_spcrs]
-        
-        
-        if len(positions) <> 2:
+              
+        if len(positions) == 2:
+          counts['getbarcode_pass_regexmatch'] += 1
+          return [positions[0]+lens[0]-pad, positions[1]-pad, positions[1]+lens[1]-pad, positions[1]+lens[1]-pad+6]
+
+        else:  
           counts['getbarcode_fail_not2spacersfound'] += 1
           return
       
@@ -623,11 +629,12 @@ if __name__ == '__main__':
           
       # Generate string to write to summary file
       
-      summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] + "\nOutputFile," + counts['outfilenam'] \
-        + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"
+      summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] \
+        + "\nOutputFile," + counts['outfilenam'] + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") \
+        + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"
       
       for s in ['extension', 'dontgzip', 'allowNs', 'dontcheckinput', 'barcodeduplication', 'minbcQ', 'bcQbelowmin', 'bcthreshold', \
-        'lenthreshold', 'percentlevdist', 'avgQthreshold']:
+        'lenthreshold', 'percentlevdist', 'avgQthreshold', 'positionalbarcodes']:
         summstr = summstr + s + "," + str(inputargs[s]) + "\n"
 
       counts['pc_input_dcrs'] = counts['number_input_total_dcrs'] / counts['readdata_input_dcrs']
