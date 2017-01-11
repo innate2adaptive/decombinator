@@ -617,6 +617,7 @@ def sort_permissions(fl):
   if oct(os.stat(fl).st_mode)[4:] != '666':
     os.chmod(fl, 0o666)
 
+
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
@@ -661,8 +662,13 @@ if __name__ == '__main__':
   else:
     name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
   
-  if inputargs['nobarcoding'] == False:
+  if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
+  elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True:
+    stemplate = string.Template('$v_or_j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
+  elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:  
+    stemplate = string.Template('$v_or_j $del_v_or_j')
+    found_tcrs = coll.Counter()
   else:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
     found_tcrs = coll.Counter()
@@ -716,20 +722,19 @@ if __name__ == '__main__':
           if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
             bcQ = qual[:30]
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-              del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
+            del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
             outfile.write(dcr_string + '\n')
 
           elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True: #only currently handling v case (J set to null)
             bcQ = qual[:30]
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = "none" + ',', del_v = str(recom[2]) + ',', \
-              del_j = "none" + ',', nt_insert = "none" + ',', seqid = readid + ',', tcr_seq = "end of V tag to end of read" + ',', \
+            dcr_string = stemplate.substitute( v_or_j = str(recom[0]) + ',', del_v_or_j = str(recom[2]) + ',', \
+              seqid = readid + ',', tcr_seq = "end of V tag to end of read" + ',', \
               tcr_qual = "quality of 'V tag to end of read'" + ',', barcode = bc + ',', barqual = bcQ ) 
             outfile.write(dcr_string + '\n')
 
           elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = "none" + ',', del_v = str(recom[2]) + ',', \
-              del_j = "none" + ',', nt_insert = "none")      
+            dcr_string = stemplate.substitute( v_or_j = str(recom[0]) + ',', del_v_or_j = str(recom[2]))   
             found_tcrs[dcr_string] += 1
 
           else:
@@ -737,8 +742,6 @@ if __name__ == '__main__':
               del_j = str(recom[3]) + ',', nt_insert = recom[4])      
             found_tcrs[dcr_string] += 1
 
-
-  
   if inputargs['nobarcoding'] == True:
     # Write out non-barcoded results, with frequencies
     if inputargs['extension'] == 'n12':
