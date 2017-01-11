@@ -141,6 +141,8 @@ def args():
       Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
   parser.add_argument(
       '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
+  parser.add_argument(
+      '-sc', '--singlecell', action='store_true', help='Specifies if the sequence is single cell, with either V or J regions, not both', required=False)
 
   return parser.parse_args()
 
@@ -711,17 +713,31 @@ if __name__ == '__main__':
             tcrseq = vdj[recom[5]:recom[6]]
             tcrQ = vdjqual[recom[5]:recom[6]]
           
-          if inputargs['nobarcoding'] == False:
+          if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
             bcQ = qual[:30]
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
               del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
             outfile.write(dcr_string + '\n')
 
+          elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True: #only currently handling v case (J set to null)
+            bcQ = qual[:30]
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = "none" + ',', del_v = str(recom[2]) + ',', \
+              del_j = "none" + ',', nt_insert = "none" + ',', seqid = readid + ',', tcr_seq = "end of V tag to end of read" + ',', \
+              tcr_qual = "quality of 'V tag to end of read'" + ',', barcode = bc + ',', barqual = bcQ ) 
+            outfile.write(dcr_string + '\n')
+
+          elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = "none" + ',', del_v = str(recom[2]) + ',', \
+              del_j = "none" + ',', nt_insert = "none")      
+            found_tcrs[dcr_string] += 1
+
           else:
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
               del_j = str(recom[3]) + ',', nt_insert = recom[4])      
             found_tcrs[dcr_string] += 1
+
+
   
   if inputargs['nobarcoding'] == True:
     # Write out non-barcoded results, with frequencies
@@ -747,6 +763,9 @@ if __name__ == '__main__':
   else:
     outfilenam = name_results + suffix
     
+  #from IPython import embed
+  #embed()
+
   sort_permissions(outfilenam)
   
   ##############################################
