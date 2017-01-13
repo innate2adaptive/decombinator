@@ -162,7 +162,6 @@ def fastq_check(infile):
     except:
       print "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
       sys.exit()
-        
   # @ check
   if read[0][0] <> "@":
     success = False
@@ -171,8 +170,7 @@ def fastq_check(infile):
     success = False
   # Read/quality match check
   if len(read[1]) <> len(read[3]):
-    success = False  
-  
+    success = False
   return(success)
 
 def revcomp(read):
@@ -322,6 +320,8 @@ def janalysis(read):
     start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
     
     if start_j_j_dels: # If the number of deletions has been found
+    #  from IPython import embed
+    #  embed()
       return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
           
   else:
@@ -395,6 +395,42 @@ def dcr(read, inputargs):
     else:        
       vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
       return vj_details
+  
+  else:
+    counts['VJ_assignment_failed'] += 1
+    return
+
+def sc_dcr(read, inputargs):
+
+  """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
+    Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
+      insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
+  v_seq_start = 0     
+  j_seq_end = 0      
+  
+  vdat = vanalysis(read)
+  
+  jdat = janalysis(read)
+
+  if jdat:
+    
+    # Filter out rearrangements with indications they probably represent erroneous sequences
+#    if "N" in read[vdat[3]:jdat[3]] and inputargs['allowNs'] == False:                          # Ambiguous base in inter-tag region
+#      counts['dcrfilter_intertagN'] += 1
+#    elif (vdat[3] - jdat[3]) >= inputargs['lenthreshold']:                                      # Inter-tag length threshold
+#      counts['dcrfilter_toolong_intertag'] += 1
+#    elif vdat[2] > (jump_to_end_v[vdat[0]] - len(v_seqs[vdat[0]])) or jdat[2] > jump_to_start_j[jdat[0]]: # Impossible number of deletions
+#      counts['dcrfilter_imposs_deletion'] += 1                    
+#    elif (vdat[3] + len(v_seqs[vdat[0]])) > (jdat[3] + len(j_seqs[jdat[0]])):                             # Overlapping tags 
+#      counts['dcrfilter_tag_overlap'] += 1                     
+    
+#    else:        
+#    vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
+    vj_details = [jdat[0], jdat[2], read[0:jdat[3]-len(j_seqs[jdat[0]])]]
+    return vj_details
+  elif vdat:
+    vj_details = [vdat[0], vdat[2], read[vdat[3]+len(v_seqs[vdat[0]]):len(read)]]
+    return vj_details
   
   else:
     counts['VJ_assignment_failed'] += 1
@@ -682,10 +718,10 @@ if __name__ == '__main__':
         
         if inputargs['nobarcoding'] == False:
           bc = seq[:30]   
-          vdj = seq[30:]
+          vdj = seq[30:] #for single cell case, vdj is either v to the end of read, or end of bc to j
         else:
           vdj = seq
-        
+
         if inputargs['nobarcoding'] == False:
           if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
             counts['dcrfilter_barcodeN'] += 1
@@ -695,9 +731,14 @@ if __name__ == '__main__':
           print '\t read', counts['read_count'] 
     
         # Get details of the VJ recombination
+
         if inputargs['orientation'] == 'reverse':
           recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
+
+          if inputargs['singlecell']:
+            recom = sc_dcr(revcomp(vdj), inputargs)
+        
         elif inputargs['orientation'] == 'forward':
           recom = dcr(vdj, inputargs)
           frame = 'forward'
@@ -712,12 +753,16 @@ if __name__ == '__main__':
           counts['vj_count'] += 1
           vdjqual = qual[30:]  
           
-          if frame == 'reverse':
-            tcrseq = revcomp(vdj)[recom[5]:recom[6]]
-            tcrQ = vdjqual[::-1][recom[5]:recom[6]]
-          elif frame == 'forward':
-            tcrseq = vdj[recom[5]:recom[6]]
-            tcrQ = vdjqual[recom[5]:recom[6]]
+          if inputargs['singlecell'] == False:
+            if frame == 'reverse':
+              tcrseq = revcomp(vdj)[recom[5]:recom[6]]
+              tcrQ = vdjqual[::-1][recom[5]:recom[6]]
+            elif frame == 'forward':
+              tcrseq = vdj[recom[5]:recom[6]]
+              tcrQ = vdjqual[recom[5]:recom[6]]
+
+         # from IPython import embed
+         # embed()
           
           if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
             bcQ = qual[:30]
@@ -728,8 +773,8 @@ if __name__ == '__main__':
 
           elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True: #only currently handling v case (J set to null)
             bcQ = qual[:30]
-            dcr_string = stemplate.substitute( v_or_j = str(recom[0]) + ',', del_v_or_j = str(recom[2]) + ',', \
-              seqid = readid + ',', tcr_seq = "end of V tag to end of read" + ',', \
+            dcr_string = stemplate.substitute( v_or_j = str(recom[0]) + ',', del_v_or_j = str(recom[1]) + ',', \
+              seqid = readid + ',', tcr_seq = str(recom[2]) + ',', \
               tcr_qual = "quality of 'V tag to end of read'" + ',', barcode = bc + ',', barqual = bcQ ) 
             outfile.write(dcr_string + '\n')
 
