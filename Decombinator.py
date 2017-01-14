@@ -320,8 +320,7 @@ def janalysis(read):
     start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
     
     if start_j_j_dels: # If the number of deletions has been found
-    #  from IPython import embed
-    #  embed()
+
       return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
           
   else:
@@ -426,11 +425,13 @@ def sc_dcr(read, inputargs):
     
 #    else:        
 #    vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
-    vj_details = [jdat[0], jdat[2], read[0:jdat[3]-len(j_seqs[jdat[0]])]]
-    return vj_details
+    end_of_j = jdat[3]-len(j_seqs[jdat[0]])
+    j_details = [jdat[0], jdat[2], read[0:end_of_j],0,end_of_j]
+    return j_details
   elif vdat:
-    vj_details = [vdat[0], vdat[2], read[vdat[3]+len(v_seqs[vdat[0]]):len(read)]]
-    return vj_details
+    start_of_v = vdat[3]+len(v_seqs[vdat[0]])
+    v_details = [vdat[0], vdat[2], read[start_of_v:len(read)], start_of_v, len(read)]
+    return v_details
   
   else:
     counts['VJ_assignment_failed'] += 1
@@ -752,8 +753,16 @@ if __name__ == '__main__':
         if recom:
           counts['vj_count'] += 1
           vdjqual = qual[30:]  
-          
-          if inputargs['singlecell'] == False:
+
+          if inputargs['singlecell']:
+            if frame == 'reverse':
+          #     tcrseq = revcomp(vdj)[recom[5]:recom[6]]
+              tcrQ = vdjqual[::-1][recom[3]:recom[4]]
+            elif frame == 'forward':
+          #     tcrseq = vdj[recom[5]:recom[6]]
+              tcrQ = vdjqual[recom[3]:recom[4]]
+         
+          else:
             if frame == 'reverse':
               tcrseq = revcomp(vdj)[recom[5]:recom[6]]
               tcrQ = vdjqual[::-1][recom[5]:recom[6]]
@@ -761,9 +770,6 @@ if __name__ == '__main__':
               tcrseq = vdj[recom[5]:recom[6]]
               tcrQ = vdjqual[recom[5]:recom[6]]
 
-         # from IPython import embed
-         # embed()
-          
           if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
             bcQ = qual[:30]
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
@@ -775,7 +781,7 @@ if __name__ == '__main__':
             bcQ = qual[:30]
             dcr_string = stemplate.substitute( v_or_j = str(recom[0]) + ',', del_v_or_j = str(recom[1]) + ',', \
               seqid = readid + ',', tcr_seq = str(recom[2]) + ',', \
-              tcr_qual = "quality of 'V tag to end of read'" + ',', barcode = bc + ',', barqual = bcQ ) 
+              tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ ) 
             outfile.write(dcr_string + '\n')
 
           elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:
@@ -810,9 +816,6 @@ if __name__ == '__main__':
     outfilenam = name_results + suffix + ".gz"
   else:
     outfilenam = name_results + suffix
-    
-  #from IPython import embed
-  #embed()
 
   sort_permissions(outfilenam)
   
