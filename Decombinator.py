@@ -428,6 +428,7 @@ def sc_dcr(read, inputargs):
     end_of_j = jdat[3]-len(j_seqs[jdat[0]])
     j_details = [jdat[0], jdat[2], read[0:end_of_j],0,end_of_j]
     return j_details
+
   elif vdat:
     start_of_v = vdat[3]+len(v_seqs[vdat[0]])
     v_details = [vdat[0], vdat[2], read[start_of_v:len(read)], start_of_v, len(read)]
@@ -734,21 +735,32 @@ if __name__ == '__main__':
         # Get details of the VJ recombination
 
         if inputargs['orientation'] == 'reverse':
-          recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
-
           if inputargs['singlecell']:
             recom = sc_dcr(revcomp(vdj), inputargs)
-        
+          else:
+            recom = dcr(revcomp(vdj), inputargs)
+      
         elif inputargs['orientation'] == 'forward':
-          recom = dcr(vdj, inputargs)
           frame = 'forward'
-        elif inputargs['orientation'] == 'both':
-          recom = dcr(revcomp(vdj), inputargs)
-          frame = 'reverse'
-          if not recom:
+          if inputargs['singlecell']:
+            recom = sc_dcr(vdj, inputargs)
+          else:
             recom = dcr(vdj, inputargs)
-            frame = 'forward'
+
+        elif inputargs['orientation'] == 'both':
+          if inputargs['singlecell']:
+            recom = sc_dcr(revcomp(vdj), inputargs)
+            frame = 'reverse'
+            if not recom:
+              recom = sc_dcr(vdj, inputargs)
+              frame = 'forward'
+          else:
+            recom = dcr(revcomp(vdj), inputargs)
+            frame = 'reverse'
+            if not recom:
+              recom = dcr(vdj, inputargs)
+              frame = 'forward'
                         
         if recom:
           counts['vj_count'] += 1
@@ -756,10 +768,8 @@ if __name__ == '__main__':
 
           if inputargs['singlecell']:
             if frame == 'reverse':
-          #     tcrseq = revcomp(vdj)[recom[5]:recom[6]]
               tcrQ = vdjqual[::-1][recom[3]:recom[4]]
             elif frame == 'forward':
-          #     tcrseq = vdj[recom[5]:recom[6]]
               tcrQ = vdjqual[recom[3]:recom[4]]
          
           else:
