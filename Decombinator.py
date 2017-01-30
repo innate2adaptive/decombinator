@@ -378,7 +378,7 @@ def dcr(read, inputargs):
     return
 
   jdat = janalysis(read)
-  
+
   if jdat:
     
     # Filter out rearrangements with indications they probably represent erroneous sequences
@@ -411,29 +411,37 @@ def sc_dcr(read, inputargs):
   
   jdat = janalysis(read)
 
-  if jdat:
-    
-    # Filter out rearrangements with indications they probably represent erroneous sequences
-#    if "N" in read[vdat[3]:jdat[3]] and inputargs['allowNs'] == False:                          # Ambiguous base in inter-tag region
-#      counts['dcrfilter_intertagN'] += 1
-#    elif (vdat[3] - jdat[3]) >= inputargs['lenthreshold']:                                      # Inter-tag length threshold
-#      counts['dcrfilter_toolong_intertag'] += 1
-#    elif vdat[2] > (jump_to_end_v[vdat[0]] - len(v_seqs[vdat[0]])) or jdat[2] > jump_to_start_j[jdat[0]]: # Impossible number of deletions
-#      counts['dcrfilter_imposs_deletion'] += 1                    
-#    elif (vdat[3] + len(v_seqs[vdat[0]])) > (jdat[3] + len(j_seqs[jdat[0]])):                             # Overlapping tags 
-#      counts['dcrfilter_tag_overlap'] += 1                     
-    
-#    else:        
-#    vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
+  if not vdat:
+    vdat = ["n/a"]
+  if not jdat:
+    jdat=["n/a"]  
+
+  if jdat != ["n/a"]:
     end_of_j = jdat[3]-len(j_seqs[jdat[0]])
-    j_details = [jdat[0], jdat[2], read[0:end_of_j],0,end_of_j]
+    # Filter out rearrangements with indications they probably represent erroneous sequences
+    # if "N" in read[0:end_of_j] and inputargs['allowNs'] == False:                          # Ambiguous base in region from start of read to start of J-tag
+    #   counts['dcrfilter_intertagN'] += 1
+    # elif end_of_j >= inputargs['lenthreshold']:                                      # Inter-tag length threshold
+    #   counts['dcrfilter_toolong_intertag'] += 1
+    # elif jdat[2] > jump_to_start_j[jdat[0]]: # Impossible number of deletions
+    #   counts['dcrfilter_imposs_deletion'] += 1                                      
+    
+    # else:        
+    j_details = [vdat[0], jdat[0], jdat[2], read[0:end_of_j],0,end_of_j]
     return j_details
 
-  elif vdat:
+  elif vdat != ["n/a"]:
     start_of_v = vdat[3]+len(v_seqs[vdat[0]])
-    v_details = [vdat[0], vdat[2], read[start_of_v:len(read)], start_of_v, len(read)]
+    # # Filter out rearrangements with indications they probably represent erroneous sequences
+    # if "N" in read[start_of_v:len(read)] and inputargs['allowNs'] == False:               # Ambiguous base in region from end of V-tag to end of read
+    #   counts['dcrfilter_intertagN'] += 1
+    # elif (len(read)-start_of_v) >= inputargs['lenthreshold']:                        # Inter-tag length threshold
+    #   counts['dcrfilter_toolong_intertag'] += 1
+    # elif vdat[2] > (jump_to_end_v[vdat[0]] - len(v_seqs[vdat[0]])): # Impossible number of deletions
+    #   counts['dcrfilter_imposs_deletion'] += 1                                            
+    # else:        
+    v_details = [vdat[0], jdat[0], vdat[2], read[start_of_v:len(read)], start_of_v, len(read)]
     return v_details
-  
   else:
     counts['VJ_assignment_failed'] += 1
     return
@@ -703,9 +711,9 @@ if __name__ == '__main__':
   if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
   elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True:
-    stemplate = string.Template('$v_or_j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
+    stemplate = string.Template('$v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
   elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:  
-    stemplate = string.Template('$v_or_j $del_v_or_j')
+    stemplate = string.Template('$v $j $seqid $del_v_or_j $tcr_qual')
     found_tcrs = coll.Counter()
   else:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
@@ -740,7 +748,7 @@ if __name__ == '__main__':
             recom = sc_dcr(revcomp(vdj), inputargs)
           else:
             recom = dcr(revcomp(vdj), inputargs)
-      
+
         elif inputargs['orientation'] == 'forward':
           frame = 'forward'
           if inputargs['singlecell']:
@@ -761,16 +769,17 @@ if __name__ == '__main__':
             if not recom:
               recom = dcr(vdj, inputargs)
               frame = 'forward'
-                        
+
         if recom:
           counts['vj_count'] += 1
           vdjqual = qual[30:]  
 
           if inputargs['singlecell']:
             if frame == 'reverse':
-              tcrQ = vdjqual[::-1][recom[3]:recom[4]]
+              tcrQ = qual[::-1][recom[4]:recom[5]]
+
             elif frame == 'forward':
-              tcrQ = vdjqual[recom[3]:recom[4]]
+              tcrQ = qual[recom[4]:recom[5]]
          
           else:
             if frame == 'reverse':
@@ -787,23 +796,24 @@ if __name__ == '__main__':
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
             outfile.write(dcr_string + '\n')
 
-          elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True: #only currently handling v case (J set to null)
+          elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True:
             bcQ = qual[:30]
-            dcr_string = stemplate.substitute( v_or_j = str(recom[0]) + ',', del_v_or_j = str(recom[1]) + ',', \
-              seqid = readid + ',', tcr_seq = str(recom[2]) + ',', \
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
+              seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ ) 
             outfile.write(dcr_string + '\n')
 
           elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:
-            dcr_string = stemplate.substitute( v_or_j = str(recom[0]) + ',', del_v_or_j = str(recom[2]))   
-            found_tcrs[dcr_string] += 1
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' ,del_v_or_j = str(recom[3]) + ',', tcr_qual = tcrQ)   
+            #found_tcrs[dcr_string] += 1
+            outfile.write(dcr_string + '\n')
 
           else:
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
               del_j = str(recom[3]) + ',', nt_insert = recom[4])      
             found_tcrs[dcr_string] += 1
 
-  if inputargs['nobarcoding'] == True:
+  if inputargs['nobarcoding'] == True and not inputargs['singlecell']:
     # Write out non-barcoded results, with frequencies
     if inputargs['extension'] == 'n12':
       print "Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'."
