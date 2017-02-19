@@ -1,6 +1,15 @@
-# Decombinator 
+##################
+##### UPDATE #####
+##################
+
+# This script has been updated to work for very short read single cell data. It will search for TCRs by looking for 
+# a single tag within a read, unlike Classic Decombinator which searches for both a V and J tag per read. 
+# Thomas Peacock, February 2017, UCL
+
+# Classic Decombinator written by 
 # James M. Heather, August 2016, UCL
 # https://innate2adaptive.github.io/Decombinator/
+
 
 ##################
 ### BACKGROUND ###
@@ -362,49 +371,15 @@ def janalysis(read):
          counts['no_j_assigned'] += 1
          return
        
-# def dcr(read, inputargs):
-
-#   """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
-#     Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
-#       insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
-#   v_seq_start = 0     
-#   j_seq_end = 0      
-  
-#   vdat = vanalysis(read)
-  
-#   if not vdat:
-#     return
-
-#   jdat = janalysis(read)
-
-#   if jdat:
-    
-#     # Filter out rearrangements with indications they probably represent erroneous sequences
-#     if "N" in read[vdat[3]:jdat[3]] and inputargs['allowNs'] == False:                          # Ambiguous base in inter-tag region
-#       counts['dcrfilter_intertagN'] += 1
-#     elif (vdat[3] - jdat[3]) >= inputargs['lenthreshold']:                                      # Inter-tag length threshold
-#       counts['dcrfilter_toolong_intertag'] += 1
-#     elif vdat[2] > (jump_to_end_v[vdat[0]] - len(v_seqs[vdat[0]])) or jdat[2] > jump_to_start_j[jdat[0]]: # Impossible number of deletions
-#       counts['dcrfilter_imposs_deletion'] += 1                    
-#     elif (vdat[3] + len(v_seqs[vdat[0]])) > (jdat[3] + len(j_seqs[jdat[0]])):                             # Overlapping tags 
-#       counts['dcrfilter_tag_overlap'] += 1                     
-    
-#     else:        
-#       vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
-#       return vj_details
-  
-#   else:
-#     counts['VJ_assignment_failed'] += 1
-#     return
-
 def dcr(read, inputargs):
 
   """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
-    Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
-      insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
-  v_seq_start = 0     
-  j_seq_end = 0      
-  
+    Returns a list giving: V gene index (if found), J gene index (if found), seq from end of V tag to end or read
+    (or from start of read to start of J tag), position of end of V tag in read (or position of start of read), 
+    position of end of read (or position of start of J tag in read). The last two fields are used to find the 
+    appropriate quality score of the relevant sequence.
+     """
+
   vdat = vanalysis(read)
   
   jdat = janalysis(read)
@@ -415,30 +390,13 @@ def dcr(read, inputargs):
     jdat=["n/a"]  
 
   if jdat != ["n/a"]:
-    end_of_j = jdat[3]-len(j_seqs[jdat[0]])
-    # Filter out rearrangements with indications they probably represent erroneous sequences
-    # if "N" in read[0:end_of_j] and inputargs['allowNs'] == False:                          # Ambiguous base in region from start of read to start of J-tag
-    #   counts['dcrfilter_intertagN'] += 1
-    # elif end_of_j >= inputargs['lenthreshold']:                                      # Inter-tag length threshold
-    #   counts['dcrfilter_toolong_intertag'] += 1
-    # elif jdat[2] > jump_to_start_j[jdat[0]]: # Impossible number of deletions
-    #   counts['dcrfilter_imposs_deletion'] += 1                                      
-    
-    # else:        
-    j_details = [vdat[0], jdat[0], jdat[2], read[0:end_of_j],0,end_of_j]
+    start_of_j = jdat[3]-len(j_seqs[jdat[0]])   
+    j_details = [vdat[0], jdat[0], read[0:start_of_j], 0, start_of_j]
     return j_details
 
   elif vdat != ["n/a"]:
-    start_of_v = vdat[3]+len(v_seqs[vdat[0]])
-    # # Filter out rearrangements with indications they probably represent erroneous sequences
-    # if "N" in read[start_of_v:len(read)] and inputargs['allowNs'] == False:               # Ambiguous base in region from end of V-tag to end of read
-    #   counts['dcrfilter_intertagN'] += 1
-    # elif (len(read)-start_of_v) >= inputargs['lenthreshold']:                        # Inter-tag length threshold
-    #   counts['dcrfilter_toolong_intertag'] += 1
-    # elif vdat[2] > (jump_to_end_v[vdat[0]] - len(v_seqs[vdat[0]])): # Impossible number of deletions
-    #   counts['dcrfilter_imposs_deletion'] += 1                                            
-    # else:        
-    v_details = [vdat[0], jdat[0], vdat[2], read[start_of_v:len(read)], start_of_v, len(read)]
+    end_of_v = vdat[3]+len(v_seqs[vdat[0]])
+    v_details = [vdat[0], jdat[0], read[end_of_v:len(read)], end_of_v, len(read)]
     return v_details
   else:
     counts['VJ_assignment_failed'] += 1
@@ -709,7 +667,7 @@ if __name__ == '__main__':
   if inputargs['nobarcoding'] == False:
     stemplate = string.Template('$v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
   else:  
-    stemplate = string.Template('$v $j $seqid $del_v_or_j $tcr_qual')
+    stemplate = string.Template('$v $j $seqid $tcr_seq $tcr_qual')
     found_tcrs = coll.Counter()
 
   
@@ -722,7 +680,7 @@ if __name__ == '__main__':
         
         if inputargs['nobarcoding'] == False:
           bc = seq[:30]   
-          vdj = seq[30:] #for single cell case, vdj is either v to the end of read, or end of bc to j
+          vdj = seq[30:] 
         else:
           vdj = seq
 
@@ -755,11 +713,11 @@ if __name__ == '__main__':
           counts['vj_count'] += 1
           vdjqual = qual[30:]  
 
-          if frame == 'reverse': #note: need to update, this handles only nbc
-            tcrQ = qual[::-1][recom[4]:recom[5]]
+          if frame == 'reverse':                      # note: this handles only nbc case
+            tcrQ = qual[::-1][recom[3]:recom[4]]
 
           elif frame == 'forward':
-            tcrQ = qual[recom[4]:recom[5]]
+            tcrQ = qual[recom[3]:recom[4]]
          
 
           if inputargs['nobarcoding'] == False:
@@ -770,19 +728,8 @@ if __name__ == '__main__':
             outfile.write(dcr_string + '\n')
 
           else:
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' ,del_v_or_j = str(recom[3]) + ',', tcr_qual = tcrQ)   
-            #found_tcrs[dcr_string] += 1
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
             outfile.write(dcr_string + '\n')
-
-  # if inputargs['nobarcoding'] == True:
-  #   # Write out non-barcoded results, with frequencies
-  #   if inputargs['extension'] == 'n12':
-  #     print "Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'."
-  #     suffix = '.nbc'
-  #   with open(name_results + suffix, 'w') as outfile:
-  #     for x in found_tcrs.most_common():
-  #       outfile.write(x[0] + ", " + str(found_tcrs[x[0]]) + '\n')
-      
   
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']

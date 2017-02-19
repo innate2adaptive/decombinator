@@ -1,5 +1,4 @@
  #!/bin/bash
-
 function decombine {
  		if [ "$2" == "a" ]
  			then chain="alpha"
@@ -19,14 +18,15 @@ function decombine {
 		echo "cleaning up Decombinator..."
 }
 
-directory="/home/tom/complex/MP1/bashtest"
+directory=$2
 files=()
 filecount=0
+list_of_files=$1
 
 while read file_name || [[ -n $file_name ]]; do
  	files[$filecount]="$file_name"
  	(( filecount++ ))	
-done <list_of_files
+done <$list_of_files
 
 echo " "
  for fastq_file in "${files[@]}"
@@ -40,9 +40,3 @@ echo " "
 		decombine $fastq_file b reverse
 		rm dcr_*
  	done
-# for fastq_file in "${files[@]}"
-# 	do
-# 		length=${#fastq_file}
-# 		remove_ext=$(($length - 6))
-# 		echo "dcr_alpha_"${fastq_file:0:remove_ext}".n12.gz"
-# 	done

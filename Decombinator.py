@@ -141,8 +141,6 @@ def args():
       Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
   parser.add_argument(
       '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
-  parser.add_argument(
-      '-sc', '--singlecell', action='store_true', help='Specifies if the sequence is single cell, with either V or J regions, not both', required=False)
 
   return parser.parse_args()
 
@@ -162,6 +160,7 @@ def fastq_check(infile):
     except:
       print "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
       sys.exit()
+        
   # @ check
   if read[0][0] <> "@":
     success = False
@@ -170,7 +169,8 @@ def fastq_check(infile):
     success = False
   # Read/quality match check
   if len(read[1]) <> len(read[3]):
-    success = False
+    success = False  
+  
   return(success)
 
 def revcomp(read):
@@ -320,7 +320,6 @@ def janalysis(read):
     start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
     
     if start_j_j_dels: # If the number of deletions has been found
-
       return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
           
   else:
@@ -378,7 +377,7 @@ def dcr(read, inputargs):
     return
 
   jdat = janalysis(read)
-
+  
   if jdat:
     
     # Filter out rearrangements with indications they probably represent erroneous sequences
@@ -391,57 +390,10 @@ def dcr(read, inputargs):
     elif (vdat[3] + len(v_seqs[vdat[0]])) > (jdat[3] + len(j_seqs[jdat[0]])):                             # Overlapping tags 
       counts['dcrfilter_tag_overlap'] += 1                     
     
-    else:        
+    else:      
       vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
       return vj_details
   
-  else:
-    counts['VJ_assignment_failed'] += 1
-    return
-
-def sc_dcr(read, inputargs):
-
-  """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
-    Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
-      insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
-  v_seq_start = 0     
-  j_seq_end = 0      
-  
-  vdat = vanalysis(read)
-  
-  jdat = janalysis(read)
-
-  if not vdat:
-    vdat = ["n/a"]
-  if not jdat:
-    jdat=["n/a"]  
-
-  if jdat != ["n/a"]:
-    end_of_j = jdat[3]-len(j_seqs[jdat[0]])
-    # Filter out rearrangements with indications they probably represent erroneous sequences
-    # if "N" in read[0:end_of_j] and inputargs['allowNs'] == False:                          # Ambiguous base in region from start of read to start of J-tag
-    #   counts['dcrfilter_intertagN'] += 1
-    # elif end_of_j >= inputargs['lenthreshold']:                                      # Inter-tag length threshold
-    #   counts['dcrfilter_toolong_intertag'] += 1
-    # elif jdat[2] > jump_to_start_j[jdat[0]]: # Impossible number of deletions
-    #   counts['dcrfilter_imposs_deletion'] += 1                                      
-    
-    # else:        
-    j_details = [vdat[0], jdat[0], jdat[2], read[0:end_of_j],0,end_of_j]
-    return j_details
-
-  elif vdat != ["n/a"]:
-    start_of_v = vdat[3]+len(v_seqs[vdat[0]])
-    # # Filter out rearrangements with indications they probably represent erroneous sequences
-    # if "N" in read[start_of_v:len(read)] and inputargs['allowNs'] == False:               # Ambiguous base in region from end of V-tag to end of read
-    #   counts['dcrfilter_intertagN'] += 1
-    # elif (len(read)-start_of_v) >= inputargs['lenthreshold']:                        # Inter-tag length threshold
-    #   counts['dcrfilter_toolong_intertag'] += 1
-    # elif vdat[2] > (jump_to_end_v[vdat[0]] - len(v_seqs[vdat[0]])): # Impossible number of deletions
-    #   counts['dcrfilter_imposs_deletion'] += 1                                            
-    # else:        
-    v_details = [vdat[0], jdat[0], vdat[2], read[start_of_v:len(read)], start_of_v, len(read)]
-    return v_details
   else:
     counts['VJ_assignment_failed'] += 1
     return
@@ -663,7 +615,6 @@ def sort_permissions(fl):
   if oct(os.stat(fl).st_mode)[4:] != '666':
     os.chmod(fl, 0o666)
 
-
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
@@ -708,13 +659,8 @@ if __name__ == '__main__':
   else:
     name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
   
-  if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
+  if inputargs['nobarcoding'] == False:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
-  elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True:
-    stemplate = string.Template('$v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
-  elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:  
-    stemplate = string.Template('$v $j $seqid $del_v_or_j $tcr_qual')
-    found_tcrs = coll.Counter()
   else:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
     found_tcrs = coll.Counter()
@@ -728,10 +674,10 @@ if __name__ == '__main__':
         
         if inputargs['nobarcoding'] == False:
           bc = seq[:30]   
-          vdj = seq[30:] #for single cell case, vdj is either v to the end of read, or end of bc to j
+          vdj = seq[30:]
         else:
           vdj = seq
-
+        
         if inputargs['nobarcoding'] == False:
           if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
             counts['dcrfilter_barcodeN'] += 1
@@ -741,79 +687,43 @@ if __name__ == '__main__':
           print '\t read', counts['read_count'] 
     
         # Get details of the VJ recombination
-
         if inputargs['orientation'] == 'reverse':
+          recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
-          if inputargs['singlecell']:
-            recom = sc_dcr(revcomp(vdj), inputargs)
-          else:
-            recom = dcr(revcomp(vdj), inputargs)
-
         elif inputargs['orientation'] == 'forward':
+          recom = dcr(vdj, inputargs)
           frame = 'forward'
-          if inputargs['singlecell']:
-            recom = sc_dcr(vdj, inputargs)
-          else:
-            recom = dcr(vdj, inputargs)
-
         elif inputargs['orientation'] == 'both':
-          if inputargs['singlecell']:
-            recom = sc_dcr(revcomp(vdj), inputargs)
-            frame = 'reverse'
-            if not recom:
-              recom = sc_dcr(vdj, inputargs)
-              frame = 'forward'
-          else:
-            recom = dcr(revcomp(vdj), inputargs)
-            frame = 'reverse'
-            if not recom:
-              recom = dcr(vdj, inputargs)
-              frame = 'forward'
-
+          recom = dcr(revcomp(vdj), inputargs)
+          frame = 'reverse'
+          if not recom:
+            recom = dcr(vdj, inputargs)
+            frame = 'forward'
+                        
         if recom:
           counts['vj_count'] += 1
-          vdjqual = qual[30:]  
-
-          if inputargs['singlecell']:
-            if frame == 'reverse':
-              tcrQ = qual[::-1][recom[4]:recom[5]]
-
-            elif frame == 'forward':
-              tcrQ = qual[recom[4]:recom[5]]
-         
-          else:
-            if frame == 'reverse':
-              tcrseq = revcomp(vdj)[recom[5]:recom[6]]
-              tcrQ = vdjqual[::-1][recom[5]:recom[6]]
-            elif frame == 'forward':
-              tcrseq = vdj[recom[5]:recom[6]]
-              tcrQ = vdjqual[recom[5]:recom[6]]
-
-          if inputargs['nobarcoding'] == False and inputargs['singlecell'] == False:
+          vdjqual = qual 
+          
+          if frame == 'reverse':
+            tcrseq = revcomp(vdj)[recom[5]:recom[6]]
+            tcrQ = vdjqual[::-1][recom[5]:recom[6]]
+          elif frame == 'forward':
+            tcrseq = vdj[recom[5]:recom[6]]
+            tcrQ = 'temp'#vdjqual[recom[5]:recom[6]]
+          
+          if inputargs['nobarcoding'] == False:
             bcQ = qual[:30]
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-            del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
+              del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
-            outfile.write(dcr_string + '\n')
-
-          elif inputargs['nobarcoding'] == False and inputargs['singlecell'] == True:
-            bcQ = qual[:30]
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
-              seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
-              tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ ) 
-            outfile.write(dcr_string + '\n')
-
-          elif inputargs['nobarcoding'] == True and inputargs['singlecell'] == True:
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' ,del_v_or_j = str(recom[3]) + ',', tcr_qual = tcrQ)   
-            #found_tcrs[dcr_string] += 1
             outfile.write(dcr_string + '\n')
 
           else:
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
               del_j = str(recom[3]) + ',', nt_insert = recom[4])      
             found_tcrs[dcr_string] += 1
-
-  if inputargs['nobarcoding'] == True and not inputargs['singlecell']:
+  
+  if inputargs['nobarcoding'] == True:
     # Write out non-barcoded results, with frequencies
     if inputargs['extension'] == 'n12':
       print "Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'."
@@ -836,7 +746,7 @@ if __name__ == '__main__':
     outfilenam = name_results + suffix + ".gz"
   else:
     outfilenam = name_results + suffix
-
+    
   sort_permissions(outfilenam)
   
   ##############################################
