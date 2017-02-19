@@ -1,6 +1,15 @@
-# Decombinator 
+##################
+##### UPDATE #####
+##################
+
+# This script has been updated to work for very short read single cell data. It will search for TCRs by looking for 
+# a single tag within a read, unlike Classic Decombinator which searches for both a V and J tag per read. 
+# Thomas Peacock, February 2017, UCL
+
+# Classic Decombinator written by 
 # James M. Heather, August 2016, UCL
 # https://innate2adaptive.github.io/Decombinator/
+
 
 ##################
 ### BACKGROUND ###
@@ -160,7 +169,6 @@ def fastq_check(infile):
     except:
       print "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
       sys.exit()
-        
   # @ check
   if read[0][0] <> "@":
     success = False
@@ -169,8 +177,7 @@ def fastq_check(infile):
     success = False
   # Read/quality match check
   if len(read[1]) <> len(read[3]):
-    success = False  
-  
+    success = False
   return(success)
 
 def revcomp(read):
@@ -320,6 +327,7 @@ def janalysis(read):
     start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
     
     if start_j_j_dels: # If the number of deletions has been found
+
       return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
           
   else:
@@ -366,34 +374,30 @@ def janalysis(read):
 def dcr(read, inputargs):
 
   """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
-    Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
-      insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
-  v_seq_start = 0     
-  j_seq_end = 0      
-  
+    Returns a list giving: V gene index (if found), J gene index (if found), seq from end of V tag to end or read
+    (or from start of read to start of J tag), position of end of V tag in read (or position of start of read), 
+    position of end of read (or position of start of J tag in read). The last two fields are used to find the 
+    appropriate quality score of the relevant sequence.
+     """
+
   vdat = vanalysis(read)
   
-  if not vdat:
-    return
-
   jdat = janalysis(read)
-  
-  if jdat:
-    
-    # Filter out rearrangements with indications they probably represent erroneous sequences
-    if "N" in read[vdat[3]:jdat[3]] and inputargs['allowNs'] == False:                          # Ambiguous base in inter-tag region
-      counts['dcrfilter_intertagN'] += 1
-    elif (vdat[3] - jdat[3]) >= inputargs['lenthreshold']:                                      # Inter-tag length threshold
-      counts['dcrfilter_toolong_intertag'] += 1
-    elif vdat[2] > (jump_to_end_v[vdat[0]] - len(v_seqs[vdat[0]])) or jdat[2] > jump_to_start_j[jdat[0]]: # Impossible number of deletions
-      counts['dcrfilter_imposs_deletion'] += 1                    
-    elif (vdat[3] + len(v_seqs[vdat[0]])) > (jdat[3] + len(j_seqs[jdat[0]])):                             # Overlapping tags 
-      counts['dcrfilter_tag_overlap'] += 1                     
-    
-    else:      
-      vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
-      return vj_details
-  
+
+  if not vdat:
+    vdat = ["n/a"]
+  if not jdat:
+    jdat=["n/a"]  
+
+  if jdat != ["n/a"]:
+    start_of_j = jdat[3]-len(j_seqs[jdat[0]])   
+    j_details = [vdat[0], jdat[0], read[0:start_of_j], 0, start_of_j]
+    return j_details
+
+  elif vdat != ["n/a"]:
+    end_of_v = vdat[3]+len(v_seqs[vdat[0]])
+    v_details = [vdat[0], jdat[0], read[end_of_v:len(read)], end_of_v, len(read)]
+    return v_details
   else:
     counts['VJ_assignment_failed'] += 1
     return
@@ -615,6 +619,7 @@ def sort_permissions(fl):
   if oct(os.stat(fl).st_mode)[4:] != '666':
     os.chmod(fl, 0o666)
 
+
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
@@ -660,10 +665,11 @@ if __name__ == '__main__':
     name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
   
   if inputargs['nobarcoding'] == False:
-    stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
-  else:
-    stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
+    stemplate = string.Template('$v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
+  else:  
+    stemplate = string.Template('$v $j $seqid $tcr_seq $tcr_qual')
     found_tcrs = coll.Counter()
+
   
   # Scroll through input file and find TCRs
   with open(name_results + suffix, 'w') as outfile:   
@@ -674,10 +680,10 @@ if __name__ == '__main__':
         
         if inputargs['nobarcoding'] == False:
           bc = seq[:30]   
-          vdj = seq[30:]
+          vdj = seq[30:] 
         else:
           vdj = seq
-        
+
         if inputargs['nobarcoding'] == False:
           if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
             counts['dcrfilter_barcodeN'] += 1
@@ -687,51 +693,43 @@ if __name__ == '__main__':
           print '\t read', counts['read_count'] 
     
         # Get details of the VJ recombination
+
         if inputargs['orientation'] == 'reverse':
-          recom = dcr(revcomp(vdj), inputargs)
           frame = 'reverse'
+          recom = dcr(revcomp(vdj), inputargs)
+
         elif inputargs['orientation'] == 'forward':
-          recom = dcr(vdj, inputargs)
           frame = 'forward'
+          recom = dcr(vdj, inputargs)
+
         elif inputargs['orientation'] == 'both':
-          recom = dcr(revcomp(vdj), inputargs)
-          frame = 'reverse'
-          if not recom:
-            recom = dcr(vdj, inputargs)
-            frame = 'forward'
-                        
+            recom = dcr(revcomp(vdj), inputargs)
+            frame = 'reverse'
+            if not recom:
+              recom = dcr(vdj, inputargs)
+              frame = 'forward'
+
         if recom:
           counts['vj_count'] += 1
-          vdjqual = qual 
-          
-          if frame == 'reverse':
-            tcrseq = revcomp(vdj)[recom[5]:recom[6]]
-            tcrQ = vdjqual[::-1][recom[5]:recom[6]]
+          vdjqual = qual[30:]  
+
+          if frame == 'reverse':                      # note: this handles only nbc case
+            tcrQ = qual[::-1][recom[3]:recom[4]]
+
           elif frame == 'forward':
-            tcrseq = vdj[recom[5]:recom[6]]
-            tcrQ = 'temp'#vdjqual[recom[5]:recom[6]]
-          
+            tcrQ = qual[recom[3]:recom[4]]
+         
+
           if inputargs['nobarcoding'] == False:
             bcQ = qual[:30]
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-              del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
-              tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
+              seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
+              tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ ) 
             outfile.write(dcr_string + '\n')
 
           else:
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-              del_j = str(recom[3]) + ',', nt_insert = recom[4])      
-            found_tcrs[dcr_string] += 1
-  
-  if inputargs['nobarcoding'] == True:
-    # Write out non-barcoded results, with frequencies
-    if inputargs['extension'] == 'n12':
-      print "Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'."
-      suffix = '.nbc'
-    with open(name_results + suffix, 'w') as outfile:
-      for x in found_tcrs.most_common():
-        outfile.write(x[0] + ", " + str(found_tcrs[x[0]]) + '\n')
-      
+            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
+            outfile.write(dcr_string + '\n')
   
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']
@@ -746,7 +744,7 @@ if __name__ == '__main__':
     outfilenam = name_results + suffix + ".gz"
   else:
     outfilenam = name_results + suffix
-    
+
   sort_permissions(outfilenam)
   
   ##############################################

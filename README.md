@@ -1,3 +1,115 @@
+## Update:
+
+This forked repository is an adaption of the classic Decombinator script. This was a six week project where Decombinator.py was modified to search for single tags within short fragments of single T cell non-barcoded data.
+
+Classic Decombinator can still be run using the original script which is still included:
+```bash
+python Decombinator.py -fq example.fastq
+```
+Single Cell Decombinator should be run using:
+```bash
+python SC_Decombinator.py -fq example.fastq
+```
+The output of Single Cell Decombinator will give:
+1. The V gene index (if found)
+2, The J gene index (if found)
+3. The FASTQID
+4. The sequence from the end of the V tag to the end of the read if a V tag is found, or the sequence from the start of the read to the start of the J tag if a J tag is found.
+5. The quality of this sequence
+
+A description of some useful scripts that were used for written for this project and are included in this repository is given below.
+
+###run_multiple_files.sh
+
+This bash script will run multiple fastq files through SC_Decombinator for both alpha and beta chains in both the forward and reverse direction. It will gather them into a user-specified directory and clear up any left over files in Decombinator without any intervention on the part of the user.
+
+This script can be run as follows:
+```bash
+source run_multiple_files.sh path/to/list/of/files /path/to/chosen/directory
+```
+
+where the first argument is the path to a file that itself lists all the files to be run, e.g.:
+```
+example1.fastq
+example2.fastq
+example3.fastq
+```
+
+and the second argument is the path to a directory in which all the output files will be stored.
+
+###forward_reverse_merger.py
+
+This script takes a pair of files for the same cell and chain but in opposite orientations and merges them into one file.
+Despite having been run through SC_Decombinator with different orientations, both files will have sequences in the same direction (as SC_Decombinator reverse complements "reverse" orientations before output). The forward and reverse output files are then simply appended using this script.
+
+It should be noted that if a read appears in both input files, it will currently be duplicated in the ouput file from `forward_reverse_merger.py`. For this six week project, no duplicates were found, so no additional functionality was required. For future use, some additional functionality would be needed to avoid duplication. A loop for checking for duplicates has been left commented out with this script.
+
+forward_reverse_merger.py takes a list of files as its argument, and can be run as follows:
+```bash
+python forward_reverse_merger.py /path/to/list/of/files
+```
+where `/path/to/list/of/files` is a file containing pairs of files to be merged, e.g.:
+```
+example1_forward.n12
+example1_reverse.n12
+example2_forward.n12
+example2_reverse.n12
+```
+Files in lines 1 and 2 will be merged, files in lines 3 and 4 will be merged, etc.
+
+###R1_R2_merger.py
+
+`R1_R2_merger.py` is similar to the forward_reverse_merger script. It was designed to take the found dcrs within R1 and append them with those of R2 for each cell and chain. Now that both the forward/reverse merging and R1/R2 merging have been tested independently, it would be fairly simple to covert these scripts into a single merging script.
+
+R1_R2_merger.py can be run using:
+```bash
+python R1_R2_merger.py path/to/input/file/names path/to/output/file/names
+```
+where `path/to/input/file/names` is a file that lists the files to be merged, e.g.:
+```
+example1_R1_merge.n12
+example1_R2_merge.n12
+example2_R1_merge.n12
+example2_R2_merge.n12
+example3_R1_merge.n12
+example3_R2_merge.n12
+```
+and `path/to/output/file/names` is a file that lists the desired names of the output file, e.g.:
+```
+example1_R1_R2_merged.n12
+example2_R1_R2_merged.n12
+example3_R1_R2_merged.n12
+``` 
+
+`example1_R1_merge.n12` and `example1_R2_merge.n12` will be merged to `example1_R1_R2_merged.n12` etc.
+
+### unique_tag_separator.py
+
+`unique_tag_separator.py` was designed to take the results of an R1/R2 merged file, and split it up into a directory of single files, where each file contains results pertaining only to a single tag. As with the other scripts in this repository, `unique_tag_separator` takes a file as its argument that contains a list of files to be split into separate tag files. They will be stored in an approriately named directory.
+
+The script can be run as follows:
+```bash
+python unique_tag_separator.py /path/to/list/of/files/to/split
+```
+
+###sc_collapsor.py
+
+`sc_collapsor.py` searches through a file of sequences for a single tag, and prints out the longest contiguous sequence for which that tag was found, where each base in the sequence was the most common base found in that position in all the sequences of the original file.
+
+This script accepts a directory as its argument, and will collapse the sequences for every file in this directory. It can be run as follows:
+```bash
+python sc_collapsor.py /path/to/directory/
+```
+The output collapsed V and J sequences can then be compared to look for overlaps. In the case of an overlap, a full TCR sequence can then be determined.
+
+
+###Future Aims
+An extension of this six week project would likely see these scripts generalised and built into one overarching script. The aim would then be to take the overlaps between the collapsed sequences, attach the appropriate V and J tags to each end, and then run these reassembled sequences through classic Decombinator to get a classic output. This can then be analysed using the rest of the classic pipeline to obtain the CDR3 amino acids present in single T cells.
+
+
+##### Thomas Peacock, CoMPLEX, UCL
+---
+
 # innate2adaptive / Decombinator 
 ## v3.1
 ##### This version written by James M. Heather, Niclas Thomas, Katharine Best, Theres Oakes, Mazlina Ismail and Benny Chain
