@@ -390,7 +390,7 @@ def dcr(read, inputargs):
     elif (vdat[3] + len(v_seqs[vdat[0]])) > (jdat[3] + len(j_seqs[jdat[0]])):                             # Overlapping tags 
       counts['dcrfilter_tag_overlap'] += 1                     
     
-    else:      
+    else:        
       vj_details = [vdat[0], jdat[0], vdat[2], jdat[2], read[vdat[1]+1:jdat[1]], vdat[3], jdat[3]]
       return vj_details
   
@@ -702,14 +702,14 @@ if __name__ == '__main__':
                         
         if recom:
           counts['vj_count'] += 1
-          vdjqual = qual 
+          vdjqual = qual[30:]  
           
           if frame == 'reverse':
             tcrseq = revcomp(vdj)[recom[5]:recom[6]]
             tcrQ = vdjqual[::-1][recom[5]:recom[6]]
           elif frame == 'forward':
             tcrseq = vdj[recom[5]:recom[6]]
-            tcrQ = 'temp'#vdjqual[recom[5]:recom[6]]
+            tcrQ = vdjqual[recom[5]:recom[6]]
           
           if inputargs['nobarcoding'] == False:
             bcQ = qual[:30]
