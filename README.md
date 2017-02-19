@@ -11,13 +11,14 @@ Single Cell Decombinator should be run using:
 python SC_Decombinator.py -fq example.fastq
 ```
 The output of Single Cell Decombinator will give:
+
 1. The V gene index (if found)
-2, The J gene index (if found)
+2. The J gene index (if found)
 3. The FASTQID
 4. The sequence from the end of the V tag to the end of the read if a V tag is found, or the sequence from the start of the read to the start of the J tag if a J tag is found.
 5. The quality of this sequence
 
-A description of some useful scripts that were used for written for this project and are included in this repository is given below.
+A description of some useful scripts that were used written for this project and are included in this repository is given below.
 
 ###run_multiple_files.sh
 
@@ -42,7 +43,7 @@ and the second argument is the path to a directory in which all the output files
 This script takes a pair of files for the same cell and chain but in opposite orientations and merges them into one file.
 Despite having been run through SC_Decombinator with different orientations, both files will have sequences in the same direction (as SC_Decombinator reverse complements "reverse" orientations before output). The forward and reverse output files are then simply appended using this script.
 
-It should be noted that if a read appears in both input files, it will currently be duplicated in the ouput file from `forward_reverse_merger.py`. For this six week project, no duplicates were found, so no additional functionality was required. For future use, some additional functionality would be needed to avoid duplication. A loop for checking for duplicates has been left commented out with this script.
+It should be noted that if a read appears in both input files, it will currently be duplicated in the output file from `forward_reverse_merger.py`. For this six week project, no duplicates were found, so no additional functionality was required. For future use, some additional functionality would be needed to avoid duplication. A loop for checking for duplicates has been left commented out with this script.
 
 forward_reverse_merger.py takes a list of files as its argument, and can be run as follows:
 ```bash
@@ -85,7 +86,7 @@ example3_R1_R2_merged.n12
 
 ### unique_tag_separator.py
 
-`unique_tag_separator.py` was designed to take the results of an R1/R2 merged file, and split it up into a directory of single files, where each file contains results pertaining only to a single tag. As with the other scripts in this repository, `unique_tag_separator` takes a file as its argument that contains a list of files to be split into separate tag files. They will be stored in an approriately named directory.
+`unique_tag_separator.py` was designed to take the results of an R1/R2 merged file, and split it up into a directory of single files, where each file contains results pertaining only to a single tag. As with the other scripts in this repository, `unique_tag_separator` takes a file as its argument that contains a list of files to be split into separate tag files. They will be stored in an appropriately named directory.
 
 The script can be run as follows:
 ```bash
