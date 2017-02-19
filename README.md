@@ -6,10 +6,10 @@ Classic Decombinator can still be run using the original script which is still i
 ```bash
 python Decombinator.py -fq example.fastq
 ```
-Single Decombinator should be run using:
+Single Cell Decombinator should be run using:
 ```bash
 python SC_Decombinator.py -fq example.fastq
-
+```
 The output of Single Cell Decombinator will give:
 1. The V gene index (if found)
 2, The J gene index (if found)
@@ -107,7 +107,8 @@ The output collapsed V and J sequences can then be compared to look for overlaps
 An extension of this six week project would likely see these scripts generalised and built into one overarching script. The aim would then be to take the overlaps between the collapsed sequences, attach the appropriate V and J tags to each end, and then run these reassembled sequences through classic Decombinator to get a classic output. This can then be analysed using the rest of the classic pipeline to obtain the CDR3 amino acids present in single T cells.
 
 
-Thomas Peacock, CoMPLEX, UCL
+##### Thomas Peacock, CoMPLEX, UCL
+---
 
 # innate2adaptive / Decombinator 
 ## v3.1
