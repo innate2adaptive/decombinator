@@ -14,6 +14,7 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 ## For the original Decombinator paper, please see [Thomas *et al*, Bioinformatics, 2013](http://dx.doi.org/10.1093/bioinformatics/btt004).
 
 <h3 id="top">Navigation:</h3>
+
 * [Installation](#installation)
 * [Test data](#testdata)
 * [Demultiplexing](#demultiplexing)
@@ -22,6 +23,7 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 * [CDR3 extraction](#cdr3)
 * [General usage notes](#generalusage)
 * [Calling Decombinator from other scripts](#calldcr)
+
 
 ---
 
@@ -87,13 +89,19 @@ The current version of Decombinator has tag sets for the analysis of alpha/beta 
 ---
 
 <h1 id="testdata">Test data</h1>
-### A small test data set of FASTQ reads produced using the Innate2Adaptive TCR amplification protocol, along with a basic set of instructions, are available [here](https://github.com/innate2adaptive/Decombinator-Test-Data).
+
+##### A small test data set of FASTQ reads produced using the Innate2Adaptive TCR amplification protocol, along with a basic set of instructions, are available [here](https://github.com/innate2adaptive/Decombinator-Test-Data).
+
+```bash
+git clone https://github.com/innate2adaptive/Decombinator-Test-Data.git
+```
 
 <sub>[↑Top](#top)</sub>
 
 ---
 
 <h1 id="demultiplexing">Demultiplexor.py</h1>
+
 ## Demultiplexing: getting sample-specific, barcoded V(D)J containing reads
 
 *This demultiplexing step is designed specifically to make use of the random barcode sequences introduced during the Chain lab's wet lab TCR amplification protocol. While it should be fairly straightforward to adapt this to other UMI-based approaches, that will require some light modification of the scripts. Users wanting to apply Decombinator to demultiplexed, non-barcoded data can skip this step.*
@@ -148,6 +156,7 @@ Addition of new index sequences will currently require some slight modification 
 ---
 
 <h1 id="decombinator">Decombinator.py</h1>
+
 ## Decombining: identifying rearranged TCRs and outputting their 5-part classifiers
 
 This script performs the key functions of the pipeline, as it searches through demultiplexed reads for rearranged TCR sequences. It looks for short 'tag' sequences (using Aho-Corasick string matching): the presence of a tag uniquely identifies a particular V or J gene. If it finds both a V and a J tag (and the read passes various filters), it assigns the read as recombined, and outputs a five-part Decombinator index (or 'DCR'), which uniquely represents a given TCR rearrangement.
@@ -166,6 +175,7 @@ Various additional fields may follow the five part classifier, but the DCR will 
 ```bash
 1, 22, 9, 0, CTCTA
 ```
+
 Which corresponds to a rearrangement between TRAV1-2 (V index **1**, with **9** nucleotides deleted) and TRAJ33 (J index **22**, with **0** deletions), with an insert sequence (i.e. non-templated additions to the V and/or the J gene) of '**CTCTA**'. For beta chains, the insert sequence will contain any residual TRBD nucleotides, although as these genes are very short, homologous and typically highly 'nibbled', they are often impossible to differentiate.
 
 `Decombinator.py` needs to be provided with a FASTQ file, using the `-fq` flag (which, if following the Chain lab protocol will have come from the output of `Demultiplexor.py`). Users can also specify:
@@ -183,13 +193,14 @@ python Decombinator.py -fq AlphaSample1.fq.gz -sp mouse -c a
 The other important flag is that which specifies the DNA strand orientations that are searched for rearrangements: `-or`, for which users can specify 'forward', 'reverse' or 'both'. As the 5' RACE approach used in the Chain lab means that all recombinations will be read from the constant region, the default is set to reverse.
 
 Decombinator also outputs a number of additional fields by default, in order to facilitate error-correction in subsequent processes. These additional fields are, in order:
+
 * The FASTQ ID (i.e. the first line of four, following the '@' character)
- * This allows users to go back to the original FASTQ file and find whole reads of interest
+    * This allows users to go back to the original FASTQ file and find whole reads of interest
 * The 'inter-tag' sequence, and quality
- * These two fields are the nucleotide sequence and Q scores of the original FASTQ, running from the start of the found V tag to the end of the found J tag 
- * This therefore just lifts the part of the sequence that contains the rearrangement/CDR3 sequences, which will be used for error-correction
+    * These two fields are the nucleotide sequence and Q scores of the original FASTQ, running from the start of the found V tag to the end of the found J tag 
+    * This therefore just lifts the part of the sequence that contains the rearrangement/CDR3 sequences, which will be used for error-correction
 * The barcode sequence, and quality
- * The first 30 bases of each read, carried over from R2 during demultiplexing, contains the two random nucleotide sequences which make up the barcode (UMI)
+    * The first 30 bases of each read, carried over from R2 during demultiplexing, contains the two random nucleotide sequences which make up the barcode (UMI)
  
 ```bash
 43, 19, 5, 2, TCGACCTC, M01996:15:000000000-AJF5P:1:1101:17407:1648, AAGTGTCAGACTCAGCGGTGTACTTCTGTGCTCTGTCGACCTCAACAGAGATGACAAGATCATCTTTGGAAAAGGGACACG, HHHGHFHHHHG?FGECHHHHHHHHHGHHFHHGGGGFFHHGFGGHHHHHHHHHHHHHHHHHHHHGHHHHHHHHHHHHHGGGH, GTCGTGATCGGCCGGTCGTGATCGTGCACA, 1AA@A?FFF??DFCGGGEG?FGGAGHGFHC
@@ -218,35 +229,40 @@ TR = TCR / A = alpha / V = variable / 1 = family / -2 = subfamily / *01 = allele
 ---
 
 <h1 id="collapsing">Collapsinator.py</h1>
+
 ## Collapsing: using the random barcodes to error- and frequency-correct the repertoire
 
 Assuming that Decombinator has been run on data produced using the Chain lab's (or a comparable) UMI protocol, the next step in the analysis will remove errors and duplicates produced during the amplification and sequencing reactions.
 
 The barcode sequence is contained in one of the additional fields output by `Decombinator.py` in the .n12 files, that which contains the first 30 bases of R2. As Illumina sequencing is particularly error-prone in the reverse read, and that reads can be phased (i.e. they do not always begin with the next nucleotide that follows the sequencing primer) our protocol uses known spacer sequences to border the random barcode bases, so that we can identify the actual random bases. The hexameric barcode locations (N6) are determined in reference to the two spacer sequences like so:
+
 ```
 I8 (spacer) – N6 – I8 – N6 – 2 base overflow (n)
 GTCGTGATNNNNNNGTCGTGATNNNNNNnn
 ```
+
 The collapsing script can therefore use the spacer sequences to be sure we have found the right barcode sequences.
 
 The `Collapsinator.py` script performs the following procedures:
 * Scrolls through each DCR of the input .n12 file
 * First performs error-correction (removing TCR reads produced by errors from e.g. PCR)
- * Then looks at all the different DCRs associated with a given barcode
- * Takes the most common inter-tag sequence/DCR combination as the 'true' TCR (as errors are likely to occur during a later PCR cycle, and thus will most often be minority variants, see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
- * Compare this against all other DCRs that shared the same barcode
- * Those that only have a few differences are likely erroneous branches, and can be discounted
- * Frequent but significantly different TCRs could represent 'barcode clash', and thus the process repeats
+    * Then looks at all the different DCRs associated with a given barcode
+    * Takes the most common inter-tag sequence/DCR combination as the 'true' TCR (as errors are likely to occur during a later PCR cycle, and thus will most often be minority variants, see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
+    * Compare this against all other DCRs that shared the same barcode
+    * Those that only have a few differences are likely erroneous branches, and can be discounted
+    * Frequent but significantly different TCRs could represent 'barcode clash', and thus the process repeats
 * Second the script estimates the true cDNA frequency 
- * Clusters all barcode sequences found in conjunction with a DCR (within a given threshold) 
- * This is required as there could be errors within the barcode sequences themselves
- * Number of final clusters gives a better estimate of the original frequency of that cDNA molecule
+    * Clusters all barcode sequences found in conjunction with a DCR (within a given threshold) 
+    * This is required as there could be errors within the barcode sequences themselves
+    * Number of final clusters gives a better estimate of the original frequency of that cDNA molecule
 * Outputs a DCR identifier plus an additional sixth field, giving the corrected abundance of that TCR in the sample
 
 Collapsing occurs in a chain-blind manner, and so only the decombined '.n12' file is required, without any chain designation, with the only required parameter being the infile:
+
 ```bash
 python Collapsinator.py -in dcr_AlphaSample1.n12
 ```
+
 A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However this the need for such fine tuning will likely be very protocol-speficic, and is only suggested for advanced users, and with careful data validation.
 
 The default file extension is '.freq'.
@@ -256,6 +272,7 @@ The default file extension is '.freq'.
 ---
 
 <h1 id="cdr3">CDR3translator.py</h1>
+
 ## TCR translation and CDR3 extraction: turning DCR indexes into complementarity determining region 3 sequences
 
 As the hypervariable region and the primary site of antigenic contact, the CDR3 is probably the region of most interest. By convention, the [CDR3 is defined](http://dx.doi.org/10.1016/S0145-305X(02)00039-3) as running from the position of the second conserved cysteine encoded in the 3' of the V gene to the phenylalanine in the conserved 'FGXG' motif in the J gene. However, some genes use non-canonical residues/motifs, and the position of these motifs varies.
@@ -310,51 +327,58 @@ The residues that make up the 'GXG' section of the 'FGXG' motif can also be incl
 <h1 id="generalusage">General usage notes and tips</h1>
 
 ## Being efficient
+
 * Use the help flag (`-h`) to see all options for a given script
 * Where possible, run scripts in same folder as data
- * Should work remotely, but recommended not to
+    * Should work remotely, but recommended not to
 * Use bash loops to iterate over many samples
- * For example, to run the CDR3 translation script on all alpha .freq files in the current directory:
+    * For example, to run the CDR3 translation script on all alpha .freq files in the current directory:
 `for x in *alpha*.freq.gz; do echo $x; python ligTCRtranslateCDR3.py -in $x -c a; done`
-* There is also a [makefile in development](https://github.com/innate2adaptive/automate-decombinator) to automate the pipeline from start to finish
+* There is also a [makefile available](https://github.com/innate2adaptive/automate-decombinator) to automate the pipeline from start to finish
 * Ideally don't pool alpha and beta of one individual into same index for sequencing
- * You may wish to know the fraction of reads Decombining, which will be confounded if there are multiple samples or chains per index combination
+    * You may wish to know the fraction of reads Decombining, which will be confounded if there are multiple samples or chains per index combination
 
 ## Be aware of the defaults
+
 * These scripts are all set up to analyse data produced from our ligation TCR protocol, and thus the defaults reflect this
- * By far the most common libraries analysed to date are human αβ repertoires
+    * By far the most common libraries analysed to date are human αβ repertoires
 * If running on mouse and/or gamma/delta repertoires, it may be worth altering the defaults towards the top of the code to save on having to repeatedly have to set the defaults
 * If running on data not produced using our protocol, likely only the Decombinator and translation scripts will be useful 
-  * The `-nbc` (non-barcoding) flag will likely need to be set (unless you perform analogous UMI-positioning to `Demultiplexor.py`)
-  * If your libraries contain TCRs in the forward orientation, or in both, this will also need to set with the `-or` flag
+    * The `-nbc` (non-barcoding) flag will likely need to be set (unless you perform analogous UMI-positioning to `Demultiplexor.py`)
+    * If your libraries contain TCRs in the forward orientation, or in both, this will also need to set with the `-or` flag
 
 ## Keep track of what's going on
+
 * Using the 'dontgzip' flag ('-dz') will stop the scripts automatically compressing the output data, which will minimise processing time (but take more space)
- * It is recommend to keep gzipped options as default
- * Compressing/decompressing data slightly slows your analysis, but dramatically reduces the data storage footprint
+    * It is recommend to keep gzipped options as default
+    * Compressing/decompressing data slightly slows your analysis, but dramatically reduces the data storage footprint
 * Don't be afraid to look at the code inside the scripts to figure out what's going on
 * Check your log files, as they contain important information
 * **Back up your data** (including your log files)!
 
 ## Use good naming conventions
+
 * Keep separate alpha and beta files, named appropriately
-  * Keep chain type in name
-  * Decombinator will always take specified chain as the actual, but failing that will look in filename
+    * Keep chain type in name
+    * Decombinator will always take specified chain as the actual, but failing that will look in filename
 * Don't use full stops in file names
- * Some of the scripts use them to determine file extension locations
- * Additionally discourages inadvertent data changing
+    * Some of the scripts use them to determine file extension locations
+    * Additionally discourages inadvertent data changing
 * While there are default file extensions, these settings can be set via the `-ex` flag 
- * Similarly, when Decombining you can set the prefix with `-pf`
+    * Similarly, when Decombining you can set the prefix with `-pf`
  
 ## Using Docker
+
 * Docker may be convenient for systems where installing many different packages is problematic
- * It should allow users to run Decombinator scripts without installing Python + packages (although you still have to install Docker)
- * The scripts however will run faster if you natively install Python on your OS
+    * It should allow users to run Decombinator scripts without installing Python + packages (although you still have to install Docker)
+    * The scripts however will run faster if you natively install Python on your OS
 * If opted for, users must first [install Docker](https://docs.docker.com/engine/installation/)
 * Then scripts can be run like so:
+
 ```bash
 docker run -it --rm --name dcr -v "$PWD":/usr/src/myapp -w /usr/src/myapp decombinator/dcrpython python SCRIPT.py`
 ```
+
 * Depending on your system, you may need to run this as a superuser, i.e. begin the command `sudo docker...`
 * N.B.: the first time this is run Docker will download [the Decombinator image from Dockerhub](https://hub.docker.com/r/decombinator/dcrpython/), which will make it take longer than usual
 
@@ -367,6 +391,7 @@ docker run -it --rm --name dcr -v "$PWD":/usr/src/myapp -w /usr/src/myapp decomb
 As an open source Python script, `Decombinator` (and associated functions) can be called by other scripts, allowing advanced users to incorporate our rapid TCR assignation into their own scripts, permitting the development of highly bespoke functionalities.
 
 If you would like to call Decombinator from other scripts you need to make sure you fulfil the correct requirements upstream of actually looking for rearrangements. You will thus need to:
+
 * Set up some 'dummy' input arguments, as there are some that Decombinator will expect
 * Run the 'import_tcr_info' function, which sets up your environment with all of the required variables (by reading in the tags and FASTQs, building the tries etc)
 
@@ -407,10 +432,12 @@ If users wish to view previous versions of Decombinator, v2.2 is available from 
 ### Related reading
 
 * [Thomas et al (2013), Bioinformatics, “Decombinator: a tool for fast, efficient gene assignment in T-cell receptor sequences using a finite state machine”](http://dx.doi.org/10.1093/bioinformatics/btt004)
- * The original Decombinator paper, which explains the principles of the script 
+    * The original Decombinator paper, which explains the principles of the script 
 * [Heather et al (2016), Frontiers in Immunology, “Dynamic Perturbations of the T-Cell Receptor Repertoire in Chronic HIV Infection and following Antiretroviral Therapy”](http://dx.doi.org/10.3389/fimmu.2015.00644)
- * Paper describing the previous version of the protocol and some applications (as applied to studying the repertoire of HIV+ patients), which also introduces the collapsing procedure
+    * Our paper describing the previous version of the combined amplification and analysis protocol and some applications (as applied to studying the repertoire of HIV+ patients), which also introduces the collapsing procedure
+* [Oakes et al (2017), Frontiers in Immunology, ”The T Cell Response to the Contact Sensitizer Paraphenylenediamine Is Characterized by a Polyclonal Diverse Repertoire of Antigen-Specific Receptors”](http://journal.frontiersin.org/article/10.3389/fimmu.2017.00162/full)
+    * A more recent paper using the updated version of the protocol, which incorporates the entire UMI in the ligation oligonucleotide
 * [Best et al (2015), Scientific Reports, “Computational analysis of stochastic heterogeneity in PCR amplification efficiency revealed by single molecule barcoding”](http://dx.doi.org/10.1038/srep14629)
- * An in-depth analysis of barcoded data showing the need for barcoding in producing robustly quantitative data from the stochastic maelstrom of amplification that makes up PCR
+    * An in-depth analysis of barcoded data showing the need for barcoding in producing robustly quantitative data from the stochastic maelstrom of amplification that makes up PCR
 
-
+<sup>[↑Top](#top)</sup>
