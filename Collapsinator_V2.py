@@ -179,7 +179,7 @@ def get_barcode(bcseq):
         This barcode (theoretically) consists of the concatentation of the two random hexamer sequences contained in the ligation oligo.
         However errors in sequences and ligation oligo production can mean that the random nucleotides are not always at the expected position.
         This function uses the known sequence of the spacers (which bound each of the two N6s to their 5') to deduce the random sequences.
-        Returns a list of four numbmers, giving the start and stop positions of N1 and N2 respectively.
+        Returns a list of four numbers, giving the start and stop positions of N1 and N2 respectively.
         """
         spcr = "GTCGTGAT"
         
@@ -215,7 +215,7 @@ def get_barcode(bcseq):
           # search for spacer in this substring, allowing for 2 substitutions first
             # failing that, search again, allowing for 2 substitutions OR (1 deletion or 1 insertion)
                 err_spcrs = regex.findall("(GTCGTGAT){1s<=2}", bcseq_ss) 
-                positions = [bcseq.find(x) for x in err_spcrs]
+                positions = [bcseq_ss.find(x) for x in err_spcrs]
                 lens = [len(x) for x in err_spcrs]
             
             if len(positions) < 1:
@@ -226,11 +226,11 @@ def get_barcode(bcseq):
             if len(positions) == 1:
             #return bc positions as 6 before and 6 after spacer
                 counts['getbarcode_pass_regexmatch'] += 1
-                bc_pos=[positions[0]-6, positions[0]- 1, positions[0]+lens[0] + 1, positions[0]+lens[0]+6]
+                bc_pos=[positions[0]-6, positions[0], positions[0]+lens[0] + 1, positions[0]+lens[0]+7]
                 return [x + 12 for x in bc_pos]
 
             else:  
-              counts['getbarcode_fail_not2spacersfound'] += 1
+              counts['getbarpycode_fail_not2spacersfound'] += 1
               return
           
           #else:
@@ -402,12 +402,13 @@ def collapsinate(barcode_quality_parameters,
         fields = line.rstrip('\n').split(', ')
 
         bc_locs = get_barcode(fields[8])        # barcode locations
+        print bc_locs
         if bc_locs:
             # account for N1 barcode being greater or shorter than 6 nt (due to manufacturing errors)
             if (bc_locs[1] - bc_locs[0]) == 6:
                 barcode = fields[8][bc_locs[0]:bc_locs[1]] + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[1]] + fields[9][bc_locs[2]:bc_locs[3]]
-            
+                
             elif (bc_locs[1] - bc_locs[0]) < 6:
                 n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
                 barcode = fields[8][bc_locs[0]:bc_locs[1]] + "S" * n1_diff_len + fields[8][bc_locs[2]:bc_locs[3]]
