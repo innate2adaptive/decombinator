@@ -97,6 +97,8 @@ from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
 
+from IPython import embed
+
 __version__ = '3.1'
 
 ##########################################################
@@ -182,6 +184,7 @@ def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
   
   # Define expected file name
   expected_file = species + "_" + tagset + "_" + "TR" + chain.upper() + gene.upper() + "." + filetype
+  embed()
 
   # First check whether the files are available locally (in pwd or in bundled directory)
   if os.path.isfile(expected_file):
