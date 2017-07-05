@@ -105,6 +105,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
+ 
+from IPython import embed
 
 __version__ = '3.1'
 
@@ -184,11 +186,12 @@ def revcomp(read):
   """rc(read): Wrapper for SeqIO reverse complement function"""
   return str(Seq(read).reverse_complement())
 
-def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
+def read_tcr_file(species, tagset, chain, gene, filetype, expected_dir_name):
   """ Reads in the FASTA and tag data for the appropriate TCR locus """
   
   # Define expected file name
   expected_file = species + "_" + tagset + "_" + "TR" + chain.upper() + gene.upper() + "." + filetype
+  # expected_file = species + "_" + tagset + "_" + "TR" + chain.upper() + gene.upper() + "." + filetype
 
   # First check whether the files are available locally (in pwd or in bundled directory)
   if os.path.isfile(expected_file):
@@ -406,49 +409,71 @@ def dcr(read, inputargs):
 ############# ANCILLARY DECOMBINING FUNCTIONS #############
 ###########################################################
 
-def import_tcr_info(inputargs):
-  """ import_tcr_info: Gathers the required TCR chain information for Decombining """
-    
-  # Get chain information
-  global chainnams, chain, counts
+def get_chain(inputargs):
+
+  nochain_error = "TCR chains not recognised. \n \
+      Please either include at least one chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
+      or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive).\n \
+      Decombinator accepts a/b/g/d chains only."
+
+  global chainnams, counts
   counts = coll.Counter()
+
   chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
    
   # Detect whether chain specified in filename
   inner_filename_chains = [x for x in chainnams.values() if x in inputargs['fastq'].lower()]
-  if len(inner_filename_chains) == 1:
-      counts['chain_detected'] = 1
+  counts['chain_detected'] = len(inner_filename_chains)
   
+
   if inputargs['chain']:
-    if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
-      chain = "a" 
-    elif inputargs['chain'].upper() in ['B', 'BETA', 'TRB', 'TCRB']:
-      chain = "b" 
-    elif inputargs['chain'].upper() in ['G', 'GAMMA', 'TRG', 'TCRG']:
-      chain = "g" 
-    elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
-      chain = "d" 
-    else:
-      print nochain_error
-      sys.exit()
+    input_chains = inputargs['chain'].upper().split(" ")
   else:
-    
     # If no chain provided, try and infer from filename
-    if counts['chain_detected'] == 1:
-      chain = inner_filename_chains[0][0]  
-          
+    if counts['chain_detected'] >= 1:
+      
+      input_chains = [c[0].upper() for c in inner_filename_chains]
+    
     else:
-      nochain_error = "TCR chain not recognised. \n \
-      Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
-      or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
+      print nochain_error
+      sys.exit()    
+  chains = []
+
+  if not input_chains:
+    print nochain_error
+    sys.exit()
+
+  for i in range(len(input_chains)):
+    if input_chains[i] in ['A', 'ALPHA', 'TRA', 'TCRA']:
+      chains.append("a") 
+    elif input_chains[i] in ['B', 'BETA', 'TRB', 'TCRB']:
+      chains.append("b") 
+    elif input_chains[i] in ['G', 'GAMMA', 'TRG', 'TCRG']:
+      chains.append("g") 
+    elif input_chains[i] in ['D', 'DELTA', 'TRD', 'TCRD']:
+      chains.append("d") 
+    else:
       print nochain_error
       sys.exit()
-      
+    chains = list(set(chains))
+  return chains
+
+
+
+
+def import_tcr_info(inputargs):
+  """ import_tcr_info: Gathers the required TCR chain information for Decombining """
+    
+  # Get chain information
+  global chain
+
+  chain = get_chain(inputargs)
+
   #################################################
   ############# GET GENES, BUILD TRIE #############
   #################################################
-    
-  print 'Importing TCR', chainnams[chain], 'gene sequences...'
+
+  print 'Importing TCR', ", ".join(map(chainnams.__getitem__, chain)), 'gene sequences...'
 
   # First check that valid tag/species combinations have been used
   if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
@@ -457,13 +482,15 @@ def import_tcr_info(inputargs):
     In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original)."
     inputargs['tags'] = "original"
   
-  if inputargs['tags'] == "extended" and ( chain == 'g' or chain == 'd' ):
+  if inputargs['tags'] == "extended" and ( 'g' in chain or 'd' in chain ):
+  
     print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
-    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+    Decombinator will now switch the tag set in use from \'extended\' to \'original\' for these chains.\n \
     In future, consider editing the script to change the default, or use the appropriate flags."
     inputargs['tags'] = "original"
 
   # Set tag split position, and check tag set. Note that original tags use shorter length J half tags, as these tags were originally shorter.
+
   global v_half_split, j_half_split
   if inputargs['tags'] == "extended":
     v_half_split, j_half_split = [10,10] 
@@ -473,6 +500,7 @@ def import_tcr_info(inputargs):
     print "Tag set unrecognised; should be either \'extended\' or \'original\' for human, or just \'original\' for mouse. \n \
     Please check tag set and species flag."
     sys.exit()
+
     
   # Check species information
   if inputargs['species'] not in ["human", "mouse"]:
@@ -485,17 +513,23 @@ def import_tcr_info(inputargs):
     # I.e. "[human/mouse]_[extended/original]_TR[A/B/G/D][V/J].[fasta/tags]"
   
   for gene in ['v', 'j']:
+
     # Get FASTA data
-    fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])  
-    globals()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
+    fasta_holder = []
+    for i in range(len(chain)):
+      fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], chain[i], gene, "fasta", inputargs['tagfastadir'])  
+      fasta_holder.append(list(SeqIO.parse(fasta_file, "fasta")))
+
+    globals()[gene + "_genes"] = [item for sublist in fasta_holder for item in sublist]
     fasta_file.close()
+    
     
     globals()[gene+"_regions"] = []
     for g in range(0, len(globals()[gene+"_genes"])):
         globals()[gene+"_regions"].append(string.upper(globals()[gene+"_genes"][g].seq))  
         
     # Get tag data
-    tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "tags", inputargs['tagfastadir'])  # get tag data
+    tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], chain[0], gene, "tags", inputargs['tagfastadir'])  # get tag data
     if gene == 'v': jumpfunction = "jump_to_end_v"
     elif gene == 'j': jumpfunction = "jump_to_start_j"
     globals()[gene+"_seqs"], globals()["half1_"+gene+"_seqs"], globals()["half2_"+gene+"_seqs"], globals()[jumpfunction] = \
