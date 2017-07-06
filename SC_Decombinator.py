@@ -519,9 +519,9 @@ def import_tcr_info(inputargs):
     for i in range(len(chain)):
       fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], chain[i], gene, "fasta", inputargs['tagfastadir'])  
       fasta_holder.append(list(SeqIO.parse(fasta_file, "fasta")))
-
+      fasta_file.close()
     globals()[gene + "_genes"] = [item for sublist in fasta_holder for item in sublist]
-    fasta_file.close()
+    
     
     
     globals()[gene+"_regions"] = []
@@ -529,13 +529,23 @@ def import_tcr_info(inputargs):
         globals()[gene+"_regions"].append(string.upper(globals()[gene+"_genes"][g].seq))  
         
     # Get tag data
-    tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], chain[0], gene, "tags", inputargs['tagfastadir'])  # get tag data
-    if gene == 'v': jumpfunction = "jump_to_end_v"
-    elif gene == 'j': jumpfunction = "jump_to_start_j"
-    globals()[gene+"_seqs"], globals()["half1_"+gene+"_seqs"], globals()["half2_"+gene+"_seqs"], globals()[jumpfunction] = \
-      globals()["get_"+gene+"_tags"](tag_file, globals()[gene+"_half_split"])
-    tag_file.close()
-    
+    globals()[gene+"_seqs"] = []     #initialise arrays
+    globals()["half1_"+gene+"_seqs"] = []
+    globals()["half2_"+gene+"_seqs"] = []
+    globals()["jump_to_end_v"] = []
+    globals()["jump_to_start_j"] = []
+
+    for i in range(len(chain)):
+      tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], chain[0], gene, "tags", inputargs['tagfastadir'])  # get tag data
+      if gene == 'v': jumpfunction = "jump_to_end_v"
+      elif gene == 'j': jumpfunction = "jump_to_start_j"
+      tag_info_holder = globals()["get_"+gene+"_tags"](tag_file, globals()[gene+"_half_split"])
+      globals()[gene+"_seqs"].append(tag_info_holder[0])
+      globals()["half1_"+gene+"_seqs"].append(tag_info_holder[1])
+      globals()["half2_"+gene+"_seqs"].append(tag_info_holder[2])
+      globals()[jumpfunction].append(tag_info_holder[3])
+      tag_file.close()
+
     # Build Aho-Corasick tries
     globals()[gene+"_builder"] = AcoraBuilder()
     for i in range(0,len(globals()[gene+"_seqs"])):
@@ -696,7 +706,7 @@ if __name__ == '__main__':
   if counts['chain_detected'] == 1:
     name_results = inputargs['prefix'] + samplenam
   else:
-    name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
+    name_results = inputargs['prefix'] + "_".join(map(chainnams.__getitem__, chain)) + "_" + samplenam
   
   if inputargs['nobarcoding'] == False:
     stemplate = string.Template('$v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
@@ -785,7 +795,7 @@ if __name__ == '__main__':
   ############# WRITE SUMMARY DATA #############
   ##############################################
 
-  print "Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), chainnams[chain], "VJ rearrangements"
+  print "Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), ", ".join(map(chainnams.__getitem__, chain)), "VJ rearrangements"
   print "Reading from", inputargs['fastq'] + ", writing to", outfilenam
   print "Took", str(round(timetaken,2)), "seconds"
 
