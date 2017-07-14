@@ -105,6 +105,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
+ 
+from IPython import embed
 
 __version__ = '3.1'
 
@@ -184,11 +186,12 @@ def revcomp(read):
   """rc(read): Wrapper for SeqIO reverse complement function"""
   return str(Seq(read).reverse_complement())
 
-def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
+def read_tcr_file(species, tagset, chain, gene, filetype, expected_dir_name):
   """ Reads in the FASTA and tag data for the appropriate TCR locus """
   
   # Define expected file name
   expected_file = species + "_" + tagset + "_" + "TR" + chain.upper() + gene.upper() + "." + filetype
+  # expected_file = species + "_" + tagset + "_" + "TR" + chain.upper() + gene.upper() + "." + filetype
 
   # First check whether the files are available locally (in pwd or in bundled directory)
   if os.path.isfile(expected_file):
@@ -258,7 +261,6 @@ def vanalysis(read):
     if len(hold_v) > 1:
       counts['multiple_v_matches'] += 1
       return
-
     v_match = v_seqs.index(hold_v[0][0]) # Assigns V
     temp_end_v = hold_v[0][1] + jump_to_end_v[v_match] - 1 # Finds where the end of a full V would be
     
@@ -371,7 +373,7 @@ def janalysis(read):
          counts['no_j_assigned'] += 1
          return
        
-def dcr(read, inputargs):
+def dcr(read, inputargs, chain_order):
 
   """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
     Returns a list giving: V gene index (if found), J gene index (if found), seq from end of V tag to end or read
@@ -384,19 +386,55 @@ def dcr(read, inputargs):
   
   jdat = janalysis(read)
 
-  if not vdat:
-    vdat = ["n/a"]
-  if not jdat:
-    jdat=["n/a"]  
+  if vdat:
+    v_chain_order = []
+    lim = 0
+    v_seq_count = 0
+    for i in range(len(chain_order)):
+      if 'v' in chain_order[i]:
+        v_chain_order.append(chain_order[i])
 
-  if jdat != ["n/a"]:
+    for i in range(len(v_chain_order)):
+      v_seq_count = lim
+      lim += v_chain_order[i][2]
+      if vdat[0] < lim:
+        chain_type = v_chain_order[i][0]
+        break
+    vindex = vdat[0] - v_seq_count
+
+
+  if jdat:
+    j_chain_order = []
+    lim = 0
+    j_seq_count = 0
+    for i in range(len(chain_order)):
+      if 'j' in chain_order[i]:
+        j_chain_order.append(chain_order[i])
+
+    for i in range(len(j_chain_order)):
+      j_seq_count = lim
+      lim += j_chain_order[i][2]
+      if jdat[0] < lim:
+        chain_type = j_chain_order[i][0]
+        break
+    jindex = jdat[0] - j_seq_count
+
+  if not vdat:
+    #vdat = ["n/a"]
+    vindex = "n/a"
+  if not jdat:
+    #jdat = ["n/a"]
+    jindex = "n/a"
+
+  if jindex != "n/a":
     start_of_j = jdat[3]-len(j_seqs[jdat[0]])   
-    j_details = [vdat[0], jdat[0], read[0:start_of_j], 0, start_of_j]
+
+    j_details = [vindex, jindex, read[0:start_of_j], 0, start_of_j, chain_type]
     return j_details
 
-  elif vdat != ["n/a"]:
+  elif vindex != "n/a":
     end_of_v = vdat[3]+len(v_seqs[vdat[0]])
-    v_details = [vdat[0], jdat[0], read[end_of_v:len(read)], end_of_v, len(read)]
+    v_details = [vindex, jindex, read[end_of_v:len(read)], end_of_v, len(read), chain_type]
     return v_details
   else:
     counts['VJ_assignment_failed'] += 1
@@ -406,49 +444,73 @@ def dcr(read, inputargs):
 ############# ANCILLARY DECOMBINING FUNCTIONS #############
 ###########################################################
 
-def import_tcr_info(inputargs):
-  """ import_tcr_info: Gathers the required TCR chain information for Decombining """
-    
-  # Get chain information
-  global chainnams, chain, counts
+def get_chain(inputargs):
+
+  nochain_error = "TCR chains not recognised. \n \
+      Please either include at least one chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
+      or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive).\n \
+      Decombinator accepts a/b/g/d chains only."
+
+  global chainnams, counts
   counts = coll.Counter()
+
   chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
    
   # Detect whether chain specified in filename
   inner_filename_chains = [x for x in chainnams.values() if x in inputargs['fastq'].lower()]
-  if len(inner_filename_chains) == 1:
-      counts['chain_detected'] = 1
+  counts['chain_detected'] = len(inner_filename_chains)
   
+
   if inputargs['chain']:
-    if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
-      chain = "a" 
-    elif inputargs['chain'].upper() in ['B', 'BETA', 'TRB', 'TCRB']:
-      chain = "b" 
-    elif inputargs['chain'].upper() in ['G', 'GAMMA', 'TRG', 'TCRG']:
-      chain = "g" 
-    elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
-      chain = "d" 
-    else:
-      print nochain_error
-      sys.exit()
+    input_chains = inputargs['chain'].upper().split(" ")
   else:
-    
     # If no chain provided, try and infer from filename
-    if counts['chain_detected'] == 1:
-      chain = inner_filename_chains[0][0]  
-          
+    if counts['chain_detected'] >= 1:
+      
+      input_chains = [c[0].upper() for c in inner_filename_chains]
+    
     else:
-      nochain_error = "TCR chain not recognised. \n \
-      Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
-      or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
+      print nochain_error
+      sys.exit()    
+  chains = []
+
+  if not input_chains:
+    print nochain_error
+    sys.exit()
+
+  for i in range(len(input_chains)):
+    if input_chains[i] in ['A', 'ALPHA', 'TRA', 'TCRA']:
+      chains.append("a") 
+    elif input_chains[i] in ['B', 'BETA', 'TRB', 'TCRB']:
+      chains.append("b") 
+    elif input_chains[i] in ['G', 'GAMMA', 'TRG', 'TCRG']:
+      chains.append("g") 
+    elif input_chains[i] in ['D', 'DELTA', 'TRD', 'TCRD']:
+      chains.append("d") 
+    else:
       print nochain_error
       sys.exit()
-      
+    chains = list(set(chains))
+  return chains
+
+def flatten(l):
+  return [item for sublist in l for item in sublist]
+
+
+
+def import_tcr_info(inputargs):
+  """ import_tcr_info: Gathers the required TCR chain information for Decombining """
+    
+  # Get chain information
+  global chain
+
+  chain = get_chain(inputargs)
+
   #################################################
   ############# GET GENES, BUILD TRIE #############
   #################################################
-    
-  print 'Importing TCR', chainnams[chain], 'gene sequences...'
+
+  print 'Importing TCR', ", ".join(map(chainnams.__getitem__, chain)), 'gene sequences...'
 
   # First check that valid tag/species combinations have been used
   if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
@@ -457,13 +519,15 @@ def import_tcr_info(inputargs):
     In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original)."
     inputargs['tags'] = "original"
   
-  if inputargs['tags'] == "extended" and ( chain == 'g' or chain == 'd' ):
+  if inputargs['tags'] == "extended" and ( 'g' in chain or 'd' in chain ):
+  
     print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
-    Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
+    Decombinator will now switch the tag set in use from \'extended\' to \'original\' for these chains.\n \
     In future, consider editing the script to change the default, or use the appropriate flags."
     inputargs['tags'] = "original"
 
   # Set tag split position, and check tag set. Note that original tags use shorter length J half tags, as these tags were originally shorter.
+
   global v_half_split, j_half_split
   if inputargs['tags'] == "extended":
     v_half_split, j_half_split = [10,10] 
@@ -473,6 +537,7 @@ def import_tcr_info(inputargs):
     print "Tag set unrecognised; should be either \'extended\' or \'original\' for human, or just \'original\' for mouse. \n \
     Please check tag set and species flag."
     sys.exit()
+
     
   # Check species information
   if inputargs['species'] not in ["human", "mouse"]:
@@ -484,24 +549,50 @@ def import_tcr_info(inputargs):
     # Note that fasta/tag files fit the pattern "species_tagset_gene.[fasta/tags]"
     # I.e. "[human/mouse]_[extended/original]_TR[A/B/G/D][V/J].[fasta/tags]"
   
+  chain_order= []
+
   for gene in ['v', 'j']:
+
     # Get FASTA data
-    fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])  
-    globals()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
-    fasta_file.close()
+    fasta_holder = []
+
+    for i in range(len(chain)):
+      fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], chain[i], gene, "fasta", inputargs['tagfastadir'])  
+      fasta_holder.append(list(SeqIO.parse(fasta_file, "fasta")))
+      fasta_file.close()
+      chain
+    globals()[gene + "_genes"] = flatten(fasta_holder)
+    
+    
     
     globals()[gene+"_regions"] = []
     for g in range(0, len(globals()[gene+"_genes"])):
         globals()[gene+"_regions"].append(string.upper(globals()[gene+"_genes"][g].seq))  
         
     # Get tag data
-    tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "tags", inputargs['tagfastadir'])  # get tag data
-    if gene == 'v': jumpfunction = "jump_to_end_v"
-    elif gene == 'j': jumpfunction = "jump_to_start_j"
-    globals()[gene+"_seqs"], globals()["half1_"+gene+"_seqs"], globals()["half2_"+gene+"_seqs"], globals()[jumpfunction] = \
-      globals()["get_"+gene+"_tags"](tag_file, globals()[gene+"_half_split"])
-    tag_file.close()
-    
+
+    gene_seq_holder = []  #initialise arrays
+    half1_gene_seq_holder = []
+    half2_gene_seq_holder = []
+    jumpfunction_holder = []
+
+    for i in range(len(chain)):
+      tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], chain[i], gene, "tags", inputargs['tagfastadir'])  # get tag data
+      if gene == 'v': jumpfunction = "jump_to_end_v"
+      elif gene == 'j': jumpfunction = "jump_to_start_j"
+      tag_info_holder = globals()["get_"+gene+"_tags"](tag_file, globals()[gene+"_half_split"])
+      gene_seq_holder.append(tag_info_holder[0])
+      half1_gene_seq_holder.append(tag_info_holder[1])
+      half2_gene_seq_holder.append(tag_info_holder[2])
+      jumpfunction_holder.append(tag_info_holder[3])
+      chain_order.append([chain[i],gene, len(gene_seq_holder[i])])
+      tag_file.close()
+
+    globals()[gene+"_seqs"] = flatten(gene_seq_holder)
+    globals()["half1_"+gene+"_seqs"] = flatten(half1_gene_seq_holder)
+    globals()["half2_"+gene+"_seqs"] = flatten(half2_gene_seq_holder)
+    globals()[jumpfunction] = flatten(jumpfunction_holder)
+
     # Build Aho-Corasick tries
     globals()[gene+"_builder"] = AcoraBuilder()
     for i in range(0,len(globals()[gene+"_seqs"])):
@@ -519,6 +610,7 @@ def import_tcr_info(inputargs):
         globals()[gene+"_half2_builder"].add(str(globals()["half2_"+gene+"_seqs"][i]))
     globals()["half2_"+gene+"_key"] = globals()[gene+"_half2_builder"].build()
 
+  return chain_order
 
 def get_v_deletions( read, v_match, temp_end_v, v_regions_cut ):
     # This function determines the number of V deletions in sequence read
@@ -625,6 +717,7 @@ def sort_permissions(fl):
 ##########################################################
 
 if __name__ == '__main__':
+  s_t = time()
 
   inputargs = vars(args())
   
@@ -643,7 +736,7 @@ if __name__ == '__main__':
       sys.exit()
   
   # Get TCR gene information
-  import_tcr_info(inputargs)
+  chain_order = import_tcr_info(inputargs)
   
   counts['start_time'] = time()
   
@@ -662,12 +755,12 @@ if __name__ == '__main__':
   if counts['chain_detected'] == 1:
     name_results = inputargs['prefix'] + samplenam
   else:
-    name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
+    name_results = inputargs['prefix'] + "_".join(map(chainnams.__getitem__, chain)) + "_" + samplenam
   
   if inputargs['nobarcoding'] == False:
-    stemplate = string.Template('$v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
+    stemplate = string.Template('$chain $v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
   else:  
-    stemplate = string.Template('$v $j $seqid $tcr_seq $tcr_qual')
+    stemplate = string.Template('$chain $v $j $seqid $tcr_seq $tcr_qual')
     found_tcrs = coll.Counter()
 
   
@@ -696,17 +789,17 @@ if __name__ == '__main__':
 
         if inputargs['orientation'] == 'reverse':
           frame = 'reverse'
-          recom = dcr(revcomp(vdj), inputargs)
+          recom = dcr(revcomp(vdj), inputargs, chain_order)
 
         elif inputargs['orientation'] == 'forward':
           frame = 'forward'
-          recom = dcr(vdj, inputargs)
+          recom = dcr(vdj, inputargs, chain_order)
 
         elif inputargs['orientation'] == 'both':
-            recom = dcr(revcomp(vdj), inputargs)
+            recom = dcr(revcomp(vdj), inputargs, chain_order)
             frame = 'reverse'
             if not recom:
-              recom = dcr(vdj, inputargs)
+              recom = dcr(vdj, inputargs, chain_order)
               frame = 'forward'
 
         if recom:
@@ -722,13 +815,13 @@ if __name__ == '__main__':
 
           if inputargs['nobarcoding'] == False:
             bcQ = qual[:30]
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
+            dcr_string = stemplate.substitute( chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
               seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ ) 
             outfile.write(dcr_string + '\n')
 
           else:
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
+            dcr_string = stemplate.substitute(chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
             outfile.write(dcr_string + '\n')
   
   counts['end_time'] = time()
@@ -751,7 +844,7 @@ if __name__ == '__main__':
   ############# WRITE SUMMARY DATA #############
   ##############################################
 
-  print "Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), chainnams[chain], "VJ rearrangements"
+  print "Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), ", ".join(map(chainnams.__getitem__, chain)), "VJ rearrangements"
   print "Reading from", inputargs['fastq'] + ", writing to", outfilenam
   print "Took", str(round(timetaken,2)), "seconds"
 
@@ -815,4 +908,5 @@ if __name__ == '__main__':
     print >> summaryfile, summstr 
     summaryfile.close()
     sort_permissions(summaryname)
+  print("--- %s seconds ---" % (time() - s_t))
   sys.exit()
