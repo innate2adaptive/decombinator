@@ -708,91 +708,10 @@ def get_j_tags(file_j, half_split):
 
     return [j_seqs, half1_j_seqs, half2_j_seqs, jump_to_start_j]
 
-
-def build_dcr_string(recom, frame, qual, readid, stemplate):
-
- # vdjqual = qual[30:]
-
-  if frame == 'reverse':                      # note: this handles only nbc case
-    tcrQ = qual[::-1][recom[3]:recom[4]]
-  elif frame == 'forward':
-    tcrQ = qual[recom[3]:recom[4]]
-
-  if inputargs['nobarcoding'] == False:
-    bcQ = qual[:30]
-    dcr_string = stemplate.substitute( chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
-    seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
-    tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )
-    return dcr_string
-
-  else:
-    dcr_string = stemplate.substitute(chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
-    return dcr_string
-
-
-def sort_permissions(fl):
-  # Need to ensure proper file permissions on output data
-    # If users are running pipeline through Docker might otherwise require root access
-  if oct(os.stat(fl).st_mode)[4:] != '666':
-    os.chmod(fl, 0o666)
-
-
-##########################################################
-############# READ IN COMMAND LINE ARGUMENTS #############
-##########################################################
-
-if __name__ == '__main__':
-  s_t = time()
-
-  inputargs = vars(args())
-  
-  print "Running Decombinator version", __version__
-
-  embed()
-  # Determine compression status (and thus opener required)
-  if inputargs['fastq'].endswith('.gz'):
-    opener = gzip.open
-  else:
-    opener = open
-
-  # Brief FASTQ sanity check
-  if inputargs['dontcheck'] == False:
-    if fastq_check(inputargs['fastq']) <> True:
-      print "FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is a properly formatted FASTQ."
-      sys.exit()
-  
-  # Get TCR gene information
-  chain_order = import_tcr_info(inputargs)
-  
-  counts['start_time'] = time()
-  
-  #########################################################
-  ############# SCROLL THROUGH FILE & ANALYSE #############
-  #########################################################
-
-  print "Decombining FASTQ data..."
-
-  suffix = "." + inputargs['extension']
-  samplenam = str(inputargs['fastq'].split(".")[0]) 
-  if os.sep in samplenam: # Cope with situation where specified FQ file is in a subdirectory
-    samplenam = samplenam.split(os.sep)[-1]
-
-  # If chain had not been autodetected, write it out into output file
-  if counts['chain_detected'] == 1:
-    name_results = inputargs['prefix'] + samplenam
-  else:
-    name_results = inputargs['prefix'] + "_".join(map(chainnams.__getitem__, chain)) + "_" + samplenam
-  
-  if inputargs['nobarcoding'] == False:
-    stemplate = string.Template('$chain $v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
-  else:  
-    stemplate = string.Template('$chain $v $j $seqid $tcr_seq $tcr_qual')
-    found_tcrs = coll.Counter()
-
-  
-  # Scroll through input file and find TCRs
-  with open(name_results + suffix, 'w') as outfile:   
-    with opener(inputargs['fastq']) as f:
+def findTCRs(fqfile, write_type):
+    # Scroll through input file and find TCRs
+  with open(name_results + suffix, write_type) as outfile:   
+    with opener(fqfile) as f:
       
       for readid, seq, qual in readfq(f):
         start_time = time()
@@ -841,43 +760,99 @@ if __name__ == '__main__':
         if recomR:
           counts['vj_count'] += 1
           dcr_string = build_dcr_string(recomR, frameR, qual, readid, stemplate)
-          print "function:"
-          print dcr_string
           outfile.write(dcr_string + '\n')
        
         if recomF:        
           counts['vj_count'] += 1
           dcr_string = build_dcr_string(recomF, frameF, qual, readid, stemplate)
-          print "function:"
-          print dcr_string
           outfile.write(dcr_string + '\n')
 
-#         if recom:
-#           counts['vj_count'] += 1
-# #          vdjqual = qual[30:]  
 
-#           if frame == 'reverse':                      # note: this handles only nbc case
-#             tcrQ = qual[::-1][recom[3]:recom[4]]
 
-#           elif frame == 'forward':
-#             tcrQ = qual[recom[3]:recom[4]]
-         
+def build_dcr_string(recom, frame, qual, readid, stemplate):
 
-#           if inputargs['nobarcoding'] == False:
-#             bcQ = qual[:30]
-#             dcr_string = stemplate.substitute( chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
-#               seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
-#               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )
-#             print "main:"
-#             print dcr_string
-#             outfile.write(dcr_string + '\n')
+ # vdjqual = qual[30:]
 
-#           else:
-#             dcr_string = stemplate.substitute(chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
-#             print "main:"
-#             print dcr_string
-#             outfile.write(dcr_string + '\n')
+  if frame == 'reverse':                      # note: this handles only nbc case
+    tcrQ = qual[::-1][recom[3]:recom[4]]
+  elif frame == 'forward':
+    tcrQ = qual[recom[3]:recom[4]]
+
+  if inputargs['nobarcoding'] == False:
+    bcQ = qual[:30]
+    dcr_string = stemplate.substitute( chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
+    seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
+    tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )
+    return dcr_string
+
+  else:
+    dcr_string = stemplate.substitute(chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
+    return dcr_string
+
+
+def sort_permissions(fl):
+  # Need to ensure proper file permissions on output data
+    # If users are running pipeline through Docker might otherwise require root access
+  if oct(os.stat(fl).st_mode)[4:] != '666':
+    os.chmod(fl, 0o666)
+
+
+##########################################################
+############# READ IN COMMAND LINE ARGUMENTS #############
+##########################################################
+
+if __name__ == '__main__':
+  s_t = time()
+
+  inputargs = vars(args())
   
+  print "Running Decombinator version", __version__
+
+  # Determine compression status (and thus opener required)
+  if inputargs['fastq'].endswith('.gz'):
+    opener = gzip.open
+  else:
+    opener = open
+
+  # Brief FASTQ sanity check
+  if inputargs['dontcheck'] == False:
+    if fastq_check(inputargs['fastq']) <> True:
+      print "FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is a properly formatted FASTQ."
+      sys.exit()
+  
+  # Get TCR gene information
+  chain_order = import_tcr_info(inputargs)
+  
+  counts['start_time'] = time()
+  
+  #########################################################
+  ############# SCROLL THROUGH FILE & ANALYSE #############
+  #########################################################
+
+  print "Decombining FASTQ data..."
+
+  suffix = "." + inputargs['extension']
+  samplenam = str(inputargs['fastq'].split(".")[0]) 
+  if os.sep in samplenam: # Cope with situation where specified FQ file is in a subdirectory
+    samplenam = samplenam.split(os.sep)[-1]
+
+  # If chain had not been autodetected, write it out into output file
+  if counts['chain_detected'] == 1:
+    name_results = inputargs['prefix'] + samplenam
+  else:
+    name_results = inputargs['prefix'] + "_".join(map(chainnams.__getitem__, chain)) + "_" + samplenam
+  
+  if inputargs['nobarcoding'] == False:
+    stemplate = string.Template('$chain $v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
+  else:  
+    stemplate = string.Template('$chain $v $j $seqid $tcr_seq $tcr_qual')
+    found_tcrs = coll.Counter()
+
+  findTCRs(inputargs['fastq'], 'w')
+
+  if inputargs['fastq2']:
+    findTCRs(inputargs['fastq2'], 'a')
+
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']
 
