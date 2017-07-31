@@ -124,6 +124,9 @@ def args():
   parser.add_argument(
       '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
   parser.add_argument(
+      '-fq2', '--fastq2', type=str, help='Optional second file to be to be merged with original file before analysis (e.g. for merging multiple'\
+      +'reads R1 and R2 for simultaneous TCR search)', required=False)
+  parser.add_argument(
       '-c', '--chain', type=str, help='TCR chain (a/b/g/d)', required=False)
   parser.add_argument(
       '-s', '--suppresssummary', action='store_true', help='Suppress the production of summary data log file', required=False)
@@ -138,7 +141,7 @@ def args():
   parser.add_argument(
       '-pf', '--prefix', type=str, help='Specify the prefix of the output DCR file. Default = \"dcr_\"', required=False, default="dcr_")
   parser.add_argument(
-      '-or', '--orientation', type=str, help='Specify the orientation to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")  
+      '-or', '--orientation', type=str, help='Specify the orientation to search in (forward/reverse/either/both). Default = reverse', required=False, default="reverse")  
   parser.add_argument(
       '-tg', '--tags', type=str, help='Specify which Decombinator tag set to use (extended or original). Default = extended', required=False, default="extended")
   parser.add_argument(
@@ -148,8 +151,8 @@ def args():
   parser.add_argument(
       '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
   parser.add_argument(
-      '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
-      Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
+      '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis.', \
+      required=False, default="Decombinator-Tags-FASTAs")
   parser.add_argument(
       '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
 
@@ -705,6 +708,88 @@ def get_j_tags(file_j, half_split):
 
     return [j_seqs, half1_j_seqs, half2_j_seqs, jump_to_start_j]
 
+def findTCRs(fqfile, write_type):
+    # Scroll through input file and find TCRs
+  with open(name_results + suffix, write_type) as outfile:   
+    with opener(fqfile) as f:
+      
+      for readid, seq, qual in readfq(f):
+        start_time = time()
+        
+        if inputargs['nobarcoding'] == False:
+          bc = seq[:30]   
+          vdj = seq[30:] 
+        else:
+          vdj = seq
+
+        if inputargs['nobarcoding'] == False:
+          if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
+            counts['dcrfilter_barcodeN'] += 1
+        
+        counts['read_count'] += 1
+        if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
+          print '\t read', counts['read_count'] 
+    
+        # Get details of the VJ recombination
+
+        if inputargs['orientation'] == 'reverse':
+          frameR = 'reverse'
+          recomR = dcr(revcomp(vdj), inputargs, chain_order)
+          recomF = None
+
+        elif inputargs['orientation'] == 'forward':
+          frameF = 'forward'
+          recomF = dcr(vdj, inputargs, chain_order)
+          recomR = None
+
+        elif inputargs['orientation'] == 'either':              # Looks for reverse, but will look for forward if no reverse found
+          recomR = dcr(revcomp(vdj), inputargs, chain_order)
+          frameR = 'reverse'
+          recomF = None
+          if not recomR:
+            recomF = dcr(vdj, inputargs, chain_order)
+            frameF = 'forward'
+            recomR = None
+
+        elif inputargs['orientation'] == 'both':
+          recomR = dcr(revcomp(vdj), inputargs, chain_order)
+          frameR = 'reverse'
+          recomF = dcr(vdj, inputargs, chain_order)
+          frameF = 'forward'
+
+        if recomR:
+          counts['vj_count'] += 1
+          dcr_string = build_dcr_string(recomR, frameR, qual, readid, stemplate)
+          outfile.write(dcr_string + '\n')
+       
+        if recomF:        
+          counts['vj_count'] += 1
+          dcr_string = build_dcr_string(recomF, frameF, qual, readid, stemplate)
+          outfile.write(dcr_string + '\n')
+
+
+
+def build_dcr_string(recom, frame, qual, readid, stemplate):
+
+ # vdjqual = qual[30:]
+
+  if frame == 'reverse':                      # note: this handles only nbc case
+    tcrQ = qual[::-1][recom[3]:recom[4]]
+  elif frame == 'forward':
+    tcrQ = qual[recom[3]:recom[4]]
+
+  if inputargs['nobarcoding'] == False:
+    bcQ = qual[:30]
+    dcr_string = stemplate.substitute( chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
+    seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
+    tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )
+    return dcr_string
+
+  else:
+    dcr_string = stemplate.substitute(chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
+    return dcr_string
+
+
 def sort_permissions(fl):
   # Need to ensure proper file permissions on output data
     # If users are running pipeline through Docker might otherwise require root access
@@ -763,67 +848,11 @@ if __name__ == '__main__':
     stemplate = string.Template('$chain $v $j $seqid $tcr_seq $tcr_qual')
     found_tcrs = coll.Counter()
 
-  
-  # Scroll through input file and find TCRs
-  with open(name_results + suffix, 'w') as outfile:   
-    with opener(inputargs['fastq']) as f:
-      
-      for readid, seq, qual in readfq(f):
-        start_time = time()
-        
-        if inputargs['nobarcoding'] == False:
-          bc = seq[:30]   
-          vdj = seq[30:] 
-        else:
-          vdj = seq
+  findTCRs(inputargs['fastq'], 'w')
 
-        if inputargs['nobarcoding'] == False:
-          if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
-            counts['dcrfilter_barcodeN'] += 1
-        
-        counts['read_count'] += 1
-        if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
-          print '\t read', counts['read_count'] 
-    
-        # Get details of the VJ recombination
+  if inputargs['fastq2']:
+    findTCRs(inputargs['fastq2'], 'a')
 
-        if inputargs['orientation'] == 'reverse':
-          frame = 'reverse'
-          recom = dcr(revcomp(vdj), inputargs, chain_order)
-
-        elif inputargs['orientation'] == 'forward':
-          frame = 'forward'
-          recom = dcr(vdj, inputargs, chain_order)
-
-        elif inputargs['orientation'] == 'both':
-            recom = dcr(revcomp(vdj), inputargs, chain_order)
-            frame = 'reverse'
-            if not recom:
-              recom = dcr(vdj, inputargs, chain_order)
-              frame = 'forward'
-
-        if recom:
-          counts['vj_count'] += 1
-          vdjqual = qual[30:]  
-
-          if frame == 'reverse':                      # note: this handles only nbc case
-            tcrQ = qual[::-1][recom[3]:recom[4]]
-
-          elif frame == 'forward':
-            tcrQ = qual[recom[3]:recom[4]]
-         
-
-          if inputargs['nobarcoding'] == False:
-            bcQ = qual[:30]
-            dcr_string = stemplate.substitute( chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v_or_j = str(recom[2]) + ',', \
-              seqid = readid + ',', tcr_seq = str(recom[3]) + ',', \
-              tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ ) 
-            outfile.write(dcr_string + '\n')
-
-          else:
-            dcr_string = stemplate.substitute(chain = str(recom[5]) + ',', v = str(recom[0]) + ',', j = str(recom[1]) + ',', seqid = readid + ',' , tcr_seq = str(recom[2]) + ',', tcr_qual = tcrQ)   
-            outfile.write(dcr_string + '\n')
-  
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']
 

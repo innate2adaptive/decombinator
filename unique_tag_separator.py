@@ -18,30 +18,30 @@ def tagcollector(filename):
 	for line in f:
 		dcr = line.split(", ")
 	
-		if dcr[0] != "n/a" and dcr[1] == "n/a":
-			if dcr[0] in v_tags:
-				v_tags[dcr[0]].append(line)
+		if dcr[1] != "n/a" and dcr[2] == "n/a":
+			if dcr[1] in v_tags:
+				v_tags[dcr[1]].append(line)
 			else:
-				v_tags[dcr[0]] = []
-				v_tags[dcr[0]].append(line)
+				v_tags[dcr[1]] = []
+				v_tags[dcr[1]].append(line)
 
-		elif dcr[0] == "n/a" and dcr[1] != "n/a":
-			if dcr[1] in j_tags:
-				j_tags[dcr[1]].append(line)
+		elif dcr[1] == "n/a" and dcr[2] != "n/a":
+			if dcr[2] in j_tags:
+				j_tags[dcr[2]].append(line)
 			else:
-				j_tags[dcr[1]] = []
-				j_tags[dcr[1]].append(line)
+				j_tags[dcr[2]] = []
+				j_tags[dcr[2]].append(line)
 
-		elif dcr[0] != "n/a" and dcr[1] != "n/a":
+		elif dcr[1] != "n/a" and dcr[2] != "n/a":
 			print "--------------------------------------------------------------------------------------------"
 			print "double tag found in: "+filename
 			print dcr
 			print "--------------------------------------------------------------------------------------------"
-			if ("v"+dcr[0]+"_j"+dcr[1]) in double_tags:
-				double_tags["v"+dcr[0]+"_j"+dcr[1]].append(line)
+			if ("v"+dcr[1]+"_j"+dcr[2]) in double_tags:
+				double_tags["v"+dcr[1]+"_j"+dcr[2]].append(line)
 			else:
-				double_tags["v"+dcr[0]+"_j"+dcr[1]] = []
-				double_tags["v"+dcr[0]+"_j"+dcr[1]].append(line)
+				double_tags["v"+dcr[1]+"_j"+dcr[2]] = []
+				double_tags["v"+dcr[1]+"_j"+dcr[2]].append(line)
 
 	f.close()
 	return v_tags, j_tags, double_tags
@@ -74,8 +74,9 @@ def writer(filename, v_tags, j_tags, double_tags):
 			output.write(dcr_tag)
 		output.close()
 
-files_to_split = sys.argv[1]
-files = get_files(files_to_split)
-for filename in files:
-	tags= tagcollector(filename)
-	writer(filename,tags[0],tags[1],tags[2])
+# files_to_split = sys.argv[1]
+# files = get_files(files_to_split)
+# for filename in files:
+filename = 'R1R2_res.n12'
+tags= tagcollector(filename)
+writer(filename,tags[0],tags[1],tags[2])
