@@ -710,6 +710,7 @@ def get_j_tags(file_j, half_split):
 
 def findTCRs(fqfile, write_type):
     # Scroll through input file and find TCRs
+  print "Writing to "+name_results+suffix+"..."
   with open(name_results + suffix, write_type) as outfile:   
     with opener(fqfile) as f:
       
@@ -832,16 +833,16 @@ if __name__ == '__main__':
   print "Decombining FASTQ data..."
 
   suffix = "." + inputargs['extension']
-  samplenam = str(inputargs['fastq'].split(".")[0]) 
-  if os.sep in samplenam: # Cope with situation where specified FQ file is in a subdirectory
-    samplenam = samplenam.split(os.sep)[-1]
+
+  basefilenam = os.path.basename(inputargs['fastq'])
+  samplenam = os.path.splitext(basefilenam)[0]
 
   # If chain had not been autodetected, write it out into output file
   if counts['chain_detected'] == 1:
     name_results = inputargs['prefix'] + samplenam
   else:
     name_results = inputargs['prefix'] + "_".join(map(chainnams.__getitem__, chain)) + "_" + samplenam
-  
+
   if inputargs['nobarcoding'] == False:
     stemplate = string.Template('$chain $v $j $del_v_or_j $seqid $tcr_seq $tcr_qual $barcode $barqual')
   else:  
