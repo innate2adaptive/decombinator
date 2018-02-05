@@ -210,14 +210,14 @@ for f in [inputargs['read1'], inputargs['read2'], inputargs['index1']]:
 # SP1 index = R1 (our own, RC1 proximal index)
 X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
 # NB: One index removed due to similarity to others, but exists in earlier datasets: "14":"ACACGG" 
-# NB: Added index to increase sequencing efficiency: "8":"ACTTGA"
+
 
 
 # 'SP2' index = R2 (index read, comes first in rearranged sequence)
 ##############################################################################################################################################################################
 # ##########################################################   NOTE BY A.WOOLSTON = ADDED 8-MER P7-L-15 : P7-L-22   ##########################################################
 X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", "6":"ATTGGC", "7":"GATCTG", "8":"TCAAGT", "9":"CTGATC", "10":"AAGCTA", "11":"GTAGCC", "12":"TACAAG", "13":"TTGACT", "14":"GGAACT", "15":"CCTGGTAG", "16":"TAAGCATG", "17":"AGATGTGC", "18":"GTCGAGCA", "19":"GAATTGCT", "20":"AAGCAACT", "21":"CTAACTGG", "22":"AGGCTCAA", "23":"CAGTTGGT","24": "TCTGGACC", "25":"TGTTATAC", "26":"TCAGCGAA"}
- 
+# NB: this includes the first 12 8 bp indices from teh Broad palte, numbered here as 13 - 26. 
 ##############################################################################################################################################################################
 ##########################################################
 ########### GENERATE SAMPLE-NAMED OUTPUT FILES ###########
