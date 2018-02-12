@@ -338,10 +338,7 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
 
   readseq = record1[1][12:] 
   readqual = record1[2][12:]
-  
-  from IPython import embed
-  embed()
-  
+
   fq_seq = Nseq + X1seq + X2seq + readseq
   fq_qual = Nqual + X1qual + X2qual + readqual
   
