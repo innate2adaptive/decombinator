@@ -50,6 +50,11 @@
 
   # -ex/--extension: Allows users to specify the file extension of the demultiplexed FASTQ files produced.
 
+  # -cl/--compresslevel: Allows user to specify the speed of gzip compression of output files as an integer from 1 to 9. 
+    # 1 is the fastest but offers least compression, 9 is the slowest and offers the most compression. Default for this program is 4. 
+
+  # -m13/--m13: Allow user to use the new oligo design M13.6N.I8.6N. Original oligo is I8.6N.I8.6N.
+
 # To see all options, run: python Demultiplexor.py -h
 
 
@@ -115,6 +120,10 @@ def args():
       '-fl', '--fuzzylist', type=bool, help='Output a list of those reads that demultiplexed using fuzzy index matching (True/False)', required=False, default=False)  
   parser.add_argument(
       '-ex', '--extension', type=str, help='Specify the file extension of the output FASTQ files. Default = \"fq\"', required=False, default="fq")
+  parser.add_argument(
+      '-cl', '--compresslevel', type=int, choices=range(1, 10), help='Specify compression level for output files', required=False, default=4)
+  parser.add_argument(
+      '-m13', '--m13', action='store_true', help='Use new oligo M13.6N.I8.6N, rather than original oligo I8.6N.I8.6N', required=False)
   return parser.parse_args()
 
 ############################################
@@ -204,12 +213,9 @@ for f in [inputargs['read1'], inputargs['read2'], inputargs['index1']]:
 X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
 # NB: One index removed due to similarity to others, but exists in earlier datasets: "14":"ACACGG" 
 
-
 # 'SP2' index = R2 (index read, comes first in rearranged sequence)
-##############################################################################################################################################################################
-# ##########################################################   NOTE BY A.WOOLSTON = ADDED 8-MER P7-L-15 : P7-L-22   ##########################################################
 X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", "6":"ATTGGC", "7":"GATCTG", "8":"TCAAGT", "9":"CTGATC", "10":"AAGCTA", "11":"GTAGCC", "12":"TACAAG", "13":"TTGACT", "14":"GGAACT", "15":"CCTGGTAG", "16":"TAAGCATG", "17":"AGATGTGC", "18":"GTCGAGCA", "19":"GAATTGCT", "20":"AAGCAACT", "21":"CTAACTGG", "22":"AGGCTCAA", "23":"CAGTTGGT","24": "TCTGGACC", "25":"TGTTATAC", "26":"TCAGCGAA"}
- # NB: this includes the first 12 8 bp indices from teh Broad palte, numbered here as 13 - 26.
+
 ##########################################################
 ########### GENERATE SAMPLE-NAMED OUTPUT FILES ###########
 ##########################################################
@@ -317,16 +323,25 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
   
   ### FORMATTING OUTPUT READ ###
   
-  Nseq = record3[1][0:30]
-  X1seq = record1[1][6:12]
-  X2seq = record2[1]
-  readseq = record1[1][12:]
+  if inputargs['m13']:
+    Nseq = record3[1][0:42]
+    Nqual = record3[2][0:42]
+  else:
+    Nseq = record3[1][0:30]
+    Nqual = record3[2][0:30]
 
-  Nqual = record3[2][0:30]
+  X1seq = record1[1][6:12]
   X1qual = record1[2][6:12]
+
+  X2seq = record2[1]
   X2qual = record2[2]
+
+  readseq = record1[1][12:] 
   readqual = record1[2][12:]
-    
+  
+  from IPython import embed
+  embed()
+  
   fq_seq = Nseq + X1seq + X2seq + readseq
   fq_qual = Nqual + X1qual + X2qual + readqual
   
@@ -395,9 +410,10 @@ if inputargs['dontgzip'] == False:
   
   for f in outputreads.keys():  
     
-    with open(f + suffix) as infile, gzip.open(f + suffix + '.gz', 'wb') as outfile:
+    with open(f + suffix) as infile, gzip.open(f + suffix + '.gz', 'wb',compresslevel=inputargs['compresslevel']) as outfile:
         outfile.writelines(infile)
         sort_permissions(outfile.name)
+        print f+suffix,"compressed to",f+suffix+'.gz'
     os.unlink(f + suffix)
 
 #################################################
