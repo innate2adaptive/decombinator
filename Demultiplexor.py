@@ -53,8 +53,6 @@
   # -cl/--compresslevel: Allows user to specify the speed of gzip compression of output files as an integer from 1 to 9. 
     # 1 is the fastest but offers least compression, 9 is the slowest and offers the most compression. Default for this program is 4. 
 
-  # -m13/--m13: Allow user to use the new oligo design M13.6N.I8.6N. Original oligo is I8.6N.I8.6N.
-
 # To see all options, run: python Demultiplexor.py -h
 
 
@@ -122,8 +120,6 @@ def args():
       '-ex', '--extension', type=str, help='Specify the file extension of the output FASTQ files. Default = \"fq\"', required=False, default="fq")
   parser.add_argument(
       '-cl', '--compresslevel', type=int, choices=range(1, 10), help='Specify compression level for output files', required=False, default=4)
-  parser.add_argument(
-      '-m13', '--m13', action='store_true', help='Use new oligo M13.6N.I8.6N, rather than original oligo I8.6N.I8.6N', required=False)
   return parser.parse_args()
 
 ############################################
@@ -323,12 +319,8 @@ for record1, record2, record3 in izip(fq1, fq2, fq3):
   
   ### FORMATTING OUTPUT READ ###
   
-  if inputargs['m13']:
-    Nseq = record3[1][0:42]
-    Nqual = record3[2][0:42]
-  else:
-    Nseq = record3[1][0:30]
-    Nqual = record3[2][0:30]
+  Nseq = record3[1][0:45]
+  Nqual = record3[2][0:45]
 
   X1seq = record1[1][6:12]
   X1qual = record1[2][6:12]
