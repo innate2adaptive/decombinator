@@ -279,7 +279,7 @@ python unittests/I8tests/I8correctlength.py
 ```
 Additionally, a script is included to run all current tests at once:
 ```
-python alltests.py
+python unittests/alltests.py
 ```
 
 <sub>[↑Top](#top)</sub>
