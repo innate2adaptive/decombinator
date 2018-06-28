@@ -99,7 +99,7 @@ def args():
         required=False)
   parser.add_argument(
       '-pb', '--positionalbarcodes', action='store_true', help='Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible.',\
-        required=False)  
+        required=False)
   
   return parser.parse_args()
 
@@ -120,6 +120,9 @@ def num_check(poss_int):
 def is_dna(poss_dna):
     """ Check whether string is feasibly a DNA sequence read"""
     return set(poss_dna.upper()).issubset({'A', 'C', 'G', 'T', 'N'})
+
+def flatten(l):
+  return [item for sublist in l for item in sublist]
       
 def check_dcr_file(infile):
     """ 
@@ -171,87 +174,136 @@ def check_dcr_file(infile):
     
       return True       # If first few lines all pass, assume the file is fine and carry on with the analysis.
 
+def getOligos():
+  # New oligos can be added here, specifying their spacers in the given format, and adding them to
+  # the returned list. As the m13 spcr1 coincidentally contains the i8 spacer (with an insertion),
+  # m13 MUST feature before i8 in the returned list.
 
-def get_barcode(bcseq):
-    """
-    getbarcode(bcseq):
-    Given a barcode-region sequence, outputs the sequence of the do-docamer barcode.
-    This barcode (theoretically) consists of the concatentation of the two random hexamer sequences contained in the ligation oligo.
-    However errors in sequences and ligation oligo production can mean that the random nucleotides are not always at the expected position.
-    This function uses the known sequence of the spacers (which bound each of the two N6s to their 5') to deduce the random sequences.
-    Returns a list of four numbmers, giving the start and stop positions of N1 and N2 respectively.
-    """
-    spcr = "GTCGTGAT"
-    
-    if "N" in bcseq and inputargs['allowNs'] == False:    # ambiguous base-call check 
-      counts['getbarcode_fail_N'] += 1
-      return
-    
-    # define expected positions
-    first = bcseq[0:8]
-    second = bcseq[14:22]   
-    
-    # if both spacers present and correct, return sequence from expected sites
-    if (first == spcr and second == spcr) or inputargs['positionalbarcodes'] == True:
-      counts['getbarcode_pass_exactmatch'] += 1
-      return [8, 14, 22, 28]
-    
-    # otherwise look throughout the entire sequence for the presence of two spacers
+  m13 = {"spcr1": "GTCGTGACTGGGAAAACCCTGG","spcr2":"GTCGTGAT"}
+  i8  = {"spcr1":"GTCGTGAT","spcr2":"GTCGTGAT"}
+  return [m13,i8]
+
+def findSubs(subseq, seq):
+    # allow up to two substitutions in subseq.
+    err_subseqs = regex.findall("("+subseq+"){1s<=2}", seq)
+    return err_subseqs
+
+def findSubsInsOrDels(subseq, seq):
+    # allow up to two subsitutions OR (one deletion or one insertion) in subseq.
+    err_subseqs = regex.findall("("+subseq+"){2i+2d+1s<=2}", seq)
+    return err_subseqs
+
+def spacerSearch(subseq,seq):
+    # first search for subseq within seq. If unsuccessful, allow for subsitutions in subseq.
+    # If still unsuccessful, allow for deletions, insertions and subsitutions in subseq.
+    foundseq = regex.findall(subseq, seq)
+    if not foundseq:
+      foundseq = findSubs(subseq, seq)
+    if not foundseq:
+      foundseq = findSubsInsOrDels(subseq, seq)
+    return foundseq
+
+def findFirstSpacer(oligo,seq):
+    allowance = 4
+    spacer = []
+    spcr1 = oligo["spcr1"]
+    spacer += spacerSearch(spcr1, seq[0:len(spcr1)+allowance])
+    return spacer
+
+def findSecondSpacer(oligo,seq):
+    spacer = []
+    spcr1 = oligo["spcr1"]
+    spcr2 = oligo["spcr2"]
+    spacer += spacerSearch(spcr2,seq[len(spcr1):])
+    return spacer
+
+def getSpacerPositions(bcseq,spacers):
+    # locates the positions of the determined spacers in the sequence
+    positions = []
+    startpos = 0
+    for x in spacers:
+      positions.append(bcseq.find(x,startpos))
+      startpos += len(x)
+    return positions
+
+def filterShortandLongBarcodes(b1len,b2end,bcseq,counts):
+    if b1len <= 3:
+      counts['getbarcode_fail_n1tooshort'] += 1
+      return 'fail'
+    elif b1len >= 9:
+      counts['getbarcode_fail_n1toolong'] += 1
+      return 'fail'
+    elif b2end > len(bcseq):
+      counts['getbarcode_fail_n2pastend'] += 1
+      return 'fail'
     else:
-      
-      # pad the 5' of the sequence to allow for frame-shifts that result in incomplete primary spacer
-      pad = 4
-      bcseq = ("X"*pad) + bcseq 
-      
-      # search for all instances of the spacer, allowing for 2 substitutions first
-        # failing that, search again, allowing for 2 substitutions OR (1 deletion or 1 insertion)
-      err_spcrs = regex.findall("(GTCGTGAT){1s<=2}", bcseq) 
-      positions = [bcseq.find(x) for x in err_spcrs]
-      lens = [len(x) for x in err_spcrs]
-      
-      if len(positions) <> 2:
-        err_spcrs = regex.findall("(GTCGTGAT){2i+2d+1s<=2}", bcseq) 
-        positions = [bcseq.find(x) for x in err_spcrs]
-        lens = [len(x) for x in err_spcrs]
-              
-        if len(positions) == 2:
-          counts['getbarcode_pass_regexmatch'] += 1
-          return [positions[0]+lens[0]-pad, positions[1]-pad, positions[1]+lens[1]-pad, positions[1]+lens[1]-pad+6]
+      return 'pass'
 
-        else:  
-          counts['getbarcode_fail_not2spacersfound'] += 1
-          return
-      
-      else:
-        # if only two matches, first random seq runs from end of first spacer to start of next
-          # second random seq just consists of the six bases following the second spacer
-        n1pos = positions[0]+lens[0]
-        n1len = positions[1] - n1pos
-        n1end = n1pos + n1len
-        
-        n2pos = positions[1]+lens[1]
-        n2len = 6
-        n2end = n2pos + n2len
+def logExactOrRegexMatch(spacers,oligo,counts):
+    if spacers == [oligo['spcr1'],oligo['spcr2']]:
+      counts['getbarcode_pass_exactmatch'] += 1
+    else:
+      counts['getbarcode_pass_regexmatch'] += 1
 
-        if n1len <= 3:
-          counts['getbarcode_fail_n1tooshort'] += 1
-          return
-        elif n1len >= 9:
-          counts['getbarcode_fail_n1toolong'] += 1
-          return
-        elif n2end > len(bcseq):
-          counts['getbarcode_fail_n2pastend'] += 1
-          return          
-        elif n1len == 6:
-          counts['getbarcode_pass_fuzzymatch_rightlen'] += 1
-        elif n1len in [4,5]:
-          counts['getbarcode_pass_fuzzymatch_short'] += 1
-        elif n1len >= 7:
-          counts['getbarcode_pass_fuzzymatch_long'] += 1
-        else:
-          counts['getbarcode_pass_other'] += 1
-          
-        return [max(0,n1pos-pad), n1end-pad, n2pos-pad, n2end-pad]
+def logFuzzyMatching(b1len,bclength,spacers,oligo,counts):
+    if b1len == bclength and spacers != [oligo['spcr1'],oligo['spcr2']]:
+      counts['getbarcode_pass_fuzzymatch_rightlen'] += 1  
+    elif b1len in [4,5] and spacers != [oligo['spcr1'],oligo['spcr2']]:
+      counts['getbarcode_pass_fuzzymatch_short'] += 1 
+    elif b1len >= 7 and spacers != [oligo['spcr1'],oligo['spcr2']]:
+      counts['getbarcode_pass_fuzzymatch_long'] += 1
+    elif b1len == bclength:
+       counts['getbarcode_pass_other'] += 1
+
+def get_barcode(bcseq,inputargs,counts):
+  """
+  Given a barcode-region sequence, outputs the sequence of the do-docamer barcode.
+  This barcode (theoretically) consists of the concatentation of the two random hexamer sequences contained in the ligation oligo.
+  However errors in sequences and ligation oligo production can mean that the random nucleotides are not always at the expected position.
+  This function uses the known sequence of the spacers (which bound each of the two N6s to their 5') to deduce the random sequences.
+  Returns a list of four numbers, giving the start and stop positions of N1 and N2 respectively.
+  """ 
+  if "N" in bcseq and inputargs['allowNs'] == False:    # ambiguous base-call check 
+    counts['getbarcode_fail_N'] += 1
+    return
+
+  oligos = getOligos()
+
+  # sets first spacer, and determines the oligo being used
+  for i in range(len(oligos)):
+    spacers = findFirstSpacer(oligos[i],bcseq)
+    oligo = oligos[i]
+    if spacers: break
+
+  # sequences with no first spacer are removed from analysis
+  if not len(spacers) == 1:
+    return None
+
+  # sets second spacer based on determined oligo
+  spacers += findSecondSpacer(oligo,bcseq)
+
+  # sequences which do not have two spacers are logged then removed from analysis
+  if not len(spacers) == 2:
+    counts['getbarcode_fail_not2spacersfound'] += 1
+    return None
+
+  spacer_positions = getSpacerPositions(bcseq, spacers)
+
+  # set expected barcode length
+  bclength = 6
+  # start and end of barcode positions are set
+  b1start = spacer_positions[0] + len(spacers[0])
+  b1end   = spacer_positions[1]
+  b2start = spacer_positions[1] + len(spacers[1])
+  b2end   = b2start + bclength
+  b1len = b1end - b1start
+
+  # filtering and logging
+  if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail': return None
+  logExactOrRegexMatch(spacers,oligo,counts)
+  logFuzzyMatching(b1len,bclength,spacers,oligo,counts)
+
+  return [b1start,b1end,b2start,b2end]
 
 def get_qual_scores(qualstring):
     """ Convert FASTQ quality scores to their integer Q score equivalent """
@@ -416,7 +468,9 @@ def collapsinate(barcode_quality_parameters,
         counts['readdata_input_dcrs'] += 1
         fields = line.rstrip('\n').split(', ')
 
-        bc_locs = get_barcode(fields[8])        # barcode locations
+
+        bc_locs = get_barcode(fields[8],inputargs,counts)        # barcode locations
+
         if bc_locs:
             # account for N1 barcode being greater or shorter than 6 nt (due to manufacturing errors)
             if (bc_locs[1] - bc_locs[0]) == 6:
@@ -427,14 +481,18 @@ def collapsinate(barcode_quality_parameters,
                 n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
                 barcode = fields[8][bc_locs[0]:bc_locs[1]] + "S" * n1_diff_len + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[1]] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
+                
                 counts['readdata_short_barcode'] += 1
+
             elif (bc_locs[1] - bc_locs[0]) > 6:
                 n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
                 barcode = fields[8][bc_locs[0]:bc_locs[0]+5] + "L" + fields[8][bc_locs[2]:bc_locs[3]]
                 barcode_qualstring = fields[9][bc_locs[0]:bc_locs[0]+5] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
-                counts['readdata_long_barcode'] += 1
+                
+                counts['readdata_long_barcode'] += 1          
+
                             # L and S characters get quality scores of "?", representative of Q30 scores
-            
+
             if not barcode_quality_check(barcode_qualstring, barcode_quality_parameters):
                 # barcode is not sufficient quality, skip to next line of file
                 counts['readdata_fail_low_barcode_quality'] += 1
@@ -628,7 +686,7 @@ if __name__ == '__main__':
             break
           
       # Generate string to write to summary file
-      
+
       summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] \
         + "\nOutputFile," + counts['outfilenam'] + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") \
         + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"

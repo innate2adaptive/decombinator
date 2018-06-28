@@ -141,6 +141,8 @@ def args():
       Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
   parser.add_argument(
       '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
+  parser.add_argument(
+      '-bl', '--bclength', type=int, help='Length of barcode sequence, if applicable. Default is set to 42 bp.', required=False, default=42)
 
   return parser.parse_args()
 
@@ -639,6 +641,9 @@ if __name__ == '__main__':
   
   # Get TCR gene information
   import_tcr_info(inputargs)
+
+  # Get Barcode length
+  bclength = inputargs['bclength']
   
   counts['start_time'] = time()
   
@@ -673,8 +678,8 @@ if __name__ == '__main__':
         start_time = time()
         
         if inputargs['nobarcoding'] == False:
-          bc = seq[:30]   
-          vdj = seq[30:]
+          bc = seq[:bclength]     
+          vdj = seq[bclength:]
         else:
           vdj = seq
         
@@ -702,7 +707,7 @@ if __name__ == '__main__':
                         
         if recom:
           counts['vj_count'] += 1
-          vdjqual = qual[30:]  
+          vdjqual = qual[bclength:]  
           
           if frame == 'reverse':
             tcrseq = revcomp(vdj)[recom[5]:recom[6]]
@@ -712,7 +717,7 @@ if __name__ == '__main__':
             tcrQ = vdjqual[recom[5]:recom[6]]
           
           if inputargs['nobarcoding'] == False:
-            bcQ = qual[:30]
+            bcQ = qual[:bclength]
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
               del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
               tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
