@@ -1,6 +1,6 @@
 # innate2adaptive / Decombinator 
 ## v3.1
-##### This version written by James M. Heather, Niclas Thomas, Katharine Best, Theres Oakes, Mazlina Ismail and Benny Chain
+##### This version written by James M. Heather, Niclas Thomas, Katharine Best, Theres Oakes, Mazlina Ismail, Thomas Peacock and Benny Chain
 ##### Innate2Adaptive lab @ University College London, 2016
 
 ---
@@ -29,7 +29,7 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 
 TCR repertoire sequencing (TCRseq) offers a powerful means to investigate biological samples to see what sequences are present in what distribution. However current high-throughput sequencing (HTS) technologies can produce large amounts of raw data, which presents a computational burden to analysis. This such raw data will also unavoidably contain errors relative to the original input molecules, which could confound the results of any experiment.
 
-Decombinator addresses the problem of speed by employing a rapid and [highly efficient string matching algorithm](https://figshare.com/articles/Aho_Corasick_String_Matching_Video/771968) to search the FASTQ files produced by HTS machines for rearranged TCR sequence. The central algorithm searches for 'tag' sequences, the presence of which uniquely indicates the inclusion of particular V or J genes in a recombination. If V and J tags are found, Decombinator can then deduce where the ends of the germline V and J gene sections are (i.e. how much nucleotide removal occurred during V(D)J recombination), and what nucleotide sequence (the 'insert sequence') remains between the two. These five pieces of information - the V and J genes used, how many deletions each had and the insert sequene - contain all of the information required to reconstruct the whole TCR nucleotide sequence, in a more readily stored and analysed way. Decombinator therefore rapidly searches through FASTQ files and outputs these five fields into comma delimited output files, one five-part classifier per line.
+Decombinator addresses the problem of speed by employing a rapid and [highly efficient string matching algorithm](https://figshare.com/articles/Aho_Corasick_String_Matching_Video/771968) to search the FASTQ files produced by HTS machines for rearranged TCR sequence. The central algorithm searches for 'tag' sequences, the presence of which uniquely indicates the inclusion of particular V or J genes in a recombination. If V and J tags are found, Decombinator can then deduce where the ends of the germline V and J gene sections are (i.e. how much nucleotide removal occurred during V(D)J recombination), and what nucleotide sequence (the 'insert sequence') remains between the two. These five pieces of information - the V and J genes used, how many deletions each had and the insert sequence - contain all of the information required to reconstruct the whole TCR nucleotide sequence, in a more readily stored and analysed way. Decombinator therefore rapidly searches through FASTQ files and outputs these five fields into comma delimited output files, one five-part classifier per line.
 
 The Decombinator suite of scripts are written in **Python v2.7**, and the default parameters are set to analyse data as produced by the ligation-mediated 5' RACE TCR amplification pipeline. The pipeline consists of four scripts, which are applied sequentially to the output of the previous starting with TCR-containing FASTQ files (produced using the barcoding 5' RACE protocol):
 
@@ -151,6 +151,8 @@ If you suspect your indexing might be wrong you can use the `'outputall'` flag (
 
 Addition of new index sequences will currently require some slight modification of the code, although if people requested the use of a more easily edited external index file that could be incorporated in the next update.
 
+The compression level for the Demultiplexor script can be changed to either speed up analysis, or to further compress output data, by providing the command line argument `-cl` and an integer between 1 (fastest and least compressed) and 9 (slowest and most compressed). The default for Demultiplexor is a compression level of 4.
+
 <sub>[↑Top](#top)</sub>
 
 ---
@@ -234,7 +236,7 @@ TR = TCR / A = alpha / V = variable / 1 = family / -2 = subfamily / *01 = allele
 
 Assuming that Decombinator has been run on data produced using the Chain lab's (or a comparable) UMI protocol, the next step in the analysis will remove errors and duplicates produced during the amplification and sequencing reactions.
 
-The barcode sequence is contained in one of the additional fields output by `Decombinator.py` in the .n12 files, that which contains the first 30 bases of R2. As Illumina sequencing is particularly error-prone in the reverse read, and that reads can be phased (i.e. they do not always begin with the next nucleotide that follows the sequencing primer) our protocol uses known spacer sequences to border the random barcode bases, so that we can identify the actual random bases. The hexameric barcode locations (N6) are determined in reference to the two spacer sequences like so:
+The barcode sequence is contained in one of the additional fields output by `Decombinator.py` in the .n12 files, that which contains the first 42 bases of R2. As Illumina sequencing is particularly error-prone in the reverse read, and that reads can be phased (i.e. they do not always begin with the next nucleotide that follows the sequencing primer) our protocol uses known spacer sequences to border the random barcode bases, so that we can identify the actual random bases. The hexameric barcode locations (N6) are determined in reference to the two spacer sequences like so:
 
 ```
 I8 (spacer) – N6 – I8 – N6 – 2 base overflow (n)
@@ -266,6 +268,19 @@ python Collapsinator.py -in dcr_AlphaSample1.n12
 A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However this the need for such fine tuning will likely be very protocol-speficic, and is only suggested for advanced users, and with careful data validation.
 
 The default file extension is '.freq'.
+
+## Collapsinator Test Suite
+
+A large number of unit tests for the Collapsinator error correction stage can be found in the `unittests` folder. These tests cover a range of cases to ensure the correct analysis of spacers with minor errors. Separate sets of tests are included for both the former and current experimental protocols used by the Chain Lab. These can act as a template for anyone wishing to design tests for differing protocols.
+
+Individual tests can be run as in the following example:
+```
+python unittests/I8tests/I8correctlength.py
+```
+Additionally, a script is included to run all current tests at once:
+```
+python alltests.py
+```
 
 <sub>[↑Top](#top)</sub>
 
