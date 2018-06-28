@@ -100,9 +100,6 @@ def args():
   parser.add_argument(
       '-pb', '--positionalbarcodes', action='store_true', help='Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible.',\
         required=False)
-  parser.add_argument(
-      '-m13', '--m13oligo', action='store_true', help='Specify that the M13 oligo has been used',\
-        required=False)
   
   return parser.parse_args()
 
