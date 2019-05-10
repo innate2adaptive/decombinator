@@ -560,12 +560,12 @@ def get_j_deletions( read, j_match, temp_start_j, j_regions_cut, end_of_v ):
     pos = 0
     is_j_match = 0
     while is_j_match == 0 and 0 <= function_temp_start_j+2 < len(str(read)):
-        # Require a 10 base match to determine where end of germ-line sequence lies
-        
+        # in the case of no detectable insertions, where nucleotide junctions could be derived from either gene,
+        # nucleotides will be deemed to have derived from the V gene, and count towards deletions from J. 
         if function_temp_start_j < end_of_v:
           pos += 1
           function_temp_start_j += 1
-
+        # Require a 10 base match to determine where end of germ-line sequence lies
         elif str(j_regions_cut[j_match])[pos:pos+10] == read[function_temp_start_j:function_temp_start_j+10]:
             is_j_match = 1
             deletions_j = pos
