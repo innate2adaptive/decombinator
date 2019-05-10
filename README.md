@@ -170,7 +170,9 @@ All DCR-containing output files are comma-delimited, with the fields of that fiv
 * Number of J deletions
 * Insert sequence (the nucleotide sequence between end of deleted V and J)
 
-The V and J indices are arbitrary numbers based on the order of the tag sequences in the relevant tag file (using Python indexing, which starts at 0 rather than 1). Also note that the number of V and J deletions actually just represents how many bases have been removed from the end of that particular germline gene (as given in the germline FASTA files in the additional file repo); it is entirely possible that more bases where actually deleted, and just that the same bases have been re-added. 
+The V and J indices are arbitrary numbers based on the order of the tag sequences in the relevant tag file (using Python indexing, which starts at 0 rather than 1). Also note that the number of V and J deletions actually just represents how many bases have been removed from the end of that particular germline gene (as given in the germline FASTA files in the additional file repo); it is entirely possible that more bases where actually deleted, and just that the same bases have been re-added.
+
+Additionally there are low frequencies of (predominantly alpha chain) recombinations where there is no detectable insertion, and where the nucleotides at the junction between the germline V and J genes could have derived from either. In such circumstances the nucleotides will arbitrarily be deemed to have derived from the V gene, and thus count towards deletions from the J, however it is impossible to know which gene originally contributed these residues.
 
 Various additional fields may follow the five part classifier, but the DCR will always occupy the first five positions. An example identifier, from a human alpha chain file, might look like this:
 
