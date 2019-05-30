@@ -370,7 +370,7 @@ def dcr(read, inputargs):
   """dcr(read): Core function which checks a read (in the given frame) for a rearranged TCR of the specified chain.
     Returns a list giving: V gene index, J gene index, # deletions in V gene, # deletions in J gene,
       insert sequence (between ends of V and J), inter-tag sequence (for collapsing), and its quality scores"""
-  v_seq_start = 0     
+  v_seq_start = 4     
   j_seq_end = 0      
   
   vdat = vanalysis(read)
