@@ -47,6 +47,8 @@ from time import time, strftime
 import argparse
 import gzip
 import regex
+from scipy.special import comb
+import copy
 import os, sys
 
 __version__ = '2.1.2'
@@ -401,9 +403,79 @@ def are_seqs_equivalent(seq1, seq2, levdistance_percent_threshold):
         
     return 0
 
+def h_Dist_Prob():
+  # calculate probabilites that a certain Hamming Distance will occur for a comparison between two random UMIs
+  percomparison = []
+  for HD in xrange(0,12):
+    binomial = comb(12,HD) * 0.75**HD * 0.25**(12-HD)
+    percomparison.append(binomial)
+  return percomparison
 
 
-def cluster_dcr_barcodes(counter, threshold):
+
+def calc_HD_threshold(n_UMIs, percomparison):
+    ncomp = (n_UMIs**2-n_UMIs)/2 # total number of comparisons: half matrix - diagonal
+    totalprob = 0.0
+    for HD in xrange(0,12):
+      totalprob += ncomp * percomparison[HD] # probability of encountering a certain HD is given by the total number of comparisons times the probability for one comparison
+      if totalprob > 0.05: # check if current HD is expected (p>0.05)
+        return max(0, HD - 1) # current HD is expected, so return previous HD as threshold, but minimum th=0
+    print "Error: Could not calculate hamming distance thresholds" # something must have gone wrong if no value is returned at this point
+    sys.exit()
+
+def cluster_dcr_barcodes(counter, percomparison, HD_th):
+  """
+  Takes a counter {barcode:x, barcode:x, ...} of the number of copies of each barcode associated with a dcr
+  Returns a counter {barcode_cluster:number_copies, ...} after combining barcodes that are below a threshold
+  """
+  # make a copy of counter to merge UMIs
+  barcodecluster_count = copy.deepcopy(counter)
+  if len(counter) == 1:
+    # only one barcode is associated with this dcr, no clustering needed
+    return counter
+
+  oldcs = len(counter) # old number of UMIs
+  n_UMIs = len(counter) # current number of UMIs during cleaning
+  track_barcodes_deleted = coll.Counter()    
+
+  for curr_HD in xrange(1,12): # go up from HD=1
+    n_UMIs = len(barcodecluster_count) # check current number of UMIs
+
+    if n_UMIs == 1:
+      return barcodecluster_count
+
+    if HD_th.get(n_UMIs) == None:
+      # calculate threshold if not calculated before for this number of clones
+      curr_th = calc_HD_threshold(n_UMIs, percomparison)
+      HD_th[n_UMIs] = curr_th
+    else:
+      curr_th = HD_th[n_UMIs]
+
+    if curr_HD > curr_th:
+      return barcodecluster_count # if UMIs on this distance are expected to occur, stop merging
+
+    track_barcodes_processed = coll.Counter()
+
+    for bc1, size1 in counter.most_common(): # go from most common to less common UMIs
+      if track_barcodes_deleted[bc1] == 0: # check if UMI is not already deleted
+        track_barcodes_processed[bc1] = 1 # prevent that UMIs are treated twice during one iteration
+        for bc2, size2 in counter.most_common():
+          if track_barcodes_deleted[bc2] == 0 and track_barcodes_processed[bc2] == 0:
+            if are_barcodes_equivalent(bc1, bc2, curr_HD):
+              track_barcodes_deleted[bc2] = 1 # mark smaller UMI as deleted
+              track_barcodes_processed[bc2] = 1 # mark smaller UMI as processed
+              barcodecluster_count[bc1] += size2 # add size of smaller UMI to size of larger UMI
+              del barcodecluster_count[bc2] # remove erroneous UMI from counter
+
+  print "Error: Barcode clustering failed"  # something must have gone wrong if no value is returned at this point
+  sys.exit()
+
+
+
+
+
+
+def OLDcluster_dcr_barcodes(counter, threshold):
     """
     Takes a counter {barcode:x, barcode:x, ...} of the number of copies of each barcode associated with a dcr
     Returns a counter {barcode_cluster:number_copies, ...} after combining barcodes that are below a threshold
@@ -573,9 +645,14 @@ def collapsinate(barcode_quality_parameters,
     dcr_originalcopies = coll.Counter()         # Stores the final collapsed DCRs with estimated frequencies (i.e. # clustered barcodes)
     barcode_duplication = coll.Counter()        # Stores the frequency with which each barcode appeared in input file (number lines)
     
+    # calculate for a given number of UMIs the maximum Hamming distance that is not expected to occur (p<0.05)
+    h_probs = h_Dist_Prob()
+    HD_th = {}
+
     for dcr, barcode_count in dcr_barcodecounter.iteritems():
 
-        clustered_bc_dict = cluster_dcr_barcodes(barcode_count, barcode_distance_threshold)
+        #clustered_bc_dict = OLDcluster_dcr_barcodes(barcode_count, barcode_distance_threshold)
+        clustered_bc_dict = cluster_dcr_barcodes(barcode_count, h_probs, HD_th)
         dcr_originalcopies[dcr] = len(clustered_bc_dict)
         for bc, c in clustered_bc_dict.iteritems():
             barcode_duplication[bc] += c
