@@ -438,13 +438,14 @@ if __name__ == '__main__':
         date = strftime("%Y_%m_%d")
 
         # Check for existing date-stamped file
-        summaryname = "Logs/" + date + "_" + filename.split(".")[0] + "_CDR3_Translation_Summary.csv"
+        fname = os.path.splitext(os.path.basename(filename))[0]
+        summaryname = "Logs/" + date + "_" + fname + "_CDR3_Translation_Summary.csv"
         if not os.path.exists(summaryname):
             summaryfile = open(summaryname, "w")
         else:
             # If one exists, start an incremental day stamp
             for i in range(2, 10000):
-                summaryname = "Logs/" + date + "_" + filename.split(".")[0] + \
+                summaryname = "Logs/" + date + "_" + fname + \
                               "_CDR3_Translation_Summary" + str(i) + ".csv"
                 if not os.path.exists(summaryname):
                     summaryfile = open(summaryname, "w")
