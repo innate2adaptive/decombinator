@@ -257,9 +257,10 @@ The `Collapsinator.py` script performs the following procedures:
     * Those that only have a few differences are likely erroneous branches, and can be discounted
     * Frequent but significantly different TCRs could represent 'barcode clash', and thus the process repeats
 * Second the script estimates the true cDNA frequency 
-    * Clusters all barcode sequences found in conjunction with a DCR (within a given threshold) 
+    * Clusters all barcode sequences found in conjunction with a DCR 
     * This is required as there could be errors within the barcode sequences themselves
-    * Number of final clusters gives a better estimate of the original frequency of that cDNA molecule
+    * The expected distribution of Hamming distances between UMIs can be modelled as a binomial distribution. To determine whether two UMIs are unexpectedly similar, a threshold is calculated based on the probability of encountering the Hamming distance between their sequences in the given binomial distribution. UMI pairs with a Hamming distance below the threshold are considered part of the same cluster.
+    * The number of final clusters gives a better estimate of the original frequency of that cDNA molecule. Binomial based clustering decreases the overestimation of sequences observed at low frequency, which are likely to be singletons for which the UMI was mutated one or a few times. Further details about this method are provided in the Supplementary Information by [de Greef *et al.*, 2019](https://www.biorxiv.org/content/biorxiv/early/2019/07/03/691501.full.pdf).
 * Outputs a DCR identifier plus an additional sixth field, giving the corrected abundance of that TCR in the sample
 
 Collapsing occurs in a chain-blind manner, and so only the decombined '.n12' file is required, without any chain designation, with the only required parameter being the infile:
