@@ -326,7 +326,7 @@ python CDR3translator.py -in dcr_AlphaSample1.freq
 python CDR3translator.py -in dcr_AnotherSample1.freq -c b
 ```
 
-As of version 4, this script now outputs a tab separated file compatible with the AIRR-seq community format, to encourage data re-use and cross-tool compatibility and comparisons. For details please see [Vander Haiden *et al.* (2018)](dx.doi.org/10.3389/fimmu.2018.02206) and the [AIRR community standards](https://docs.airr-community.org/). Note that this format expects certain columns to be present even if the fields are not applicable, so CDR3translator leaves these fields empty. Further fields have been added.
+As of version 4, this script now outputs a tab separated file compatible with the AIRR-seq community format, to encourage data re-use and cross-tool compatibility and comparisons. For details please see [Vander Haiden *et al.* (2018)](http://dx.doi.org/10.3389/fimmu.2018.02206) and the [AIRR community standards](https://docs.airr-community.org/). Note that this format expects certain columns to be present even if the fields are not applicable, so CDR3translator leaves these fields empty. Further fields have been added.
 
 | Field | Description | 
 |:---:|---|
@@ -354,12 +354,7 @@ As of version 4, this script now outputs a tab separated file compatible with th
 | d_cigar | Format required field - left blank |
 | j_cigar | Format required field - left blank |
 
-
-
-
-
-You can also use the 'nonproductive' flag  (`-np`) to output non-productive rearrangements to a separate file:
-`15, 3, 1, 5, CTGTATCAGGGGGCC:OOF_with_stop, 1`
+You can also use the 'nonproductivefilter' flag  (`-npf`) to suppress the output of non-productive rearrangements. 
 
 <sub>[↑Top](#top)</sub>
 
