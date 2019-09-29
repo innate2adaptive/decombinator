@@ -12,7 +12,7 @@ In order to be classified as (potentially) productive, a rearrangement's CDR3s m
     run from a conserved cysteine to FGXG motif (or appropriate alternatives)
 
 The major change from v3 is that this version exports to the AIRRseq community tsv format, simplifying the process
-and crucially giving TCR gene name output in the raw format (in addition to classic Decombinator fields).
+and crucially giving TCR gene name output in the raw format (in addition to the classic Decombinator fields).
 
 """
 
@@ -31,11 +31,12 @@ import urllib2
 import warnings
 import gzip
 
-__version__ = '4.0.1'
+__version__ = '4.1.0'
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore")
 
+# TODO Potentially add a flag to combine convergent recombinations into a single row?
 
 def args():
     """
@@ -61,6 +62,9 @@ def args():
 
     parser.add_argument('-s', '--suppresssummary', action='store_true', required=False,
                         help='Suppress the production of summary data log')
+
+    parser.add_argument('-npf', '--nonproductivefilter', action='store_true', required=False,
+                        help='Filter out non-productive reads from the output')
 
     parser.add_argument('-dz', '--dontgzip', action='store_true', required=False,
                         help='Stop the output FASTQ files automatically being compressed with gzip')
@@ -397,15 +401,15 @@ if __name__ == '__main__':
 
             cdr3_data['duplicate_count'] = frequency
 
-            out_file.write('\t'.join([str(cdr3_data[x]) for x in out_headers]) + '\n')
-
             if cdr3_data['productive'] == 'T':
                 counts['prod_recomb'] += 1
                 productivity = "P"
-
+                out_file.write('\t'.join([str(cdr3_data[x]) for x in out_headers]) + '\n')
             else:
                 productivity = "NP"
                 counts['NP_count'] += 1
+                if not inputargs['nonproductivefilter']:
+                    out_file.write('\t'.join([str(cdr3_data[x]) for x in out_headers]) + '\n')
 
             # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic)
             if inputargs['tags'] == 'extended' and inputargs['species'] == 'human':

@@ -1,15 +1,14 @@
 # innate2adaptive / Decombinator 
-## v3.1
-##### This version written by James M. Heather, Niclas Thomas, Katharine Best, Theres Oakes, Mazlina Ismail, Thomas Peacock and Benny Chain
-##### Innate2Adaptive lab @ University College London, 2016
+## v4.0.1
+
+##### Innate2Adaptive lab @ University College London, 2019
+##### Niclas Thomas, James M. Heather, Katharine Best, Theres Oakes, Mazlina Ismail, Thomas Peacock, Tahel Ronel, and Benny Chain
 
 ---
 
-Decombinator is a fast and efficient tool for the analysis of T-cell receptor (TCR) repertoire sequences produced by deep sequencing. The current version (v3) improves upon the previous through:
-* incorporation of error-correction strategies using unique molecular index (UMI) barcoding techniques
-* optimisation for additional speed and greater accuracy
-* usage of extended tag sets of V and J genes allowing detection of genes of all functionalities
-* greater command line input, log file production and code commenting, providing greater flexibility, repeatability and ease of modification
+Decombinator is a fast and efficient tool for the analysis of T-cell receptor (TCR) repertoire sequences produced by deep sequencing. The current version (v4) improves upon the previous through:
+* improving the UMI based error-correction
+* outputting results in a AIRR-seq community compatible format
 
 ## For the original Decombinator paper, please see [Thomas *et al*, Bioinformatics, 2013](http://dx.doi.org/10.1093/bioinformatics/btt004).
 
@@ -23,7 +22,6 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 * [CDR3 extraction](#cdr3)
 * [General usage notes](#generalusage)
 * [Calling Decombinator from other scripts](#calldcr)
-
 
 ---
 
@@ -294,7 +292,7 @@ python unittests/alltests.py
 
 ## TCR translation and CDR3 extraction: turning DCR indexes into complementarity determining region 3 sequences
 
-As the hypervariable region and the primary site of antigenic contact, the CDR3 is probably the region of most interest. By convention, the [CDR3 is defined](http://dx.doi.org/10.1016/S0145-305X(02)00039-3) as running from the position of the second conserved cysteine encoded in the 3' of the V gene to the phenylalanine in the conserved 'FGXG' motif in the J gene. However, some genes use non-canonical residues/motifs, and the position of these motifs varies.
+As the hypervariable region and the primary site of antigenic contact, the CDR3 is almost certainly going to be the region of most interest for most analyses. By convention, the [CDR3 junction is defined](http://dx.doi.org/10.1016/S0145-305X(02)00039-3) as running from the position of the second conserved cysteine encoded in the 3' of the V gene to the phenylalanine in the conserved 'FGXG' motif in the J gene. However, some genes use non-canonical residues/motifs, and the position of these motifs varies.
 
 In looking for CDR3s, we also find 'non-productive' reads, i.e. those that don't appear to be able to make productive, working TCRs. This is determined based on the presence of stop codons, being out of frame, or lacking appropriate CDR3 motifs. 
 
@@ -328,16 +326,40 @@ python CDR3translator.py -in dcr_AlphaSample1.freq
 python CDR3translator.py -in dcr_AnotherSample1.freq -c b
 ```
 
-Outputs a '.cdr3' file by default, which looks like:
-`CASSISGRLDTQYF, 1`
+As of version 4, this script now outputs a tab separated file compatible with the AIRR-seq community format, to encourage data re-use and cross-tool compatibility and comparisons. For details please see [Vander Haiden *et al.* (2018)](dx.doi.org/10.3389/fimmu.2018.02206) and the [AIRR community standards](https://docs.airr-community.org/). Note that this format expects certain columns to be present even if the fields are not applicable, so CDR3translator leaves these fields empty. Further fields have been added.
 
-Alternatively you can use the 'dcr output' flag (`-do`) to output DCRs alongside the CDR3s they encode, e.g.:
-`18, 8, 5, 5, ATCAGCGGGAGATT:CASSISGRLDTQYF, 1`
+| Field | Description | 
+|:---:|---|
+| sequence_id | A unique identifier for a given rearrangement |
+| v_call | V gene used (or multiple, if they cannot be distinguished) |
+| d_call | Blank required field (mostly cannot be assigned for TCRb, and rarely useful even then) |
+| j_call | J gene used |
+| junction_aa | CDR3 junction amino acid sequence |
+| duplicate_count | Rearrangement abundance, from Collapsinator |
+| sequence | Inferred full-length variable domain nucleotide sequence |
+| junction | CDR3 junction nucleotide sequence |
+| decombinator_id | Five-field Decombinator identifier |
+| rev_comp | Whether rearrangements are reverse complemented (T/F) - thisis never the case post-Decombining |
+| productive | Whether rearrangement is potentially productive (T/F) |
+| sequence_aa | Inferred full-length variable domain amino acid sequence |
+| cdr1_aa | Amino acid sequence of CDR1 of the used V gene |
+| cdr2_aa | Amino acid sequence of CDR2 of the used V gene |
+| vj_in_frame | Whether or not the rearrangement is in frame (T/F) |
+| stop_codon | Whether or not the rearrangement contains a stop codon (T/F) |
+| conserved_c | Whether or not the rearrangement contains a detectable conserved cysteine (T/F) |
+| conserved_f | Whether or not the rearrangement contains a detectable conserved phenylalanine or equivalent (T/F) |
+| sequence_alignment | Format required field - left blank |
+| germline_alignment | Format required field - left blank |
+| v_cigar | Format required field - left blank |
+| d_cigar | Format required field - left blank |
+| j_cigar | Format required field - left blank |
+
+
+
+
 
 You can also use the 'nonproductive' flag  (`-np`) to output non-productive rearrangements to a separate file:
 `15, 3, 1, 5, CTGTATCAGGGGGCC:OOF_with_stop, 1`
-
-The residues that make up the 'GXG' section of the 'FGXG' motif can also be included if desired, through use of the `-gxg` flag.
 
 <sub>[↑Top](#top)</sub>
 
@@ -450,13 +472,10 @@ If users wish to view previous versions of Decombinator, v2.2 is available from 
 
 ### Related reading
 
-* [Thomas et al (2013), Bioinformatics, “Decombinator: a tool for fast, efficient gene assignment in T-cell receptor sequences using a finite state machine”](http://dx.doi.org/10.1093/bioinformatics/btt004)
-    * The original Decombinator paper, which explains the principles of the script 
-* [Heather et al (2016), Frontiers in Immunology, “Dynamic Perturbations of the T-Cell Receptor Repertoire in Chronic HIV Infection and following Antiretroviral Therapy”](http://dx.doi.org/10.3389/fimmu.2015.00644)
-    * Our paper describing the previous version of the combined amplification and analysis protocol and some applications (as applied to studying the repertoire of HIV+ patients), which also introduces the collapsing procedure
-* [Oakes et al (2017), Frontiers in Immunology, ”The T Cell Response to the Contact Sensitizer Paraphenylenediamine Is Characterized by a Polyclonal Diverse Repertoire of Antigen-Specific Receptors”](http://journal.frontiersin.org/article/10.3389/fimmu.2017.00162/full)
-    * A more recent paper using the updated version of the protocol, which incorporates the entire UMI in the ligation oligonucleotide
-* [Best et al (2015), Scientific Reports, “Computational analysis of stochastic heterogeneity in PCR amplification efficiency revealed by single molecule barcoding”](http://dx.doi.org/10.1038/srep14629)
-    * An in-depth analysis of barcoded data showing the need for barcoding in producing robustly quantitative data from the stochastic maelstrom of amplification that makes up PCR
+The published history of the development of the pipeline is covered in the following publications:
+
+* [Thomas et al (2013), Bioinformatics: *Decombinator: a tool for fast, efficient gene assignment in T-cell receptor sequences using a finite state machine*](http://dx.doi.org/10.1093/bioinformatics/btt004)
+* [Oakes et al (2017), Frontiers in Immunology: *Quantitative Characterization of the T Cell Receptor Repertoire of Naïve and Memory Subsets Using an Integrated Experimental and Computational Pipeline Which Is Robust, Economical, and Versatile*](https://doi.org/10.3389/fimmu.2017.01267)
+* [Uddin et al (2019), Cancer Immunosurveillance: *An Economical, Quantitative, and Robust Protocol for High-Throughput T Cell Receptor Sequencing from Tumor or Blood Authors*](http:/dx.doi.org/10.1007/978-1-4939-8885-3_2)
 
 <sup>[↑Top](#top)</sup>
