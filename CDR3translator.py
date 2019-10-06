@@ -31,7 +31,7 @@ import urllib2
 import warnings
 import gzip
 
-__version__ = '4.1.0'
+__version__ = '4.0.1'
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore")

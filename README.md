@@ -2,13 +2,16 @@
 ## v4.0.1
 
 ##### Innate2Adaptive lab @ University College London, 2019
-##### Niclas Thomas, James M. Heather, Katharine Best, Theres Oakes, Mazlina Ismail, Thomas Peacock, Tahel Ronel, and Benny Chain
+##### Written by James M. Heather, Tahel Ronel, Thomas Peacock, Niclas Thomas and Benny Chain, with help from Katharine Best, Theres Oakes and Mazlina Ismail.
+##### Incorporating error correction as published in [Gerritsen, Pandit, Andeweg and de Boer (2016)](https://doi.org/10.1093/bioinformatics/btw339).
+
 
 ---
 
 Decombinator is a fast and efficient tool for the analysis of T-cell receptor (TCR) repertoire sequences produced by deep sequencing. The current version (v4) improves upon the previous through:
 * improving the UMI based error-correction
-* outputting results in a AIRR-seq community compatible format
+* outputting results in a AIRR-seq Community compatible format
+* increasing the dictionary of 8bp SP2 indexes from 12 to 88
 
 ## For the original Decombinator paper, please see [Thomas *et al*, Bioinformatics, 2013](http://dx.doi.org/10.1093/bioinformatics/btt004).
 
@@ -25,16 +28,18 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 
 ---
 
-TCR repertoire sequencing (TCRseq) offers a powerful means to investigate biological samples to see what sequences are present in what distribution. However current high-throughput sequencing (HTS) technologies can produce large amounts of raw data, which presents a computational burden to analysis. This such raw data will also unavoidably contain errors relative to the original input molecules, which could confound the results of any experiment.
+TCR repertoire sequencing (TCRseq) offers a powerful means to investigate biological samples to see what sequences are present in what distribution. However current high-throughput sequencing (HTS) technologies can produce large amounts of raw data, which presents a computational burden to analysis. Such raw data will also unavoidably contain errors relative to the original input molecules, which could confound the results of any experiment.
 
 Decombinator addresses the problem of speed by employing a rapid and [highly efficient string matching algorithm](https://figshare.com/articles/Aho_Corasick_String_Matching_Video/771968) to search the FASTQ files produced by HTS machines for rearranged TCR sequence. The central algorithm searches for 'tag' sequences, the presence of which uniquely indicates the inclusion of particular V or J genes in a recombination. If V and J tags are found, Decombinator can then deduce where the ends of the germline V and J gene sections are (i.e. how much nucleotide removal occurred during V(D)J recombination), and what nucleotide sequence (the 'insert sequence') remains between the two. These five pieces of information - the V and J genes used, how many deletions each had and the insert sequence - contain all of the information required to reconstruct the whole TCR nucleotide sequence, in a more readily stored and analysed way. Decombinator therefore rapidly searches through FASTQ files and outputs these five fields into comma delimited output files, one five-part classifier per line.
 
-The Decombinator suite of scripts are written in **Python v2.7**, and the default parameters are set to analyse data as produced by the ligation-mediated 5' RACE TCR amplification pipeline. The pipeline consists of four scripts, which are applied sequentially to the output of the previous starting with TCR-containing FASTQ files (produced using the barcoding 5' RACE protocol):
+The Decombinator suite of scripts are written in **Python v2.7**, and the default parameters are set to analyse data as produced by the ligation-mediated 5' RACE TCR amplification pipeline. The pipeline consists of four scripts, which are applied sequentially to the output of the previous, starting with TCR-containing FASTQ files (produced using the barcoding 5' RACE protocol):
 
 1. Raw FASTQ files are demultiplexed to individual samples
 2. Sample specific files are then searched for rearranged TCRs with Decombinator
 3. Decombined data is error-corrected ('collapsed') with reference to the random barcode sequences added prior to amplification
-4. Error-corrected data is translated and CDR3 sequences are extracted
+4. Error-corrected data is translated and CDR3 sequences are extracted, in addition to the IMGT V and J gene names, the full-length variable region sequence (and the 'collapsed' sample abundance if applicable).
+
+Very large data containing many samples, such as from Illumina NextSeq machines, often require an additional step prior to demultiplexing, to convert the raw .bcl files output by the sequencer into the three FASTQ read files (usually using `bcl2fastq`).
 
 ---
 
@@ -56,7 +61,7 @@ These can be installed via pip (although most will likely appear in other packag
 ```bash
 pip install biopython python-levenshtein regex acora scipy
 ```
-If users are unable to install Python and the required modules, a Python installation complete with necessary packages has been bundled into a Docker container, which should be runnable on most setups. The appropriate image is located [on Dockerhub, under the name 'dcrpython'](https://hub.docker.com/r/decombinator/dcrpython/).
+If users are unable to install Python and the required modules, a Python installation complete with necessary packages has been bundled into a Docker container, which should be runnable on most setups. The appropriate image is located [on Dockerhub, under the name 'dcrpython'](https://hub.docker.com/r/decombinator/dcrpython/). (Please note that this is not yet updated for v4)
 
 ### Get scripts
 
@@ -72,7 +77,7 @@ Decombinator also requires a number of additional files, which contain informati
 git clone https://github.com/innate2adaptive/Decombinator-Tags-FASTAs.git
 ```
 
-The current version of Decombinator has tag sets for the analysis of alpha/beta and gamma/beta TCR repertoires from both mouse and man. In addition to the original tag set developed for the 2013 Thomas *et al* Bioinformatics paper, an 'extended' tag set has been developed for human alpha/beta repertoires, which covers 'non-functional' V and J genes (ORFs and pseudogenes, according to IMGT nomenclature) as well as just the functional.
+The current version of Decombinator has tag sets for the analysis of alpha/beta and gamma/delta TCR repertoires from both mouse and man. In addition to the original tag set developed for the 2013 Thomas *et al* Bioinformatics paper, an 'extended' tag set has been developed for human alpha/beta repertoires, which covers 'non-functional' V and J genes (ORFs and pseudogenes, according to IMGT nomenclature) as well as just the functional.
 
 ### General notes
 
@@ -80,7 +85,7 @@ The current version of Decombinator has tag sets for the analysis of alpha/beta 
 * By default, all output files will be gz compressed
  * This can be suppressed by using the "don't zip" flag: `-dz`
 * All files also output a summary log file
- * We strongly recommend you familarise yourself with them.
+ * We strongly recommend you familiarise yourself with them.
 * All options for a given script can be accessed by using the help flag `-h`
 
 <sub>[↑Top](#top)</sub>
@@ -267,7 +272,7 @@ Collapsing occurs in a chain-blind manner, and so only the decombined '.n12' fil
 python Collapsinator.py -in dcr_AlphaSample1.n12
 ```
 
-A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However this the need for such fine tuning will likely be very protocol-speficic, and is only suggested for advanced users, and with careful data validation.
+A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However the need for such fine tuning will likely be very protocol-specific, and is only suggested for advanced users, and with careful data validation.
 
 The default file extension is '.freq'.
 
@@ -339,7 +344,7 @@ As of version 4, this script now outputs a tab separated file compatible with th
 | sequence | Inferred full-length variable domain nucleotide sequence |
 | junction | CDR3 junction nucleotide sequence |
 | decombinator_id | Five-field Decombinator identifier |
-| rev_comp | Whether rearrangements are reverse complemented (T/F) - thisis never the case post-Decombining |
+| rev_comp | Whether rearrangements are reverse complemented (T/F) - this is never the case post-Decombining |
 | productive | Whether rearrangement is potentially productive (T/F) |
 | sequence_aa | Inferred full-length variable domain amino acid sequence |
 | cdr1_aa | Amino acid sequence of CDR1 of the used V gene |
@@ -381,7 +386,7 @@ You can also use the 'nonproductivefilter' flag  (`-npf`) to suppress the output
 * If running on mouse and/or gamma/delta repertoires, it may be worth altering the defaults towards the top of the code to save on having to repeatedly have to set the defaults
 * If running on data not produced using our protocol, likely only the Decombinator and translation scripts will be useful 
     * The `-nbc` (non-barcoding) flag will likely need to be set (unless you perform analogous UMI-positioning to `Demultiplexor.py`)
-    * If your libraries contain TCRs in the forward orientation, or in both, this will also need to set with the `-or` flag
+    * If your libraries contain TCRs in the forward orientation, or in both, this will also need to be set with the `-or` flag
 
 ## Keep track of what's going on
 
@@ -405,6 +410,7 @@ You can also use the 'nonproductivefilter' flag  (`-npf`) to suppress the output
  
 ## Using Docker
 
+(Please note, this is not yet updated to v4)
 * Docker may be convenient for systems where installing many different packages is problematic
     * It should allow users to run Decombinator scripts without installing Python + packages (although you still have to install Docker)
     * The scripts however will run faster if you natively install Python on your OS
@@ -471,6 +477,7 @@ The published history of the development of the pipeline is covered in the follo
 
 * [Thomas et al (2013), Bioinformatics: *Decombinator: a tool for fast, efficient gene assignment in T-cell receptor sequences using a finite state machine*](http://dx.doi.org/10.1093/bioinformatics/btt004)
 * [Oakes et al (2017), Frontiers in Immunology: *Quantitative Characterization of the T Cell Receptor Repertoire of Naïve and Memory Subsets Using an Integrated Experimental and Computational Pipeline Which Is Robust, Economical, and Versatile*](https://doi.org/10.3389/fimmu.2017.01267)
-* [Uddin et al (2019), Cancer Immunosurveillance: *An Economical, Quantitative, and Robust Protocol for High-Throughput T Cell Receptor Sequencing from Tumor or Blood Authors*](http:/dx.doi.org/10.1007/978-1-4939-8885-3_2)
+* [Uddin et al (2019), Cancer Immunosurveillance: *An Economical, Quantitative, and Robust Protocol for High-Throughput T Cell Receptor Sequencing from Tumor or Blood*](http:/dx.doi.org/10.1007/978-1-4939-8885-3_2)
+* [Uddin et al (2019), Methods in Enzymology: *Quantitative analysis of the T cell receptor repertoire*](https://doi.org/10.1016/bs.mie.2019.05.054)
 
 <sup>[↑Top](#top)</sup>
