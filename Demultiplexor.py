@@ -83,7 +83,7 @@ import os
 import Levenshtein as lev
 import collections as coll
 
-__version__ = '2.1'
+__version__ = '4.0.1'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -205,12 +205,18 @@ for f in [inputargs['read1'], inputargs['read2'], inputargs['index1']]:
 ############ CREATE DICTIONARIES FOR INDEXES #############
 ##########################################################
 
+# Version 4.0.1 includes new SP2 indexes 27-102
+
 # SP1 index = R1 (our own, RC1 proximal index)
 X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
 # NB: One index removed due to similarity to others, but exists in earlier datasets: "14":"ACACGG" 
 
 # 'SP2' index = R2 (index read, comes first in rearranged sequence)
-X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", "6":"ATTGGC", "7":"GATCTG", "8":"TCAAGT", "9":"CTGATC", "10":"AAGCTA", "11":"GTAGCC", "12":"TACAAG", "13":"TTGACT", "14":"GGAACT", "15":"CCTGGTAG", "16":"TAAGCATG", "17":"AGATGTGC", "18":"GTCGAGCA", "19":"GAATTGCT", "20":"AAGCAACT", "21":"CTAACTGG", "22":"AGGCTCAA", "23":"CAGTTGGT","24": "TCTGGACC", "25":"TGTTATAC", "26":"TCAGCGAA"}
+X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", "6":"ATTGGC", "7":"GATCTG", "8":"TCAAGT", "9":"CTGATC", "10":"AAGCTA", "11":"GTAGCC", "12":"TACAAG", "13":"TTGACT", "14":"GGAACT", "15":"CCTGGTAG", "16":"TAAGCATG", "17":"AGATGTGC", "18":"GTCGAGCA", "19":"GAATTGCT", "20":"AAGCAACT", "21":"CTAACTGG", "22":"AGGCTCAA", "23":"CAGTTGGT","24": "TCTGGACC", "25":"TGTTATAC", "26":"TCAGCGAA", \
+          "27":"ACATAGCG", "28":"TGTGCTTA", "29":"GATGTTAC", "30":"GTCTTAGT", "31":"GAGTTACA", "32":"CCATTGTT", "33":"TGCGAAGG", "34":"CAACGGTC", "35":"CTTGCAGA", "36":"AGGATGTG", "37":"TAGATCCT", "38":"TAGATGAC", "39":"CTAGGTTC", "40":"GTGCGTAA", "41":"TCGCACCT", "42":"CGATCATG", "43":"GTTGCGGC", "44":"AGATATAA", "45":"CGCCACAG", "46":"AATGCGTT", "47":"GTCAAGTT", "48":"GGAAGGCG", "49":"TCCTGGTC", "50":"ACCAAGGA", \
+          "51":"AGTGTCTT", "52":"GATTACAG", "53":"ACTTCTTC", "54":"GTTCATTA", "55":"TTGCTGGA", "56":"CTGTGGAC", "57":"GACTATTG", "58":"CCTTACCT", "59":"GCTAAGTA", "60":"CTTCCTTC", "61":"TCGCTATG", "62":"CAGACAAT", "63":"GAGAGTTG", "64":"CCTAGAAT", "65":"CAGCAGCA", "66":"GGCTAGGC", "67":"GGCATAGG", "68":"GACGCTAT", "69":"ATCCGACA", "70":"TTACTGTC", "71":"TCGACGGC", "72":"CCTGGATA", "73":"AACATAAT", "74":"AATGTTGG", \
+          "75":"TGGATATC", "76":"TACTTGCA", "77":"AGAACATT", "78":"TACCGCTG", "79":"AGAGGAAT", "80":"ATCCGCAG", "81":"CATCAGAC", "82":"GGCAGATA", "83":"GATCGTGT", "84":"AGCTCTGG", "85":"GTTAGGTC", "86":"CAAGGCGA", "87":"ATGGTAGG", "88":"TCTAGCGA", "89":"ACATCCTT", "90":"CGAGTTAG", "91":"ATACCTGT", "92":"GACCGAGA", "93":"TCAACTGT", "94":"ACGCATAG", "95":"GGCTCCTG", "96":"TGCGACCT", "97":"CCTTGCTG", "98":"TTGATAAT", \
+          "99":"CTGATTAA", "100":"TGGTAACG", "101":"CTCTACTT", "102":"CTATTCAA"}
 
 ##########################################################
 ########### GENERATE SAMPLE-NAMED OUTPUT FILES ###########
