@@ -10,9 +10,9 @@
 # Can currently analyse human and mouse TCRs, both alpha/beta and gamma/delta chains
   # NB: Human alpha/beta TCRs are the most thoroughly tested, due to the nature of the data we generated. YMMV.
 
-# Current version (v3) is optimised for interpretation of data generated using our wet lab protocol, but could be modified to work on any data.
+# The current version (v4) is optimised for interpretation of data generated using our wet lab protocol, but could be modified to work on any data.
 
-# Script represents improvements upon a combination of the two previously in use Decombinator versions
+# This version incorporates minimal changes and fixes from Decombinator v3.1, which in turn represented improvements upon a combination of the two previously in use Decombinator versions
   # i.e. Decombinator V2.2 (written primarily by Nic Thomas, see Thomas et al, Bioinformatics 2013, DOI: 10.1093/bioinformatics/btt004)
   # and vDCR (which was v1.4 modified by James Heather, see Heather et al, Frontiers in Immunology 2016, DOI: 10.3389/fimmu.2015.00644)
   # Now faster, more accurate and easier to use than either of the previous versions.
@@ -97,7 +97,7 @@ from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
 
-__version__ = '3.1'
+__version__ = '4.0.1'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -108,7 +108,7 @@ def args():
 
   # Help flag
   parser = argparse.ArgumentParser(
-      description='Decombinator v3.1: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
+      description='Decombinator v4.0.1: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
   # Add arguments
   parser.add_argument(
       '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
