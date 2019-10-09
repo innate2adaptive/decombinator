@@ -367,7 +367,7 @@ if __name__ == '__main__':
 
     print "Translating", chainnams[chain], "chain CDR3s from", inputargs['infile']
 
-    outfilename = filename.split(".")[0] + suffix
+    outfilename = os.path.splitext(os.path.basename(filename))[0] + suffix
     with opener(filename, 'rU') as in_file, open(outfilename, 'w') as out_file:
         out_file.write('\t'.join(out_headers) + '\n')
 
