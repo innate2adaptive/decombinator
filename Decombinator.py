@@ -10,9 +10,9 @@
 # Can currently analyse human and mouse TCRs, both alpha/beta and gamma/delta chains
   # NB: Human alpha/beta TCRs are the most thoroughly tested, due to the nature of the data we generated. YMMV.
 
-# Current version (v3) is optimised for interpretation of data generated using our wet lab protocol, but could be modified to work on any data.
+# The current version (v4) is optimised for interpretation of data generated using our wet lab protocol, but could be modified to work on any data.
 
-# Script represents improvements upon a combination of the two previously in use Decombinator versions
+# This version incorporates minimal changes and fixes from Decombinator v3.1, which in turn represented improvements upon a combination of the two previously in use Decombinator versions
   # i.e. Decombinator V2.2 (written primarily by Nic Thomas, see Thomas et al, Bioinformatics 2013, DOI: 10.1093/bioinformatics/btt004)
   # and vDCR (which was v1.4 modified by James Heather, see Heather et al, Frontiers in Immunology 2016, DOI: 10.3389/fimmu.2015.00644)
   # Now faster, more accurate and easier to use than either of the previous versions.
@@ -97,7 +97,7 @@ from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
 
-__version__ = '3.1'
+__version__ = '4.0.1'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -108,7 +108,7 @@ def args():
 
   # Help flag
   parser = argparse.ArgumentParser(
-      description='Decombinator v3.1: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
+      description='Decombinator v4.0.1: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
   # Add arguments
   parser.add_argument(
       '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
@@ -305,7 +305,7 @@ def vanalysis(read):
         counts['no_vtags_found'] += 1
         return
       
-def janalysis(read):
+def janalysis(read, end_of_v):
   
   hold_j = j_key.findall(read)
   
@@ -319,7 +319,7 @@ def janalysis(read):
     
     j_seq_end = hold_j[0][1] + len(hold_j[0][0])      
         
-    start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
+    start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions, end_of_v )
     
     if start_j_j_dels: # If the number of deletions has been found
       return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
@@ -337,7 +337,7 @@ def janalysis(read):
               j_match = k
               temp_start_j = hold_j1[i][1] - jump_to_start_j[j_match] # Finds where the start of a full J would be
               j_seq_end = hold_j1[i][1] + len(hold_j1[i][0]) + j_half_split                                              
-              start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
+              start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions, end_of_v )
               if start_j_j_dels:
                 return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
       counts['foundj1notj2'] += 1
@@ -355,7 +355,7 @@ def janalysis(read):
                 j_match = k
                 temp_start_j = hold_j2[i][1] - jump_to_start_j[j_match] - j_half_split # Finds where the start of a full J would be
                 j_seq_end = hold_j2[i][1] + len(hold_j2[i][0])                                                
-                start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions )
+                start_j_j_dels = get_j_deletions( read, j_match, temp_start_j, j_regions, end_of_v )
                 if start_j_j_dels:
                   return j_match, start_j_j_dels[0], start_j_j_dels[1], j_seq_end
         counts['foundv2notv1'] += 1
@@ -378,7 +378,8 @@ def dcr(read, inputargs):
   if not vdat:
     return
 
-  jdat = janalysis(read)
+  end_of_v = vdat[1] + 1
+  jdat = janalysis(read, end_of_v)
   
   if jdat:
     
@@ -551,7 +552,7 @@ def get_v_deletions( read, v_match, temp_end_v, v_regions_cut ):
         counts['v_del_failed'] += 1
         return 
 
-def get_j_deletions( read, j_match, temp_start_j, j_regions_cut ):
+def get_j_deletions( read, j_match, temp_start_j, j_regions_cut, end_of_v ):
     # This function determines the number of J deletions in sequence read
     # by comparing it to j_match, beginning by making comparisons at the
     # end of j_match and at position temp_end_j in read.
@@ -559,8 +560,13 @@ def get_j_deletions( read, j_match, temp_start_j, j_regions_cut ):
     pos = 0
     is_j_match = 0
     while is_j_match == 0 and 0 <= function_temp_start_j+2 < len(str(read)):
+        # in the case of no detectable insertions, where nucleotide junctions could be derived from either gene,
+        # nucleotides will be deemed to have derived from the V gene, and count towards deletions from J. 
+        if function_temp_start_j < end_of_v:
+          pos += 1
+          function_temp_start_j += 1
         # Require a 10 base match to determine where end of germ-line sequence lies
-        if str(j_regions_cut[j_match])[pos:pos+10] == read[function_temp_start_j:function_temp_start_j+10]:
+        elif str(j_regions_cut[j_match])[pos:pos+10] == read[function_temp_start_j:function_temp_start_j+10]:
             is_j_match = 1
             deletions_j = pos
             start_j = function_temp_start_j
@@ -704,7 +710,7 @@ if __name__ == '__main__':
           if not recom:
             recom = dcr(vdj, inputargs)
             frame = 'forward'
-                        
+     
         if recom:
           counts['vj_count'] += 1
           vdjqual = qual[bclength:]  
