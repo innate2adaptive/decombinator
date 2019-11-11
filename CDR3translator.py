@@ -367,7 +367,8 @@ if __name__ == '__main__':
 
     print "Translating", chainnams[chain], "chain CDR3s from", inputargs['infile']
 
-    outfilename = os.path.splitext(os.path.basename(filename))[0] + suffix
+    filename_id = os.path.basename(filename).split(".")[0]
+    outfilename = filename_id + suffix
     with opener(filename, 'rU') as in_file, open(outfilename, 'w') as out_file:
         out_file.write('\t'.join(out_headers) + '\n')
 
@@ -442,14 +443,13 @@ if __name__ == '__main__':
         date = strftime("%Y_%m_%d")
 
         # Check for existing date-stamped file
-        fname = os.path.splitext(os.path.basename(filename))[0]
-        summaryname = "Logs/" + date + "_" + fname + "_CDR3_Translation_Summary.csv"
+        summaryname = "Logs/" + date + "_" + filename_id + "_CDR3_Translation_Summary.csv"
         if not os.path.exists(summaryname):
             summaryfile = open(summaryname, "w")
         else:
             # If one exists, start an incremental day stamp
             for i in range(2, 10000):
-                summaryname = "Logs/" + date + "_" + fname + \
+                summaryname = "Logs/" + date + "_" + filename_id + \
                               "_CDR3_Translation_Summary" + str(i) + ".csv"
                 if not os.path.exists(summaryname):
                     summaryfile = open(summaryname, "w")
