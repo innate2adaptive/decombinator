@@ -30,6 +30,7 @@ import os
 import urllib2
 import warnings
 import gzip
+from anarci import anarci
 
 __version__ = '4.0.1'
 
@@ -305,16 +306,19 @@ def get_cdr3(dcr, headers):
         out_data['cdr1_aa'] = v_cdr1[v]
         out_data['cdr2_aa'] = v_cdr2[v]
 
+    #7. Add sequence adjusted to IMGT numbering scheme
+    if '*' not in out_data['sequence_aa']:
+        annotation = anarci([("seq",out_data['sequence_aa'])], "IMGT")
+        imgtseq = "".join( map(lambda ann: ann[1],annotation[0][0][0][0]) )
+        out_data['imgt_sequence_aa'] = imgtseq
     return out_data
 
-
-out_headers = ['sequence_id', 'v_call', 'd_call', 'j_call', 'junction_aa', 'duplicate_count', 'sequence',
+if __name__ == '__main__':
+    #Output file headers
+    out_headers = ['sequence_id', 'v_call', 'd_call', 'j_call', 'junction_aa', 'duplicate_count', 'sequence',
                'junction', 'decombinator_id', 'rev_comp', 'productive', 'sequence_aa', 'cdr1_aa', 'cdr2_aa',
                'vj_in_frame', 'stop_codon', 'conserved_c', 'conserved_f',
-               'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar']
-
-
-if __name__ == '__main__':
+               'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar', 'imgt_sequence_aa']
 
     # Check input files and parameters
     inputargs = vars(args())
