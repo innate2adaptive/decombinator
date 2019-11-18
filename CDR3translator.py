@@ -309,8 +309,9 @@ def get_cdr3(dcr, headers):
     #7. Add sequence adjusted to IMGT numbering scheme
     if '*' not in out_data['sequence_aa']:
         annotation = anarci([("seq",out_data['sequence_aa'])], "IMGT")
-        imgtseq = "".join( map(lambda ann: ann[1],annotation[0][0][0][0]) )
-        out_data['imgt_sequence_aa'] = imgtseq
+        if annotation[0][0]: # check annotation successful (not None)
+            imgtseq = "".join( map(lambda ann: ann[1],annotation[0][0][0][0]) )
+            out_data['imgt_sequence_aa'] = imgtseq
     return out_data
 
 if __name__ == '__main__':
