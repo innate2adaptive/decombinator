@@ -39,7 +39,7 @@ def symbol_positions(line, symbol):
 
 def get_file_type(infile, opener):
     """ Determine the input file type (.fq, .n12, .freq, .cdr3, .np, .dcrcdr3, dcr) """
-    with opener(infile) as fl:
+    with opener(infile, "rt") as fl:
       test_lines = [next(fl) for x in range(4)]    
 
     file_type = ""
@@ -70,7 +70,7 @@ def get_file_type(infile, opener):
     if file_type:
       return file_type
     else:
-      print "Unable to determine file type."
+      print("Unable to determine file type.")
       sys.exit()
   
 def readfq(fp): 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
       file_type = get_file_type(inputargs['infile'], in_opener)
     
     if file_type not in ['fq', 'n12', 'line', 'cdr3', 'dcrcdr3', 'freq', 'dcr', 'np']:
-      print "File type not recognised. Please include in file name or set -ft flag appropriately."
+      print("File type not recognised. Please include in file name or set -ft flag appropriately.")
       sys.exit() 
     if file_type in ['n12', 'line', 'dcr', 'fq']: # File types that are in no way collapsed
       with_frequency = False
@@ -163,9 +163,9 @@ if __name__ == '__main__':
       # fq, misc dcr files and n12 files are not collapsed, in that they contain no frequency information (every line is a unique entry)
       # Everythin that has been collapsed (freq, cdr3, np, dcrcdr3) has a final comma-delimited frequency file, therefore need to be weighted accordingly
       
-    with in_opener(inputargs['infile']) as infile, out_opener(outfilename, 'wb') as outfile:
+    with in_opener(inputargs['infile'],"rt") as infile, out_opener(outfilename, 'wt') as outfile:
       
-      print "Reading in data from", inputargs['infile']
+      print("Reading in data from", inputargs['infile'])
       
       if file_type == 'fq':
         for readid, seq, qual in readfq(infile):
@@ -190,14 +190,14 @@ if __name__ == '__main__':
               whole_list.append(identifier)
       
       if inputargs['number'] > counts['in_count']:
-        print "Cannot sub-sample to " + "{:,}".format(inputargs['number']) +": greater than number of input lines/reads (" + "{:,}".format(counts['in_count']) + ")."
+        print("Cannot sub-sample to " + "{:,}".format(inputargs['number']) +": greater than number of input lines/reads (" + "{:,}".format(counts['in_count']) + ").")
         sys.exit()
       else:
-        print "{:,}".format(counts['in_count']), "input lines/reads: sampling to", "{:,}".format(inputargs['number'])
+        print("{:,}".format(counts['in_count']), "input lines/reads: sampling to", "{:,}".format(inputargs['number']))
       
       sampled = random.sample(whole_list, inputargs['number'])
       
-      print "Writing subsampled lines/reads to", outfilename
+      print("Writing subsampled lines/reads to", outfilename)
       if with_frequency == True:
         collapsed = coll.Counter()
         for s in sampled:
@@ -233,13 +233,13 @@ if __name__ == '__main__':
       samplenam = inputargs['infile'][:symbol_positions(inputargs['infile'], '.')[-1]]
       summaryname = "Logs/" + date + "_" + samplenam + "_Subsampling_Summary.csv"
       if not os.path.exists(summaryname): 
-        summaryfile = open(summaryname, "w")
+        summaryfile = open(summaryname, "wt")
       else:
         # If one exists, start an incremental day stamp
         for i in range(2,10000):
           summaryname = "Logs/" + date + "_" + samplenam + "_Subsampling_Summary" + str(i) + ".csv"
           if not os.path.exists(summaryname): 
-            summaryfile = open(summaryname, "w")
+            summaryfile = open(summaryname, "wt")
             break
           
       # Generate string to write to summary file 
@@ -256,7 +256,7 @@ if __name__ == '__main__':
         summstr = summstr + "\nNumberTotalIdentifiersReadIn," + str(counts['in_count']) \
           + "\nNumberUniqueIdentifiersOutput," + str(counts['number_unique_outlines']) 
       
-      print >> summaryfile, summstr 
+      print(summstr, file=summaryfile)
       summaryfile.close()
       sort_permissions(outfilename)
 
