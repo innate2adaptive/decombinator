@@ -86,7 +86,8 @@
 from __future__ import division
 import sys          
 import os
-import urllib2
+import itertools
+import urllib
 import string
 import collections as coll
 import argparse
@@ -156,21 +157,21 @@ def fastq_check(infile):
   success = True
     
   #if infile.endswith('.gz'):
-  with opener(infile) as possfq:
+  with opener(infile, "rt") as possfq:
     try:
-      read = [next(possfq) for x in range(4)]
+      read = [i for i in itertools.islice(possfq, 0, 4)]
     except:
-      print "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
+      print("There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again.")
       sys.exit()
         
   # @ check
-  if read[0][0] <> "@":
+  if not read[0][0] == "@":
     success = False
   # Descriptor check
-  if read[2][0] <> "+":
+  if not read[2][0] == "+":
     success = False
   # Read/quality match check
-  if len(read[1]) <> len(read[3]):
+  if not len(read[1]) == len(read[3]):
     success = False  
   
   return(success)
@@ -188,22 +189,19 @@ def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
   # First check whether the files are available locally (in pwd or in bundled directory)
   if os.path.isfile(expected_file):
     fl = expected_file
-    fl_opener = open
   elif os.path.isfile(expected_dir_name + os.sep + expected_file):
     fl = expected_dir_name + os.sep + expected_file
-    fl_opener = open
   else:
     try:
       fl = "https://raw.githubusercontent.com/innate2adaptive/Decombinator-Tags-FASTAs/master/" + expected_file
-      urllib2.urlopen(urllib2.Request(fl))      # Request URL, see whether is found
-      fl_opener = urllib2.urlopen
+      urllib.request.urlopen(fl)      # Request URL, see whether is found
+      fl = urllib.request.urlretrieve(fl)[0]
     except:
-      print "Cannot find following file locally or online:", expected_file
-      print "Please either run Decombinator with internet access, or point Decombinator to local copies of the tag and FASTA files with the \'-tf\' flag."
+      print("Cannot find following file locally or online:", expected_file)
+      print("Please either run Decombinator with internet access, or point Decombinator to local copies of the tag and FASTA files with the \'-tf\' flag.")
       sys.exit()
-  
-  # Return opened file, for either FASTA or tag file parsing
-  return fl_opener(fl)
+    # Return opened file, for either FASTA or tag file parsing
+  return fl
 
 def readfq(fp): 
     """
@@ -254,7 +252,7 @@ def vanalysis(read):
       counts['multiple_v_matches'] += 1
       return
 
-    v_match = v_seqs.index(hold_v[0][0]) # Assigns V
+    v_match = v_seqs.index(hold_v[0][0]) # Assigns VJ
     temp_end_v = hold_v[0][1] + jump_to_end_v[v_match] - 1 # Finds where the end of a full V would be
     
     v_seq_start = hold_v[0][1]      
@@ -428,7 +426,7 @@ def import_tcr_info(inputargs):
     elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
       chain = "d" 
     else:
-      print nochain_error
+      print(nochain_error)
       sys.exit()
   else:
     
@@ -440,26 +438,26 @@ def import_tcr_info(inputargs):
       nochain_error = "TCR chain not recognised. \n \
       Please either include (one) chain name in the file name (i.e. alpha/beta/gamma/delta),\n \
       or use the \'-c\' flag with an explicit chain option (a/b/g/d, case-insensitive)."
-      print nochain_error
+      print(nochain_error)
       sys.exit()
       
   #################################################
   ############# GET GENES, BUILD TRIE #############
   #################################################
     
-  print 'Importing TCR', chainnams[chain], 'gene sequences...'
+  print('Importing TCR', chainnams[chain], 'gene sequences...')
 
   # First check that valid tag/species combinations have been used
   if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
-    print "Please note that there is currently no extended tag set for mouse TCR genes.\n \
+    print("Please note that there is currently no extended tag set for mouse TCR genes.\n \
     Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
-    In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original)."
+    In future, consider editing the script to change the default, or use the appropriate flags (-sp mouse -tg original).")
     inputargs['tags'] = "original"
   
   if inputargs['tags'] == "extended" and ( chain == 'g' or chain == 'd' ):
-    print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
+    print("Please note that there is currently no extended tag set for gamma/delta TCR genes.\n \
     Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n \
-    In future, consider editing the script to change the default, or use the appropriate flags."
+    In future, consider editing the script to change the default, or use the appropriate flags.")
     inputargs['tags'] = "original"
 
   # Set tag split position, and check tag set. Note that original tags use shorter length J half tags, as these tags were originally shorter.
@@ -469,14 +467,14 @@ def import_tcr_info(inputargs):
   elif inputargs['tags'] == "original":
     v_half_split, j_half_split = [10,6] 
   else:
-    print "Tag set unrecognised; should be either \'extended\' or \'original\' for human, or just \'original\' for mouse. \n \
-    Please check tag set and species flag."
+    print("Tag set unrecognised; should be either \'extended\' or \'original\' for human, or just \'original\' for mouse. \n \
+    Please check tag set and species flag.")
     sys.exit()
     
   # Check species information
   if inputargs['species'] not in ["human", "mouse"]:
-    print "Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n \
-    If mouse is required by default, consider changing the default value in the script."
+    print("Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n \
+    If mouse is required by default, consider changing the default value in the script.")
     sys.exit()    
     
   # Look for tag and V/J fasta and tag files: if these cannot be found in the working directory, source them from GitHub repositories
@@ -485,21 +483,21 @@ def import_tcr_info(inputargs):
   
   for gene in ['v', 'j']:
     # Get FASTA data
-    fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])  
+    fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])
     globals()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
-    fasta_file.close()
     
     globals()[gene+"_regions"] = []
     for g in range(0, len(globals()[gene+"_genes"])):
-        globals()[gene+"_regions"].append(string.upper(globals()[gene+"_genes"][g].seq))  
+        globals()[gene+"_regions"].append(globals()[gene+"_genes"][g].seq.upper())  
         
     # Get tag data
     tag_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "tags", inputargs['tagfastadir'])  # get tag data
+    tag_data = open(tag_file, "r")
     if gene == 'v': jumpfunction = "jump_to_end_v"
     elif gene == 'j': jumpfunction = "jump_to_start_j"
     globals()[gene+"_seqs"], globals()["half1_"+gene+"_seqs"], globals()["half2_"+gene+"_seqs"], globals()[jumpfunction] = \
-      globals()["get_"+gene+"_tags"](tag_file, globals()[gene+"_half_split"])
-    tag_file.close()
+      globals()["get_"+gene+"_tags"](tag_data, globals()[gene+"_half_split"])
+    tag_data.close()
     
     # Build Aho-Corasick tries
     globals()[gene+"_builder"] = AcoraBuilder()
@@ -586,8 +584,8 @@ def get_v_tags(file_v, half_split):
     jump_to_end_v = [] # Holds the number of jumps to make to look for deletions for each V region once the corresponding tag has been found
     for line in file_v:
         elements = line.rstrip("\n") # Turns every element in a text file line separated by a space into elements in a list
-        v_seqs.append(string.split(elements)[0]) # Adds elements in first column iteratively
-        jump_to_end_v.append(int(string.split(elements)[1])) # Adds elements in second column iteratively
+        v_seqs.append(elements.split()[0]) # Adds elements in first column iteratively
+        jump_to_end_v.append(int(elements.split()[1])) # Adds elements in second column iteratively
 
     half1_v_seqs = []
     half2_v_seqs = []
@@ -605,8 +603,8 @@ def get_j_tags(file_j, half_split):
 
     for line in file_j:
         elements = line.rstrip("\n")
-        j_seqs.append(string.split(elements)[0])
-        jump_to_start_j.append(int(string.split(elements)[1]))
+        j_seqs.append(elements.split()[0])
+        jump_to_start_j.append(int(elements.split()[1]))
 
     half1_j_seqs = []
     half2_j_seqs = []
@@ -631,7 +629,7 @@ if __name__ == '__main__':
 
   inputargs = vars(args())
   
-  print "Running Decombinator version", __version__
+  print("Running Decombinator version", __version__)
 
   # Determine compression status (and thus opener required)
   if inputargs['fastq'].endswith('.gz'):
@@ -641,8 +639,8 @@ if __name__ == '__main__':
 
   # Brief FASTQ sanity check
   if inputargs['dontcheck'] == False:
-    if fastq_check(inputargs['fastq']) <> True:
-      print "FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is a properly formatted FASTQ."
+    if not fastq_check(inputargs['fastq']) == True:
+      print("FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is a properly formatted FASTQ.")
       sys.exit()
   
   # Get TCR gene information
@@ -657,7 +655,7 @@ if __name__ == '__main__':
   ############# SCROLL THROUGH FILE & ANALYSE #############
   #########################################################
 
-  print "Decombining FASTQ data..."
+  print("Decombining FASTQ data...")
 
   suffix = "." + inputargs['extension']
   samplenam = str(inputargs['fastq'].split(".")[0]) 
@@ -678,7 +676,7 @@ if __name__ == '__main__':
   
   # Scroll through input file and find TCRs
   with open(name_results + suffix, 'w') as outfile:   
-    with opener(inputargs['fastq']) as f:
+    with opener(inputargs['fastq'],"rt") as f:
       
       for readid, seq, qual in readfq(f):
         start_time = time()
@@ -695,7 +693,7 @@ if __name__ == '__main__':
         
         counts['read_count'] += 1
         if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
-          print '\t read', counts['read_count'] 
+          print('\t read', counts['read_count'])
     
         # Get details of the VJ recombination
         if inputargs['orientation'] == 'reverse':
@@ -737,7 +735,7 @@ if __name__ == '__main__':
   if inputargs['nobarcoding'] == True:
     # Write out non-barcoded results, with frequencies
     if inputargs['extension'] == 'n12':
-      print "Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'."
+      print("Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'.")
       suffix = '.nbc'
     with open(name_results + suffix, 'w') as outfile:
       for x in found_tcrs.most_common():
@@ -748,9 +746,9 @@ if __name__ == '__main__':
   timetaken = counts['end_time']-counts['start_time']
 
   if inputargs['dontgzip'] == False:
-    print "Compressing Decombinator output file,", name_results + suffix, "..."
+    print("Compressing Decombinator output file,", name_results + suffix, "...")
     
-    with open(name_results + suffix) as infile, gzip.open(name_results + suffix + '.gz', 'wb') as outfile:
+    with open(name_results + suffix) as infile, gzip.open(name_results + suffix + '.gz', 'wt') as outfile:
         outfile.writelines(infile)
     os.unlink(name_results + suffix)
 
@@ -764,9 +762,9 @@ if __name__ == '__main__':
   ############# WRITE SUMMARY DATA #############
   ##############################################
 
-  print "Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), chainnams[chain], "VJ rearrangements"
-  print "Reading from", inputargs['fastq'] + ", writing to", outfilenam
-  print "Took", str(round(timetaken,2)), "seconds"
+  print("Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), chainnams[chain], "VJ rearrangements")
+  print("Reading from", inputargs['fastq'] + ", writing to", outfilenam)
+  print("Took", str(round(timetaken,2)), "seconds")
 
   # Write data to summary file
   if inputargs['suppresssummary'] == False:
@@ -825,7 +823,7 @@ if __name__ == '__main__':
       + "\nNoJDetected," + str(counts['no_j_assigned']) 
       #+ "\nVJGeneAssignmentFailed," + str(counts['VJ_assignment_failed'])     
         
-    print >> summaryfile, summstr 
+   # print(summstr,file=summaryfile) 
     summaryfile.close()
     sort_permissions(summaryname)
   sys.exit()
