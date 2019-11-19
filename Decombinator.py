@@ -777,13 +777,13 @@ if __name__ == '__main__':
     # Check for existing date-stamped file
     summaryname = "Logs/" + date + "_" + samplenam + "_Decombinator_Summary.csv"
     if not os.path.exists(summaryname): 
-      summaryfile = open(summaryname, "w")
+      summaryfile = open(summaryname, "wt")
     else:
       # If one exists, start an incremental day stamp
       for i in range(2,10000):
         summaryname = "Logs/" + date + "_" + samplenam + "_Decombinator_Summary" + str(i) + ".csv"
         if not os.path.exists(summaryname): 
-          summaryfile = open(summaryname, "w")
+          summaryfile = open(summaryname, "wt")
           break
 
     # Generate string to write to summary file 
@@ -823,7 +823,7 @@ if __name__ == '__main__':
       + "\nNoJDetected," + str(counts['no_j_assigned']) 
       #+ "\nVJGeneAssignmentFailed," + str(counts['VJ_assignment_failed'])     
         
-   # print(summstr,file=summaryfile) 
+    print(summstr,file=summaryfile) 
     summaryfile.close()
     sort_permissions(summaryname)
   sys.exit()
