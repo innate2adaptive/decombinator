@@ -134,45 +134,45 @@ def check_dcr_file(infile):
     """
     # Check whether file a) exists and b) is not empty
     if os.path.isfile(infile) == False:
-      print 'Cannot find file, please double-check path.'
+      print('Cannot find file, please double-check path.')
       return False
     if os.path.getsize(infile) == 0:
-      print 'Input file appears to be empty; please double-check path.'
+      print('Input file appears to be empty; please double-check path.')
       return False
     
     # Check first few lines    
-    with opener(infile) as poss_dcr: 
+    with opener(infile,"rt") as poss_dcr: 
       for i in range(5):
               
         # Check it's a comma-delimited file
         if "," not in next(poss_dcr):
-          print 'Input Decombinator file sanity check fail: seemingly not comma-delimited text file.'
+          print('Input Decombinator file sanity check fail: seemingly not comma-delimited text file.')
           return False
         else:
           fields = next(poss_dcr).rstrip().split(", ")
         
         # Check lines contain correct number of fields
         if len(fields) != 10:
-          print 'Input Decombinator file sanity check fail: file does not contain the correct number of comma-delimited fields (ten).'
+          print('Input Decombinator file sanity check fail: file does not contain the correct number of comma-delimited fields (ten).')
           return False
         # Check DCR classifiers are feasible (i.e. 4x integers followed by a DNA string)
         elif not all([num_check(field) for field in fields[0:4]]):
-          print 'Input Decombinator file sanity check fail: integer components of Decombinator classifier not feasible (i.e. not integers >= zero).'
+          print('Input Decombinator file sanity check fail: integer components of Decombinator classifier not feasible (i.e. not integers >= zero).')
           return False        
         elif not is_dna(fields[4]):
-          print 'Input Decombinator file sanity check fail: Decombinator insert sequence field contains non-DNA sequence.'
+          print('Input Decombinator file sanity check fail: Decombinator insert sequence field contains non-DNA sequence.')
           return False
         # Check inter-tag and barcode sequences are legitimate DNA strings 
         elif is_dna(fields[6]) != True or is_dna(fields[8]) != True:
-          print 'Input Decombinator file sanity check fail: inter-tag and/or barcode sequence contains non-DNA sequences.'
+          print('Input Decombinator file sanity check fail: inter-tag and/or barcode sequence contains non-DNA sequences.')
           return False
         # Check inter-tag and barcode quality are feasible FASTQ quality scores
         elif all(set([num_check(x) for x in get_qual_scores(fields[7])])) != True or all(set([num_check(x) for x in get_qual_scores(fields[9])])) != True:
-          print 'Input Decombinator file sanity check fail: inter-tag and/or barcode quality strings do not appear to contain valid scores.'
+          print('Input Decombinator file sanity check fail: inter-tag and/or barcode quality strings do not appear to contain valid scores.')
           return False        
         # Check that inter-tag and barcode sequence/quality pairs are the correct length
         elif len(fields[6]) != len(fields[7]) or len(fields[8]) != len(fields[9]):
-          print 'Input Decombinator file sanity check fail: inter-tag and/or barcode sequence and quality string pairs are not of the same length.'
+          print('Input Decombinator file sanity check fail: inter-tag and/or barcode sequence and quality string pairs are not of the same length.')
           return False    
     
       return True       # If first few lines all pass, assume the file is fine and carry on with the analysis.
@@ -346,7 +346,7 @@ def find_most_common_dcrseq(dcretclist):
         dcrseq_count['|'.join([d, s])] += 1
 
     max_value = max(dcrseq_count.values())
-    most_common_dcrseqs = [ds for ds, c in dcrseq_count.iteritems() if c == max_value]
+    most_common_dcrseqs = [ds for ds, c in dcrseq_count.items() if c == max_value]
     if len(most_common_dcrseqs) == 1:
         return most_common_dcrseqs[0]
 
@@ -406,7 +406,7 @@ def are_seqs_equivalent(seq1, seq2, levdistance_percent_threshold):
 def h_Dist_Prob():
   # calculate probabilites that a certain Hamming Distance will occur for a comparison between two random UMIs
   percomparison = []
-  for HD in xrange(0,12):
+  for HD in range(0,12):
     binomial = comb(12,HD) * 0.75**HD * 0.25**(12-HD)
     percomparison.append(binomial)
   return percomparison
@@ -414,11 +414,11 @@ def h_Dist_Prob():
 def calc_HD_threshold(n_UMIs, percomparison):
     ncomp = (n_UMIs**2-n_UMIs)/2 # total number of comparisons: half matrix - diagonal
     totalprob = 0.0
-    for HD in xrange(0,12):
+    for HD in range(0,12):
       totalprob += ncomp * percomparison[HD] # probability of encountering a certain HD is given by the total number of comparisons times the probability for one comparison
       if totalprob > 0.05: # check if current HD is expected (p>0.05)
         return max(0, HD - 1) # current HD is expected, so return previous HD as threshold, but minimum th=0
-    print "Error: Could not calculate hamming distance thresholds" # something must have gone wrong if no value is returned at this point
+    print("Error: Could not calculate hamming distance thresholds") # something must have gone wrong if no value is returned at this point
     sys.exit()
 
 def cluster_dcr_barcodes(counter, percomparison, HD_th):
@@ -435,7 +435,7 @@ def cluster_dcr_barcodes(counter, percomparison, HD_th):
   n_UMIs = len(counter) # current number of UMIs during cleaning
   track_barcodes_deleted = coll.Counter()    
 
-  for curr_HD in xrange(1,12): # go up from HD=1
+  for curr_HD in range(1,12): # go up from HD=1
     n_UMIs = len(barcodecluster_count) # check current number of UMIs
 
     if n_UMIs == 1:
@@ -464,7 +464,7 @@ def cluster_dcr_barcodes(counter, percomparison, HD_th):
               barcodecluster_count[bc1] += size2 # add size of smaller UMI to size of larger UMI
               del barcodecluster_count[bc2] # remove erroneous UMI from counter
  
-  print "Error: Barcode clustering failed"  # something must have gone wrong if no value is returned at this point
+  print("Error: Barcode clustering failed")  # something must have gone wrong if no value is returned at this point
   sys.exit()
 
 def are_barcodes_equivalent(bc1, bc2, threshold):
@@ -490,15 +490,15 @@ def collapsinate(barcode_quality_parameters,
     # Check whether file appears to contain suitable verbose Decombinator output for collapsing
     if inputargs['dontcheckinput'] == False:
       if check_dcr_file(infile) != True:
-        print "Please check that file contains suitable Decombinator output for collapsing."
-        print "Alternatively, disable the input file sanity check by changing the \'dontcheckinput\' flag, i.e. \'-di True\'"
+        print("Please check that file contains suitable Decombinator output for collapsing.")
+        print("Alternatively, disable the input file sanity check by changing the \'dontcheckinput\' flag, i.e. \'-di True\'")
         sys.exit()
        
-    print 'Reading data in...'
+    print('Reading data in...')
     t0 = time()
     barcode_dcretc = coll.defaultdict(list)
     input_dcr_counts = coll.Counter()
-    inhandle = opener(infile, 'r')
+    inhandle = opener(infile, 'rt')
     
     for line in inhandle:
         counts['readdata_input_dcrs'] += 1
@@ -558,19 +558,19 @@ def collapsinate(barcode_quality_parameters,
     counts['number_input_total_dcrs'] = sum(input_dcr_counts.values())
       
     t1 = time()
-    print '  ', round(t1-t0, 2), 'seconds'
+    print('  ', round(t1-t0, 2), 'seconds')
     counts['time_readdata_s'] = t1
     
     ##########################################
     ############# TCR COLLAPSING #############
     ##########################################        
     
-    print 'Collapsing by barcode...'
+    print('Collapsing by barcode...')
     t0 = time()
     
     dcr_barcodecounter = coll.defaultdict(makecounter)
-    
-    for barcode, dcretc_list in barcode_dcretc.iteritems():
+
+    for barcode, dcretc_list in barcode_dcretc.items():
 
         remaining_dcretc_list = dcretc_list[:]
 
@@ -593,14 +593,14 @@ def collapsinate(barcode_quality_parameters,
     counts['tcrcoll_dcr_barcodecounter_keys'] = len(dcr_barcodecounter.keys()) 
      
     t1 = time()
-    print '  ', round(t1-t0, 2), 'seconds'
+    print('  ', round(t1-t0, 2), 'seconds')
     counts['time_tcrcollapsing_s'] = t1
     
     ##############################################
     ############# BARCODE CLUSTERING #############
     ##############################################          
 
-    print 'Clustering barcodes...'
+    print('Clustering barcodes...')
     t0 = time()
     
     dcr_originalcopies = coll.Counter()         # Stores the final collapsed DCRs with estimated frequencies (i.e. # clustered barcodes)
@@ -610,12 +610,12 @@ def collapsinate(barcode_quality_parameters,
     h_probs = h_Dist_Prob()
     HD_th = {}
 
-    for dcr, barcode_count in dcr_barcodecounter.iteritems():
+    for dcr, barcode_count in dcr_barcodecounter.items():
 
         #clustered_bc_dict = OLDcluster_dcr_barcodes(barcode_count, barcode_distance_threshold)
         clustered_bc_dict = cluster_dcr_barcodes(barcode_count, h_probs, HD_th)
         dcr_originalcopies[dcr] = len(clustered_bc_dict)
-        for bc, c in clustered_bc_dict.iteritems():
+        for bc, c in clustered_bc_dict.items():
             barcode_duplication[bc] += c
     
     counts['number_output_unique_dcrs'] = len(dcr_originalcopies)
@@ -623,20 +623,20 @@ def collapsinate(barcode_quality_parameters,
     
     t1 = time()
     counts['time_bcclustering_s'] = t1
-    print '  ', round(t1-t0, 2), 'seconds'
+    print('  ', round(t1-t0, 2), 'seconds')
 
     outfile = outpath + file_id + suffix
     outhandle = open(outfile, 'w')
-    print 'Writing to output file', outfile, '...'
+    print('Writing to output file', outfile, '...')
     
-    for dcr, copies in dcr_originalcopies.iteritems():
-        print >> outhandle, ', '.join([dcr, str(copies)])
+    for dcr, copies in dcr_originalcopies.items():
+        print(', '.join([dcr, str(copies)]), file=outhandle)
     outhandle.close()
     
     if inputargs['dontgzip'] == False:  # Gzip output file
-        print "Compressing output to", outfile + ".gz ..."
+        print("Compressing output to", outfile + ".gz ...")
       
-        with open(outfile) as inf, gzip.open(outfile + '.gz', 'wb') as outf:
+        with open(outfile) as inf, gzip.open(outfile + '.gz', 'wt') as outf:
             outf.writelines(inf)
         outf.close()
         os.unlink(outfile)
@@ -651,8 +651,8 @@ def collapsinate(barcode_quality_parameters,
     if inputargs['barcodeduplication'] == True:
         outfile = outpath+file_id+'_barcode_duplication.txt'
         outhandle = open(outfile, 'w')
-        for bc, copies in barcode_duplication.iteritems():
-            print >> outhandle, ','.join([bc, str(copies)])
+        for bc, copies in barcode_duplication.items():
+            print(','.join([bc, str(copies)]), file=outhandle)
         outhandle.close()
         
     counts['outfilenam'] = outfilenam
@@ -755,5 +755,5 @@ if __name__ == '__main__':
         + "\nBarcodeFail_SpacersNotFound," + str(counts['readdata_fail_no_bclocs']) \
         + "\nBarcodeFail_LowQuality," + str(counts['readdata_fail_low_barcode_quality']) 
 
-      print >> summaryfile, summstr 
+      print(summstr,file=summaryfile) 
       summaryfile.close()
