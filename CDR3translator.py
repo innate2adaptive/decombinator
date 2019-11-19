@@ -27,7 +27,7 @@ import re
 import sys
 import collections as coll
 import os
-import urllib2
+import urllib
 import warnings
 import gzip
 
@@ -86,10 +86,10 @@ def findfile(filename):
     """
 
     try:
-        testopen = open(str(filename), "rU")
+        testopen = open(str(filename), "rt")
         testopen.close()
     except Exception:
-        print 'Cannot find the specified input file. Please try again'
+        print('Cannot find the specified input file. Please try again')
         sys.exit()
 
 
@@ -109,26 +109,24 @@ def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
     # First check whether the files are available locally (in pwd or in bundled directory)
     if os.path.isfile(expected_file):
         fl = expected_file
-        fl_opener = open
 
     elif os.path.isfile(expected_dir_name + os.sep + expected_file):
         fl = expected_dir_name + os.sep + expected_file
-        fl_opener = open
 
     else:
         try:
             fl = "https://raw.githubusercontent.com/innate2adaptive/Decombinator-Tags-FASTAs/master/" + expected_file
-            urllib2.urlopen(urllib2.Request(fl))  # Request URL, see whether is found
-            fl_opener = urllib2.urlopen
+            urllib.request.urlopen(fl)  # Request URL, see whether is found
+            fl = urllib.request.urlretrieve(fl)[0]
 
         except Exception:
-            print "Cannot find following file locally or online:", expected_file
-            print "Please either run Decombinator with internet access, or point Decombinator to local copies " \
-                  "of the tag and FASTA files with the \'-tf\' flag."
+            print("Cannot find following file locally or online:", expected_file)
+            print("Please either run Decombinator with internet access, or point Decombinator to local copies " \
+                  "of the tag and FASTA files with the \'-tf\' flag.")
             sys.exit()
 
     # Return opened file, for either FASTA or tag file parsing
-    return fl_opener(fl)
+    return fl
 
 
 def sort_permissions(fl):
@@ -166,22 +164,22 @@ def import_gene_information(inputargs):
     chain = inputargs['chain']
 
     if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
-        print "Please note that there is currently no extended tag set for mouse TCR genes.\n" \
+        print("Please note that there is currently no extended tag set for mouse TCR genes.\n" \
               "Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n" \
               "In future, consider editing the script to change the default, " \
-              "or use the appropriate flags (-sp mouse -tg original)."
+              "or use the appropriate flags (-sp mouse -tg original).")
         inputargs['tags'] = "original"
 
     if inputargs['tags'] == "extended" and (chain == 'g' or chain == 'd'):
-        print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n" \
+        print("Please note that there is currently no extended tag set for gamma/delta TCR genes.\n" \
               "Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n" \
-              "In future, consider editing the script to change the default, or use the appropriate flags."
+              "In future, consider editing the script to change the default, or use the appropriate flags.")
         inputargs['tags'] = "original"
 
     # Check species information
     if inputargs['species'] not in ["human", "mouse"]:
-        print "Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n" \
-              "If mouse is required by default, consider changing the default value in the script."
+        print("Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n" \
+              "If mouse is required by default, consider changing the default value in the script.")
         sys.exit()
 
     # Look for tag and V/J fasta and cysteine position files: if these cannot be found in the working directory,
@@ -193,22 +191,22 @@ def import_gene_information(inputargs):
         # Get FASTA data
         fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])
         globals()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
-        fasta_file.close()
-        globals()[gene + "_regions"] = [str(string.upper(item.seq)) for item in globals()[gene + "_genes"]]
-        globals()[gene + "_names"] = [str(string.upper(item.id).split("|")[1]) for item in globals()[gene + "_genes"]]
+
+        globals()[gene + "_regions"] = [str(    item.seq.upper()) for item in globals()[gene + "_genes"]]
+        globals()[gene + "_names"] = [str(item.id.upper().split("|")[1]) for item in globals()[gene + "_genes"]]
 
         # Get conserved translation residue sites and functionality data
-        translation_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "translate",
-                                         inputargs['tagfastadir'])
+        translation_file = open(read_tcr_file(inputargs['species'], inputargs['tags'], gene, "translate",
+                                         inputargs['tagfastadir']),"rt")
         translate_data = [x.rstrip() for x in list(translation_file)]
-        translation_file.close()
+
         globals()[gene + "_translate_position"] = [int(x.split(",")[1]) for x in translate_data]
         globals()[gene + "_translate_residue"] = [x.split(",")[2] for x in translate_data]
         globals()[gene + "_functionality"] = [x.split(",")[3] for x in translate_data]
 
         if gene == 'v':
             # Get germline CDR data
-            cdr_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "cdrs", inputargs['tagfastadir'])
+            cdr_file = open(read_tcr_file(inputargs['species'], inputargs['tags'], gene, "cdrs", inputargs['tagfastadir']), "rt")
             cdr_data = [x.rstrip() for x in list(cdr_file)]
             cdr_file.close()
             v_cdr1 = [x.split(" ")[1] for x in cdr_data]
@@ -332,7 +330,7 @@ if __name__ == '__main__':
         if len(chaincheck) == 1:
             chain = chaincheck[0][0]
         else:
-            print "TCR chain not recognised. Please choose from a/b/g/d (case-insensitive)."
+            print("TCR chain not recognised. Please choose from a/b/g/d (case-insensitive).")
             sys.exit()
     else:
         if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
@@ -344,7 +342,7 @@ if __name__ == '__main__':
         elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
             chain = "d"
         else:
-            print "TCR chain not recognised. Please choose from a/b/g/d (case-insensitive)."
+            print("TCR chain not recognised. Please choose from a/b/g/d (case-insensitive).")
             sys.exit()
 
     inputargs['chain'] = chain  # Correct inputarg chain value so that import gene function gets correct input
@@ -358,18 +356,18 @@ if __name__ == '__main__':
     v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, \
     j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2 = import_gene_information(inputargs)
 
-    infile = opener(filename, "rU")
+    infile = opener(filename, "rt")
 
     counts['line_count'] = 0
 
     # Count non-productive rearrangments
     chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
 
-    print "Translating", chainnams[chain], "chain CDR3s from", inputargs['infile']
+    print("Translating", chainnams[chain], "chain CDR3s from", inputargs['infile'])
 
     filename_id = os.path.basename(filename).split(".")[0]
     outfilename = filename_id + suffix
-    with opener(filename, 'rU') as in_file, open(outfilename, 'w') as out_file:
+    with opener(filename, 'rt') as in_file, open(outfilename, 'wt') as out_file:
         out_file.write('\t'.join(out_headers) + '\n')
 
         for line in in_file:
@@ -387,11 +385,11 @@ if __name__ == '__main__':
                 frequency = int(line[comma[4] + 2:].rstrip())
                 use_freq = True
             elif len(comma) > 5:  # assume that it's an n12 file (no frequency)
-                print "Incorrect number of comma-delimited fields detected. Please check input and try again."
+                print("Incorrect number of comma-delimited fields detected. Please check input and try again.")
                 sys.exit()
             else:
-                print "Based on the number of commas per line, script is unable to determine file type. " \
-                      "Please ensure you're inputting a valid file (e.g. .n12 or .freq)."
+                print("Based on the number of commas per line, script is unable to determine file type. " \
+                      "Please ensure you're inputting a valid file (e.g. .n12 or .freq).")
                 sys.exit()
 
             cdr3_data = get_cdr3(in_dcr, out_headers)
@@ -417,13 +415,13 @@ if __name__ == '__main__':
                 counts[productivity + "_" + "V-" + v_functionality[v]] += 1
                 counts[productivity + "_" + "J-" + j_functionality[j]] += 1
 
-    print "CDR3 data written to", outfilename
+    print("CDR3 data written to", outfilename)
 
     # Compress output
     if not inputargs['dontgzip']:
-        print "Compressing CDR3 output file to", outfilename + ".gz"
+        print("Compressing CDR3 output file to", outfilename + ".gz")
 
-        with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wb') as outfile:
+        with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wt') as outfile:
             outfile.writelines(infile)
         os.unlink(outfilename)
 
@@ -445,14 +443,14 @@ if __name__ == '__main__':
         # Check for existing date-stamped file
         summaryname = "Logs/" + date + "_" + filename_id + "_CDR3_Translation_Summary.csv"
         if not os.path.exists(summaryname):
-            summaryfile = open(summaryname, "w")
+            summaryfile = open(summaryname, "wt")
         else:
             # If one exists, start an incremental day stamp
             for i in range(2, 10000):
                 summaryname = "Logs/" + date + "_" + filename_id + \
                               "_CDR3_Translation_Summary" + str(i) + ".csv"
                 if not os.path.exists(summaryname):
-                    summaryfile = open(summaryname, "w")
+                    summaryfile = open(summaryname, "wt")
                     break
 
         # Generate string to write to summary file
@@ -475,7 +473,7 @@ if __name__ == '__main__':
                         target = p + '_' + g + '-' + f
                         summstr = summstr + '\n' + target + ',' + str(counts[target])
 
-        print >> summaryfile, summstr
+        print(summstr, file=summaryfile)
         summaryfile.close()
         sort_permissions(summaryname)
 
