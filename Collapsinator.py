@@ -103,6 +103,9 @@ def args():
   parser.add_argument(
       '-pb', '--positionalbarcodes', action='store_true', help='Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible.',\
         required=False)
+  parser.add_argument(
+      '-ol', '--oligo', type=str, help='Choose experimental oligo for correct identification of spacers ["M13", "I8"] (default: M13)',\
+        required=False, default="m13")
   
   return parser.parse_args()
 
@@ -177,14 +180,18 @@ def check_dcr_file(infile):
     
       return True       # If first few lines all pass, assume the file is fine and carry on with the analysis.
 
-def getOligos():
+def getOligo(oligo_name):
   # New oligos can be added here, specifying their spacers in the given format, and adding them to
-  # the returned list. As the m13 spcr1 coincidentally contains the i8 spacer (with an insertion),
-  # m13 MUST feature before i8 in the returned list.
+  # the returned list.
+  oligos = {}
+  oligos["m13"] = {"spcr1": "GTCGTGACTGGGAAAACCCTGG","spcr2":"GTCGTGAT"}
+  oligos["i8"] = {"spcr1":"GTCGTGAT","spcr2":"GTCGTGAT"}
 
-  m13 = {"spcr1": "GTCGTGACTGGGAAAACCCTGG","spcr2":"GTCGTGAT"}
-  i8  = {"spcr1":"GTCGTGAT","spcr2":"GTCGTGAT"}
-  return [m13,i8]
+  if oligo_name.lower() not in oligos:
+    print("Error: Failed to recognise oligo name. Please choose from " + str(list(oligos.keys())))
+    sys.exit()  
+  
+  return oligos[oligo_name.lower()]
 
 def findSubs(subseq, seq):
     # allow up to two substitutions in subseq.
@@ -270,20 +277,18 @@ def get_barcode(bcseq,inputargs,counts):
     counts['getbarcode_fail_N'] += 1
     return
 
-  oligos = getOligos()
-
-  # sets first spacer, and determines the oligo being used
-  for i in range(len(oligos)):
-    spacers = findFirstSpacer(oligos[i],bcseq)
-    oligo = oligos[i]
-    if spacers: break
+  # gets spacer sequences of specified oligo
+  oligo = getOligo(inputargs['oligo'])
+  
+  # sets first spacer based on specified oligo
+  spacers = findFirstSpacer(oligo, bcseq)  
 
   # sequences with no first spacer are removed from analysis
   if not len(spacers) == 1:
     return None
 
-  # sets second spacer based on determined oligo
-  spacers += findSecondSpacer(oligo,bcseq)
+  # sets second spacer based on specified oligo
+  spacers += findSecondSpacer(oligo, bcseq)
 
   # sequences which do not have two spacers are logged then removed from analysis
   if not len(spacers) == 2:
@@ -753,7 +758,7 @@ if __name__ == '__main__':
         + "\nAverageRNAduplication," + str( round(counts['avg_RNA_duplication'], 3 ) ) \
         + "\n\nBarcodeFail_ContainedNs," + str(counts['getbarcode_fail_N']) \
         + "\nBarcodeFail_SpacersNotFound," + str(counts['readdata_fail_no_bclocs']) \
-        + "\nBarcodeFail_LowQuality," + str(counts['readdata_fail_low_barcode_quality']) 
+        + "\nBarcodeFail_LowQuality," + str(counts['readdata_fail_low_barcode_quality'])
 
       print(summstr,file=summaryfile) 
       summaryfile.close()
