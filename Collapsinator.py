@@ -52,6 +52,8 @@ from scipy.special import comb
 import copy
 import os, sys
 
+from IPython import embed
+
 __version__ = '4.0.1'
 
 ##########################################################
@@ -336,6 +338,43 @@ def barcode_quality_check(qualstring, parameters):
     else:
         return 1
 
+def find_most_common_dcrseq2(dcretclist):
+    """
+    Counts occurrences of dcr-seq pairs in dcretc_list. 
+    If one occurs the most, returns this dcr-seq pair
+    If more than one occurs the maximum number of times, returns the one with the highest avg seq quality
+    If more than one of the maximum occurring dcr-seqs has the same highest avg seq quality,
+        returns one of these chosen at random
+    """
+    dcrseq_count = coll.Counter()
+    for detc in dcretclist:
+        d = detc['dcr']
+        s = detc['seq']
+        dcrseq_count['|'.join([d, s])] += 1
+
+    max_value = max(dcrseq_count.values())
+    most_common_dcrseqs = [ds for ds, c in dcrseq_count.items() if c == max_value]
+    if len(most_common_dcrseqs) == 1:
+        return most_common_dcrseqs[0]
+
+    max_avg_quals = []
+    for ds in most_common_dcrseqs:
+        seq_qual_strings = [detc['seq_qualstring'] for detc in dcretclist if '|'.join([detc['dcr'],detc['seq']]) == ds]
+#        seq_qual_strings = [detc['seq_qualstring'] for detc in dcretclist if '|'.join(detc.split('|')[0:2]) == ds]
+        seq_avg_quals = [sum(get_qual_scores(x))/len(x) for x in seq_qual_strings]
+        max_avg_quals.append(max(seq_avg_quals))
+    
+    max_indices = [i for i, x in enumerate(max_avg_quals) if x == max(max_avg_quals)]
+
+    if len(max_indices) == 1:
+        return most_common_dcrseqs[max_indices[0]]
+    
+    return most_common_dcrseqs[random.choice(max_indices)]
+
+
+
+
+
 def find_most_common_dcrseq(dcretclist):
     """
     Counts occurrences of dcr-seq pairs in dcretc_list. 
@@ -423,6 +462,7 @@ def calc_HD_threshold(n_UMIs, percomparison):
       totalprob += ncomp * percomparison[HD] # probability of encountering a certain HD is given by the total number of comparisons times the probability for one comparison
       if totalprob > 0.05: # check if current HD is expected (p>0.05)
         return max(0, HD - 1) # current HD is expected, so return previous HD as threshold, but minimum th=0
+    
     print("Error: Could not calculate hamming distance thresholds") # something must have gone wrong if no value is returned at this point
     sys.exit()
 
@@ -472,6 +512,63 @@ def cluster_dcr_barcodes(counter, percomparison, HD_th):
   print("Error: Barcode clustering failed")  # something must have gone wrong if no value is returned at this point
   sys.exit()
 
+def NEWcluster_dcr_barcodes(cluster, percomparison, HD_th):
+  """
+  Takes a counter {barcode:x, barcode:x, ...} of the number of copies of each barcode associated with a dcr
+  Returns a counter {barcode_cluster:number_copies, ...} after combining barcodes that are below a threshold
+  """
+  # make a copy of counter to merge UMIs
+
+  counter = coll.Counter()
+  for m in cluster["members"]: 
+    counter[m["barcode"]] += 1
+
+  barcodecluster_count = copy.deepcopy(counter)
+ # barcodecluster_count = len(cluster["members"])
+  if len(counter) == 1:
+  #if barcodecluster_count == 1:
+    # only one barcode is associated with this dcr, no clustering needed
+    return counter
+  #return barcodecluster_count
+
+  n_UMIs = len(counter) # current number of UMIs during cleaning
+#  n_UMIs = barcodecluster_count # current number of UMIs during cleaning
+  track_barcodes_deleted = coll.Counter()    
+
+  for curr_HD in range(1,12): # go up from HD=1
+    n_UMIs = len(barcodecluster_count) # check current number of UMIs
+    #n_UMIs = barcodecluster_count # check current number of UMIs
+
+    if n_UMIs == 1:
+      return barcodecluster_count
+
+    if HD_th.get(n_UMIs) == None:
+      # calculate threshold if not calculated before for this number of clones
+      curr_th = calc_HD_threshold(n_UMIs, percomparison)
+      HD_th[n_UMIs] = curr_th
+    else:
+      curr_th = HD_th[n_UMIs]
+
+    if curr_HD > curr_th:
+      return barcodecluster_count # if UMIs on this distance are expected to occur, stop merging
+
+    track_barcodes_processed = coll.Counter()
+
+    for bc1, size1 in counter.most_common(): # go from most common to less common UMIs
+      if track_barcodes_deleted[bc1] == 0: # check if UMI is not already deleted
+        track_barcodes_processed[bc1] = 1 # prevent that UMIs are treated twice during one iteration
+        for bc2, size2 in counter.most_common():
+          if track_barcodes_deleted[bc2] == 0 and track_barcodes_processed[bc2] == 0:
+            if are_barcodes_equivalent(bc1, bc2, curr_HD):
+              track_barcodes_deleted[bc2] = 1 # mark smaller UMI as deleted
+              track_barcodes_processed[bc2] = 1 # mark smaller UMI as processed
+              barcodecluster_count[bc1] += size2 # add size of smaller UMI to size of larger UMI
+              del barcodecluster_count[bc2] # remove erroneous UMI from counter
+ 
+  print("Error: Barcode clustering failed")  # something must have gone wrong if no value is returned at this point
+  sys.exit()
+
+
 def are_barcodes_equivalent(bc1, bc2, threshold):
     if lev.distance(bc1, bc2) <= threshold:
         return 1
@@ -481,13 +578,7 @@ def are_barcodes_equivalent(bc1, bc2, threshold):
 def makecounter():
     return coll.Counter()
 
-def collapsinate(barcode_quality_parameters,
-                 lev_threshold,
-                 barcode_distance_threshold,
-                 infile, 
-                 outpath,
-                 file_id):
-  
+def read_in_data_OLD(barcode_quality_parameters, infile):
     ###########################################
     ############# READING DATA IN #############
     ###########################################        
@@ -502,6 +593,8 @@ def collapsinate(barcode_quality_parameters,
     print('Reading data in...')
     t0 = time()
     barcode_dcretc = coll.defaultdict(list)
+    #dcr_data = []
+
     input_dcr_counts = coll.Counter()
     inhandle = opener(infile, 'rt')
     
@@ -552,20 +645,624 @@ def collapsinate(barcode_quality_parameters,
             seq_qualstring = fields[7]
             seq_id = fields[5]
             dcretc = '|'.join([dcr, seq, seq_qualstring, seq_id])
+            #dcr_data.append(dcretc)
             barcode_dcretc[barcode].append(dcretc)
         else:
             counts['readdata_fail_no_bclocs'] += 1
 
     inhandle.close()
     
-    counts['readdata_barcode_dcretc_keys'] = len(barcode_dcretc.keys())
+  #  counts['readdata_barcode_dcretc_keys'] = len(barcode_dcretc.keys())
     counts['number_input_unique_dcrs'] = len(input_dcr_counts.keys())
     counts['number_input_total_dcrs'] = sum(input_dcr_counts.values())
       
     t1 = time()
     print('  ', round(t1-t0, 2), 'seconds')
     counts['time_readdata_s'] = t1
+
+    return barcode_dcretc
+
+def read_in_data(barcode_quality_parameters, infile, lev_threshold):
+    ###########################################
+    ############# READING DATA IN #############
+    ###########################################        
+        
+    # Check whether file appears to contain suitable verbose Decombinator output for collapsing
+    if inputargs['dontcheckinput'] == False:
+      if check_dcr_file(infile) != True:
+        print("Please check that file contains suitable Decombinator output for collapsing.")
+        print("Alternatively, disable the input file sanity check by changing the \'dontcheckinput\' flag, i.e. \'-di True\'")
+        sys.exit()
+       
+    print('Reading data in...')
+    t0 = time()
+    # barcode_dcretc = coll.defaultdict(list)
+    # input data will initially be grouped by barcode
+#    data = coll.defaultdict(list)
+    data = []
+    data_barcode_lookup = coll.defaultdict(list)
+
+    input_dcr_counts = coll.Counter()
+    inhandle = opener(infile, 'rt')
     
+    for line in inhandle:
+        counts['readdata_input_dcrs'] += 1
+        fields = line.rstrip('\n').split(', ')
+
+        bc_locs = get_barcode(fields[8],inputargs,counts)        # barcode locations
+
+        if bc_locs:
+            # account for N1 barcode being greater or shorter than 6 nt (due to manufacturing errors)
+            if (bc_locs[1] - bc_locs[0]) == 6:
+                barcode = fields[8][bc_locs[0]:bc_locs[1]] + fields[8][bc_locs[2]:bc_locs[3]]
+                barcode_qualstring = fields[9][bc_locs[0]:bc_locs[1]] + fields[9][bc_locs[2]:bc_locs[3]]
+            
+            elif (bc_locs[1] - bc_locs[0]) < 6:
+                n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
+                barcode = fields[8][bc_locs[0]:bc_locs[1]] + "S" * n1_diff_len + fields[8][bc_locs[2]:bc_locs[3]]
+                barcode_qualstring = fields[9][bc_locs[0]:bc_locs[1]] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
+                
+                counts['readdata_short_barcode'] += 1
+
+            elif (bc_locs[1] - bc_locs[0]) > 6:
+                n1_diff_len = 6 - (bc_locs[1] - bc_locs[0])
+                barcode = fields[8][bc_locs[0]:bc_locs[0]+5] + "L" + fields[8][bc_locs[2]:bc_locs[3]]
+                barcode_qualstring = fields[9][bc_locs[0]:bc_locs[0]+5] + "?" * n1_diff_len + fields[9][bc_locs[2]:bc_locs[3]]
+                
+                counts['readdata_long_barcode'] += 1          
+
+                # L and S characters get quality scores of "?", representative of Q30 scores
+
+            if not barcode_quality_check(barcode_qualstring, barcode_quality_parameters):
+                # barcode is not sufficient quality, skip to next line of file
+                counts['readdata_fail_low_barcode_quality'] += 1
+                continue
+              
+            dcr = ', '.join(line.rstrip('\n').split(', ')[:5])
+            input_dcr_counts[str(dcr)] += 1
+            
+            seq = fields[6]
+            
+            if len(seq) > inputargs['lenthreshold']: 
+                # end V tag to start J tag too long to be sane
+                counts['readdata_fail_overlong_intertag_seq'] += 1
+                continue
+            
+            counts['readdata_success'] += 1
+            seq_qualstring = fields[7]
+            seq_id = fields[5]
+            dcretc = {'barcode': barcode, 'dcr': dcr, 'seq': seq,
+                      'seq_qualstring': seq_qualstring, 'seq_id': seq_id,
+                      'collapsed': False}
+          
+            group_assigned = False
+            
+            if barcode in data_barcode_lookup:
+
+              for index in data_barcode_lookup[barcode]:
+                group = data[index]
+                if are_seqs_equivalent(group['protoseq'], dcretc['seq'], lev_threshold):
+                  group['members'].append(dcretc)       
+                  protodcrseq = find_most_common_dcrseq2(group['members'])
+                  group['protodcr'] = protodcrseq.split('|')[0]
+                  group['protoseq'] = protodcrseq.split('|')[1]
+                  group_assigned = True
+                  break
+
+            if not group_assigned:
+              data_group = {'barcode': barcode, 'protodcr': dcr, 'protoseq': seq, 'clustered' : False, 'members' : [dcretc]}          
+              data.append(data_group)
+              data_barcode_lookup[barcode].append(len(data)-1)
+              group_assigned = True
+
+        else:
+            counts['readdata_fail_no_bclocs'] += 1
+
+    inhandle.close()
+    
+    counts['number_data_groups'] = len(data)
+    counts['number_input_unique_dcrs'] = len(input_dcr_counts.keys())
+    counts['number_input_total_dcrs'] = sum(input_dcr_counts.values())
+      
+    t1 = time()
+    print('  ', round(t1-t0, 2), 'seconds')
+    counts['time_readdata_s'] = t1
+
+    return data
+
+
+def cluster_UMIs(data):
+    # input data of form: {barcode: [{member1}, {member2},...], barcode: [{member1}, {member2},...]},
+    # where each member is a dictionary based on line from input file
+    # A member has structure {'barcode': str, 'dcr': str, 'seq': str, 'seq_qualstring': str, 'seq_id': str, 'collapsed': bool}
+
+    total_data = len(data)
+    clusters = []
+
+    print("Clustering barcodes...")
+    t0 = time()
+
+    for i, group in enumerate(data):
+    
+      if i%1000 == 0:
+        print(i,"/",total_data, "( time elapsed:", round(time() - t0,2),")")
+
+      for j, cluster in enumerate(clusters):  
+      
+        if not are_barcodes_equivalent(group["barcode"], cluster["barcode"], 2):
+          continue
+
+        if not are_seqs_equivalent(group["protoseq"], cluster["protoseq"], 8):
+          continue
+
+        cluster["members"] += group["members"]
+        group["clustered"] = True
+        protodcrseq = find_most_common_dcrseq2(cluster['members'])
+        cluster['protodcr'] = protodcrseq.split('|')[0]
+        cluster['protoseq'] = protodcrseq.split('|')[1]
+
+        break
+
+      if not group["clustered"]:
+        clusters.append(group)
+        group["clustered"] = True
+
+    t1 = time()
+    print('  ', round(t1-t0, 2), 'seconds')   
+
+    ###############
+    # Analysis for testing
+    print("")
+    print("Clusters with over 50 members:")
+    over50 = 0
+    for i,k in enumerate(clusters): 
+      if len(k["members"]) > 50: 
+        print (i, len(k["members"]) ) 
+        over50 += 1
+    if over50 == 0:
+      print("\tNone found")
+
+    seq_ids = {} 
+    for i,k in enumerate(clusters): 
+      seq_ids[i] = set(map(lambda x:x["seq_id"].split("|")[0], k["members"]))
+
+
+    print("")
+    print("Clusters with under 10 members:")
+    for k, clus in enumerate(clusters): 
+      if len(clus["members"]) < 10: 
+        # print (k, len(clus["members"]) ) 
+        idx = clusters[k]["members"][0]["seq_id"].split("|")[0] 
+        #print("idx:",idx) 
+        clusters_found_in = []
+        for s in seq_ids:  
+          if idx in seq_ids[s]:  
+            clusters_found_in.append(s)
+
+        if len(clusters_found_in) > 1:
+          print (k, len(clus["members"]) ) 
+          print("idx:",idx) 
+          for c in clusters_found_in:
+            found = clusters[c]
+            bcdist = lev.distance(found["barcode"], clus["barcode"])
+            seq_in_10 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 10)
+            seq_in_5 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 5)
+            seq_in_2 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 2)
+
+            print(c, "barcode dist:", bcdist, "seqin10:", seq_in_10, "seqin5:", seq_in_5, "seqin2:", seq_in_2)
+          print("")
+    #############
+
+    # clusters = []
+    # percomparison = h_Dist_Prob()
+
+    # print("Clustering barcodes...")
+    # t0 = time()
+
+    # # mem_total = 0
+    # # for d in data:
+    # #   mem_total += len(d["members"])
+
+    # total = len(data)
+
+    # for i, group1 in enumerate(data):
+
+    #   if i%100 == 0:
+    #     print("clustered", str(i) + "/" + str(total), "time:", str(time() - t0) )
+
+    #   if group1["clustered"]:
+    #     continue
+    #   # c_mem_sum = 0
+    #   # for c in clusters:
+    #   #   c_mem_sum += len(c["members"])
+    #   # print("Total members:", mem_total)
+    #   # print("No. of members in clusters:", c_mem_sum)
+
+    #   candidates = []
+
+    #   for j, group2 in enumerate(data[i+1:]):
+
+    #     # if i == j:
+    #     #   continue
+
+    #     if group2["clustered"]:
+    #       continue
+
+    #     # remove non-matching barcodes (less than max threshold) early, for speed
+    #     # if not are_barcodes_equivalent(group1["barcode"], group2["barcode"], 7):
+    #     #   continue
+
+    #     # seq1 = group1["protodcr"].split(",")[4]
+    #     # seq2 = group2["protodcr"].split(",")[4] 
+
+    #     # equiv_seq = are_seqs_equivalent(seq1, seq2, 5)
+
+    #     equiv_seq = are_barcodes_equivalent(group1["protoseq"], group2["protoseq"], 15)
+
+    #     if equiv_seq:
+    #       candidates.append(group2)
+
+    #   n_UMIs = len(candidates) + 1     # candidates plus group1
+
+    #   if n_UMIs == 1:
+
+    #     clusters.append(group1)
+    #     group1["clustered"] = True
+    #     continue
+
+    #   bc_threshold = calc_HD_threshold(n_UMIs, percomparison)
+    #   # print("n_UMIS:", n_UMIs)
+    #   # print("bc_thresh:", bc_threshold)
+    #   # print("")
+
+    #   for k, candidate in enumerate(candidates):
+
+    #     equiv_barcode = are_barcodes_equivalent(group1["barcode"], candidate["barcode"], bc_threshold)
+
+    #     if equiv_barcode:
+
+    #       group1["members"] += candidate["members"]
+    #       candidate["clustered"] = True
+    #       protodcrseq = find_most_common_dcrseq2(group1['members'])
+    #       group1['protodcr'] = protodcrseq.split('|')[0]
+    #       group1['protoseq'] = protodcrseq.split('|')[1]
+
+
+    #   clusters.append(group1)
+    #   group1["clustered"] = True
+
+    # t1 = time()
+    # print('  ', round(t1-t0, 2), 'seconds')
+
+    # embed()
+
+    # total_data = len(data)
+
+    # for i,group in enumerate(data):
+
+    #   if i%100 == 0:
+    #     print(i,"/",total_data)
+
+    #   for cluster in clusters:
+
+    #     equiv_seq = are_seqs_equivalent(group["protoseq"], cluster["protoseq"], lev_threshold)
+
+    #     if not equiv_seq:
+    #       continue
+
+    #     # n_UMIs = max(len(group["members"]), len(cluster["members"]))
+    #     # percomparison = h_Dist_Prob()
+
+    #     # if n_UMIs == 1:
+    #     #   embed()
+
+    #     # bc_threshold = calc_HD_threshold(n_UMIs, percomparison)
+
+        
+
+    #     equiv_barcode = are_barcodes_equivalent(group["barcode"], cluster["barcode"], 5)
+     
+    #     if equiv_barcode and equiv_seq:
+
+    #       cluster["members"] += group["members"]
+    #       # recompute most common dcrseq due to added members
+    #       protodcrseq = find_most_common_dcrseq2(cluster['members'])
+    #       cluster['protodcr'] = protodcrseq.split('|')[0]
+    #       cluster['protoseq'] = protodcrseq.split('|')[1]
+    #       group["clustered"] = True
+    #       break
+
+    #   if not group["clustered"]:
+    #     clusters.append(group)
+    #     group["clustered"] = True
+
+    # t1 = time()
+    # print('  ', round(t1-t0, 2), 'seconds')
+
+    return clusters
+
+def collapsinate(barcode_quality_parameters,
+                 lev_threshold,
+                 barcode_distance_threshold,
+                 infile, 
+                 outpath,
+                 file_id):
+
+  
+    # read in, structure, and quality check input data
+    data = read_in_data(barcode_quality_parameters, infile, lev_threshold)
+
+    # cluster similar UMIs
+
+    clusters  = cluster_UMIs(data)
+
+    # collapse (count) UMIs in each cluster and print to output file
+
+    counts['number_output_unique_dcrs'] = len(clusters)
+    counts['number_output_total_dcrs'] = sum(map(lambda x: len(x["members"]),clusters))
+
+    outfile = outpath + file_id + suffix
+    outhandle = open(outfile, 'w')
+    print('Writing to output file', outfile, '...')
+    
+    # for dcr, copies in dcr_originalcopies.items():
+    #     print(', '.join([dcr, str(copies)]), file=outhandle)
+    # outhandle.close()
+
+    for cluster in clusters:
+      outdata = ', '.join([cluster["protodcr"], str(len(cluster["members"]))])
+      print(outdata, file=outhandle)
+    outhandle.close()
+
+
+    if inputargs['dontgzip'] == False:  # Gzip output file
+        print("Compressing output to", outfile + ".gz ...")
+      
+        with open(outfile) as inf, gzip.open(outfile + '.gz', 'wt') as outf:
+            outf.writelines(inf)
+        outf.close()
+        os.unlink(outfile)
+
+        outfilenam = outfile + ".gz"
+    else:
+        outfilenam = outfile + suffix    
+
+    counts['outfile'] = outfilenam
+
+    # only need to run this bit if interested in the number of times each barcode is repeated in the data
+    if inputargs['barcodeduplication'] == True:
+        outfile = outpath+file_id+'_barcode_duplication.txt'
+        outhandle = open(outfile, 'w')
+        for bc, copies in barcode_duplication.items():
+            print(','.join([bc, str(copies)]), file=outhandle)
+        outhandle.close()
+        
+    counts['outfilenam'] = outfilenam
+
+    return 1
+
+
+
+def collapsinate_SEMIOLD(barcode_quality_parameters,
+                 lev_threshold,
+                 barcode_distance_threshold,
+                 infile, 
+                 outpath,
+                 file_id):
+
+    # read in, structure, and quality check input data
+    dcr_clusters = read_in_data(barcode_quality_parameters, infile)
+
+    ##########################################
+    ############# TCR COLLAPSING #############
+    ##########################################
+    
+    print('Collapsing by barcode...')
+    t0 = time()
+
+    clusters = []
+
+    for barcode, dcrs in dcr_clusters.items():
+      
+      # from IPython import embed
+      # embed()
+      number_collapsed = 0
+     # protoseqcount = 0
+      while number_collapsed < len(dcrs):
+        uncollapsed_dcrs = [i for i in filter(lambda x: x["collapsed"] != True, dcrs)] 
+        protodcrseq = find_most_common_dcrseq2(uncollapsed_dcrs)
+        protodcr = protodcrseq.split('|')[0]
+        protoseq = protodcrseq.split('|')[1] 
+        #protoseqcount += 1
+
+        cluster = {"protodcr": protodcr, "protoseq": protoseq,"barcode": barcode, "members": [], "combined": False}
+
+        for di, dcretc in enumerate(uncollapsed_dcrs):
+          if are_seqs_equivalent(protoseq, dcretc['seq'], lev_threshold):
+            cluster["members"].append(dcretc)
+            dcretc["collapsed"] = True
+            number_collapsed += 1
+          ## NEW FUNCTIONALITY : SAME V AND J, SIMILAR INSERT
+          else:
+            # dcretc gets left in remaining_dcretc_list, and is considered next time around
+            # print(protoseq)
+            # print(dcretc['seq'])
+            # from IPython import embed
+            # embed()
+            pass
+
+        # if protodcr not in clusters:
+        #   clusters[protodcrseq] = [cluster]
+        # else:
+        #   clusters[protodcrseqs].append(cluster)
+        clusters.append(cluster)
+
+    # number of error-corrected TCRs remaining
+   # counts['tcrcoll_dcr_barcodecounter_keys'] = len(clusters.keys()) 
+   
+    t1 = time()
+    print('  ', round(t1-t0, 2), 'seconds')
+    counts['time_tcrcollapsing_s'] = t1
+
+    # from IPython import embed
+    # embed()
+
+    ##############################################
+    ############# COMBINING CLUSTERS #############
+    ##############################################   
+
+    print("Combining collapsed clusters...")
+    t0 = time()
+
+    combined_clusters = []
+
+ #   cluster_threshold = 50
+ #   clusters.sort(key = lambda x: len(x["members"]), reverse = True)
+
+    for i, c1 in enumerate(clusters):
+
+      if i%500 == 0:
+        print(i)
+
+      # if len(c1["members"]) > cluster_threshold:
+      #   combined_clusters.append(c1)
+      #   c1["combined"] = True
+      #   continue
+
+      # if i == 0:
+      #   combined_clusters.append(c1)
+      #   c1["combined"] = True
+
+      codes = list(map(lambda x: x["barcode"], combined_clusters))
+      close_umi_cluster_indexes = [i for i, bcode in enumerate(codes) if lev.distance(bcode,c1["barcode"]) <= 2]
+
+
+      for j, cl_index in enumerate(close_umi_cluster_indexes):
+
+        c2 = combined_clusters[cl_index]
+        # combine clusters if barcodes are within threshold of levenshtein distance of 1
+        # AND protoseqs of clusters are within similarity threshold
+        # AND same V and J are used
+        # AND insert seqs are within threshold of levenshtein distance of 1
+       # eq_barcode = are_barcodes_equivalent(c1["barcode"],c2["barcode"],1)
+        eq_seq = are_seqs_equivalent(c1["protoseq"],c2["protoseq"], lev_threshold)
+        vj1 = c1["protodcr"].replace(" ","").split(",")[0:2]
+        vj2 = c2["protodcr"].replace(" ","").split(",")[0:2]
+    #    ins1 = c1["protodcr"].replace(" ","").split(",")[4]
+    #    ins2 = c2["protodcr"].replace(" ","").split(",")[4]
+        if vj1 == vj2:
+          eq_vj = 1
+        else:
+          eq_vj = 0
+
+        # use barcode equivalency... just a simple levenshtein comparison (rename?)
+    #    eq_insert = are_barcodes_equivalent(ins1, ins2, 1)
+
+        if eq_seq and eq_vj:
+
+          # add c2 cluster to c1 cluster in combined clusters
+          c2["members"] += c1["members"]
+          c1["combined"] = True
+
+          # set new protodcr and protoseq in case they have changed
+          protodcrseq = find_most_common_dcrseq2(c2["members"])
+          c2["protodcr"] = protodcrseq.split("|")[0]
+          c2["protoseq"] = protodcrseq.split("|")[1]
+          break
+
+      if not c1["combined"]:
+        combined_clusters.append(c1)
+        c1["combined"] = True
+  
+     
+    t1 = time()
+    print('  ', round(t1-t0, 2), 'seconds')
+    
+    counts['time_combiningclusters_s'] = t1
+
+    # from IPython import embed
+    # embed()
+    
+    ##############################################
+    ############# BARCODE CLUSTERING #############
+    ##############################################   
+
+    print('Clustering barcodes...')
+    t0 = time()
+    
+    dcr_originalcopies = coll.Counter()         # Stores the final collapsed DCRs with estimated frequencies (i.e. # clustered barcodes)
+    barcode_duplication = coll.Counter()        # Stores the frequency with which each barcode appeared in input file (number lines)
+    
+    # calculate for a given number of UMIs the maximum Hamming distance that is not expected to occur (p<0.05)
+    h_probs = h_Dist_Prob()
+    HD_th = {}
+
+    # for dcr, barcode_count in dcr_barcodecounter.items():
+    for clus in combined_clusters:
+
+        dcr = clus["protodcr"]
+        #clustered_bc_dict = OLDcluster_dcr_barcodes(barcode_count, barcode_distance_threshold)
+      #  clustered_bc_dict = cluster_dcr_barcodes(barcode_count, h_probs, HD_th)
+        clustered_bc_dict = NEWcluster_dcr_barcodes(clus, h_probs, HD_th)
+
+        dcr_originalcopies[dcr] = len(clustered_bc_dict)
+        for bc, c in clustered_bc_dict.items():
+            barcode_duplication[bc] += c
+    
+    counts['number_output_unique_dcrs'] = len(dcr_originalcopies)
+    counts['number_output_total_dcrs'] = sum(dcr_originalcopies.values())
+    
+    t1 = time()
+    counts['time_bcclustering_s'] = t1
+    print('  ', round(t1-t0, 2), 'seconds')
+
+    # from IPython import embed
+    # embed()
+
+    outfile = outpath + file_id + suffix
+    outhandle = open(outfile, 'w')
+    print('Writing to output file', outfile, '...')
+    
+    for dcr, copies in dcr_originalcopies.items():
+        print(', '.join([dcr, str(copies)]), file=outhandle)
+    outhandle.close()
+    
+    if inputargs['dontgzip'] == False:  # Gzip output file
+        print("Compressing output to", outfile + ".gz ...")
+      
+        with open(outfile) as inf, gzip.open(outfile + '.gz', 'wt') as outf:
+            outf.writelines(inf)
+        outf.close()
+        os.unlink(outfile)
+
+        outfilenam = outfile + ".gz"
+    else:
+        outfilenam = outfile + suffix    
+
+    counts['outfile'] = outfilenam
+
+    # only need to run this bit if interested in the number of times each barcode is repeated in the data
+    if inputargs['barcodeduplication'] == True:
+        outfile = outpath+file_id+'_barcode_duplication.txt'
+        outhandle = open(outfile, 'w')
+        for bc, copies in barcode_duplication.items():
+            print(','.join([bc, str(copies)]), file=outhandle)
+        outhandle.close()
+        
+    counts['outfilenam'] = outfilenam
+
+
+
+def collapsinate_OLD(barcode_quality_parameters,
+                 lev_threshold,
+                 barcode_distance_threshold,
+                 infile, 
+                 outpath,
+                 file_id):
+  
+    # read in, structure, and quality check input data
+    barcode_dcretc = read_in_data_OLD(barcode_quality_parameters, infile)
+
     ##########################################
     ############# TCR COLLAPSING #############
     ##########################################        
@@ -731,7 +1428,7 @@ if __name__ == '__main__':
       summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] \
         + "\nOutputFile," + counts['outfilenam'] + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") \
         + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"
-      
+
       for s in ['extension', 'dontgzip', 'allowNs', 'dontcheckinput', 'barcodeduplication', 'minbcQ', 'bcQbelowmin', 'bcthreshold', \
         'lenthreshold', 'percentlevdist', 'avgQthreshold', 'positionalbarcodes']:
         summstr = summstr + s + "," + str(inputargs[s]) + "\n"
