@@ -812,45 +812,45 @@ def cluster_UMIs(data):
 
     ###############
     # Analysis for testing
-    print("")
-    print("Clusters with over 50 members:")
-    over50 = 0
-    for i,k in enumerate(clusters): 
-      if len(k["members"]) > 50: 
-        print (i, len(k["members"]) ) 
-        over50 += 1
-    if over50 == 0:
-      print("\tNone found")
+    # print("")
+    # print("Clusters with over 50 members:")
+    # over50 = 0
+    # for i,k in enumerate(clusters): 
+    #   if len(k["members"]) > 1: 
+    #     print (i, len(k["members"]) ) 
+    #     over50 += 1
+    # if over50 == 0:
+    #   print("\tNone found")
 
-    seq_ids = {} 
-    for i,k in enumerate(clusters): 
-      seq_ids[i] = set(map(lambda x:x["seq_id"].split("|")[0], k["members"]))
+    # seq_ids = {} 
+    # for i,k in enumerate(clusters): 
+    #   seq_ids[i] = set(map(lambda x:x["seq_id"].split("|")[0], k["members"]))
 
 
-    print("")
-    print("Clusters with under 10 members:")
-    for k, clus in enumerate(clusters): 
-      if len(clus["members"]) < 10: 
-        # print (k, len(clus["members"]) ) 
-        idx = clusters[k]["members"][0]["seq_id"].split("|")[0] 
-        #print("idx:",idx) 
-        clusters_found_in = []
-        for s in seq_ids:  
-          if idx in seq_ids[s]:  
-            clusters_found_in.append(s)
+    # print("")
+    # print("Clusters with under 10 members:")
+    # for k, clus in enumerate(clusters): 
+    #   if len(clus["members"]) < 10: 
+    #     # print (k, len(clus["members"]) ) 
+    #     idx = clusters[k]["members"][0]["seq_id"].split("|")[0] 
+    #     #print("idx:",idx) 
+    #     clusters_found_in = []
+    #     for s in seq_ids:  
+    #       if idx in seq_ids[s]:  
+    #         clusters_found_in.append(s)
 
-        if len(clusters_found_in) > 1:
-          print (k, len(clus["members"]) ) 
-          print("idx:",idx) 
-          for c in clusters_found_in:
-            found = clusters[c]
-            bcdist = lev.distance(found["barcode"], clus["barcode"])
-            seq_in_10 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 10)
-            seq_in_5 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 5)
-            seq_in_2 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 2)
+    #     if len(clusters_found_in) > 1:
+    #       print (k, len(clus["members"]) ) 
+    #       print("idx:",idx) 
+    #       for c in clusters_found_in:
+    #         found = clusters[c]
+    #         bcdist = lev.distance(found["barcode"], clus["barcode"])
+    #         seq_in_10 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 10)
+    #         seq_in_5 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 5)
+    #         seq_in_2 = are_seqs_equivalent(found["protoseq"], clus["protoseq"], 2)
 
-            print(c, "barcode dist:", bcdist, "seqin10:", seq_in_10, "seqin5:", seq_in_5, "seqin2:", seq_in_2)
-          print("")
+    #         print(c, "barcode dist:", bcdist, "seqin10:", seq_in_10, "seqin5:", seq_in_5, "seqin2:", seq_in_2)
+    #       print("")
     #############
 
     # clusters = []
@@ -1001,19 +1001,33 @@ def collapsinate(barcode_quality_parameters,
     counts['number_output_unique_dcrs'] = len(clusters)
     counts['number_output_total_dcrs'] = sum(map(lambda x: len(x["members"]),clusters))
 
-    outfile = outpath + file_id + suffix
-    outhandle = open(outfile, 'w')
-    print('Writing to output file', outfile, '...')
     
     # for dcr, copies in dcr_originalcopies.items():
     #     print(', '.join([dcr, str(copies)]), file=outhandle)
     # outhandle.close()
 
-    for cluster in clusters:
-      outdata = ', '.join([cluster["protodcr"], str(len(cluster["members"]))])
-      print(outdata, file=outhandle)
-    outhandle.close()
+    print("Collapsing clusters...")
+    t0 = time()
 
+    collapsed = coll.Counter()
+    # true_ids = coll.defaultdict(list)
+
+    for cluster in clusters:
+      collapsed[cluster["protodcr"]] += 1
+      # seq_ids = set(map(lambda x: x['seq_id'],clusters[111]["members"]))
+      # true_ids[cluster["protodcr"]] += list(seq_ids)
+      # true_ids[cluster["protodcr"]] = list(set(true_ids[cluster["protodcr"]])) 
+    
+    t1 = time()
+    print('  ', round(t1-t0, 2), 'seconds')  
+
+    outfile = outpath + file_id + suffix
+    outhandle = open(outfile, 'w')
+    print('Writing to output file', outfile, '...')
+
+    for dcr, dcr_count in collapsed.items():
+      print(', '.join([dcr, str(dcr_count)]), file=outhandle)
+    outhandle.close()
 
     if inputargs['dontgzip'] == False:  # Gzip output file
         print("Compressing output to", outfile + ".gz ...")
