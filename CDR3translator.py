@@ -309,7 +309,7 @@ def get_cdr3(dcr, headers):
 out_headers = ['sequence_id', 'v_call', 'd_call', 'j_call', 'junction_aa', 'duplicate_count', 'sequence',
                'junction', 'decombinator_id', 'rev_comp', 'productive', 'sequence_aa', 'cdr1_aa', 'cdr2_aa',
                'vj_in_frame', 'stop_codon', 'conserved_c', 'conserved_f',
-               'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar']
+               'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar', 'av_UMI_cluster_size']
 
 
 if __name__ == '__main__':
@@ -374,31 +374,33 @@ if __name__ == '__main__':
 
             counts['line_count'] += 1
 
-            comma = [m.start() for m in re.finditer(',', line)]
+            tcr_data = line.rstrip().split(",")
+            in_dcr = ",".join(tcr_data[:5])
+            v = int(tcr_data[0])
+            j = int(tcr_data[1])
 
-            if len(comma) == 4:  # pure DCR file, just the five fields (no frequency)
-                in_dcr = line.rstrip()
+            if len(tcr_data) < 5:
+                print("Too few comma-delimited fields detected. Please check input and try again.")
+                sys.exit()
+            elif len(tcr_data) == 5: # pure DCR file, just the five fields (no frequency)
                 use_freq = False
                 frequency = 1
-            elif len(comma) == 5:  # assume that we're working from a .freq file (or equivalent)
-                in_dcr = str(line[:comma[4]])
-                frequency = int(line[comma[4] + 2:].rstrip())
-                use_freq = True
-            elif len(comma) > 5:  # assume that it's an n12 file (no frequency)
-                print("Incorrect number of comma-delimited fields detected. Please check input and try again.")
+            elif len(tcr_data) > 7:  # if not n12 file, or freq file, raise error 
+                print("Too many number of comma-delimited fields detected. Please check input and try again.")
                 sys.exit()
+            else: # freq file with 6 or 7 fields
+                frequency = int(tcr_data[5]) # assume that we're working from a .freq file (or equivalent)
+
+            if len(tcr_data) >= 7:
+                av_UMI_cluster_size = int(tcr_data[6])
             else:
-                print("Based on the number of commas per line, script is unable to determine file type. " \
-                      "Please ensure you're inputting a valid file (e.g. .n12 or .freq).")
-                sys.exit()
+                av_UMI_cluster_size = ""
 
             cdr3_data = get_cdr3(in_dcr, out_headers)
             cdr3_data['sequence_id'] = str(counts['line_count'])
 
-            v = int(line[:comma[0]])
-            j = int(line[comma[0] + 2:comma[1]])
-
             cdr3_data['duplicate_count'] = frequency
+            cdr3_data['av_UMI_cluster_size'] = av_UMI_cluster_size
 
             if cdr3_data['productive'] == 'T':
                 counts['prod_recomb'] += 1
