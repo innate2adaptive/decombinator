@@ -568,7 +568,7 @@ def cluster_UMIs(barcode_dcretc, inputargs):
     for i, b1 in enumerate(barcode_dcretc):
 
       if count % 5000 == 0:
-        print("Clustered", count, "/", barcode_dcretc_total, "...", "Time elapsed:", round(time()-t0))
+        print("Clustered", count, "/", barcode_dcretc_total, "...", "Time elapsed:", round(time()-t0,2))
 
       barcode1, index1, protoseq1 = b1.split("|")
       
@@ -647,11 +647,13 @@ def collapsinate(barcode_quality_parameters,
     t0 = time()
 
     collapsed = coll.Counter()
+    cluster_sizes = coll.defaultdict(list)
 
     for c in clusters:
       protodcr = coll.Counter(map(lambda x: x.split("|")[0],clusters[c])).most_common(1)[0][0]
       collapsed[protodcr] += 1
-    
+      cluster_sizes[protodcr].append(len(clusters[c]))
+
     t1 = time()
     print('  ', round(t1-t0, 2), 'seconds')  
 
@@ -660,7 +662,8 @@ def collapsinate(barcode_quality_parameters,
     print('Writing to output file', outfile, '...')
 
     for dcr, dcr_count in collapsed.items():
-      print(', '.join([dcr, str(dcr_count)]), file=outhandle)
+      average_cluster_size = round(sum(cluster_sizes[dcr])/dcr_count)
+      print(', '.join([dcr, str(dcr_count), str(average_cluster_size)]), file=outhandle)
     outhandle.close()
 
     if inputargs['dontgzip'] == False:  # Gzip output file
