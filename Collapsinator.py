@@ -109,6 +109,9 @@ def args():
   parser.add_argument(
       '-wc', '--writeclusters', action='store_true', help='Write cluster data to separate cluster files',\
         required=False, default=False)
+  parser.add_argument(
+      '-uh', '--UMIhistogram', action='store_true', help='Creates histogram of average UMI cluster sizes',\
+        required=False, default=False)
   
   return parser.parse_args()
 
@@ -552,7 +555,7 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
     return barcode_dcretc
 
 
-def cluster_UMIs(barcode_dcretc, inputargs):
+def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
     # input data of form: {barcode: [{member1}, {member2},...], barcode: [{member1}, {member2},...]},
     # where each member is a dictionary based on line from input file
     # A member has structure {'barcode': str, 'dcr': str, 'seq': str, 'seq_qualstring': str, 'seq_id': str, 'collapsed': bool}
@@ -575,9 +578,9 @@ def cluster_UMIs(barcode_dcretc, inputargs):
       for j,b2 in enumerate(clusters): 
         barcode2, index2, protoseq2 = b2.split("|")
 
-        if lev.distance(barcode1,barcode2) <= 2:
+        if lev.distance(barcode1,barcode2) <= barcode_threshold:
 
-          if are_seqs_equivalent(protoseq1, protoseq2, 8):
+          if are_seqs_equivalent(protoseq1, protoseq2, seq_threshold):
 
             clusters[b2] += barcode_dcretc[b1]
 
@@ -635,7 +638,7 @@ def collapsinate(barcode_quality_parameters,
     #   barcode_dcretc = pickle.load(handle)
 
     # cluster similar UMIs
-    clusters = cluster_UMIs(barcode_dcretc, inputargs)
+    clusters = cluster_UMIs(barcode_dcretc, inputargs, barcode_distance_threshold, lev_threshold)
 
     # collapse (count) UMIs in each cluster and print to output file
 
@@ -661,9 +664,11 @@ def collapsinate(barcode_quality_parameters,
     outhandle = open(outfile, 'w')
     print('Writing to output file', outfile, '...')
 
+    average_cluster_size_counter = coll.Counter()
     for dcr, dcr_count in collapsed.items():
-      average_cluster_size = round(sum(cluster_sizes[dcr])/dcr_count)
-      print(', '.join([dcr, str(dcr_count), str(average_cluster_size)]), file=outhandle)
+      av_clus_size = round(sum(cluster_sizes[dcr])/dcr_count)
+      average_cluster_size_counter[av_clus_size] += 1
+      print(', '.join([dcr, str(dcr_count), str(av_clus_size)]), file=outhandle)
     outhandle.close()
 
     if inputargs['dontgzip'] == False:  # Gzip output file
@@ -690,7 +695,7 @@ def collapsinate(barcode_quality_parameters,
         
     counts['outfilenam'] = outfilenam
 
-    return 1
+    return collpased, average_cluster_size_counter
 
 
 if __name__ == '__main__':
@@ -724,12 +729,12 @@ if __name__ == '__main__':
     file_id = infile.split('/')[-1].split('.')[0]
     ########################################
 
-    collapsinate(barcode_quality_parameters,
-                 lev_threshold,
-                 barcode_distance_threshold,
-                 infile, 
-                 outpath,
-                 file_id)
+    collapsed, average_cluster_size_counter = collapsinate(barcode_quality_parameters,
+                                        lev_threshold,
+                                        barcode_distance_threshold,
+                                        infile, 
+                                        outpath,
+                                        file_id)
     
     counts['end_time'] = time()    
     counts['time_taken_total_s'] = counts['end_time'] - counts['start_time']
@@ -792,3 +797,30 @@ if __name__ == '__main__':
 
       print(summstr,file=summaryfile) 
       summaryfile.close()
+
+      if inputargs["UMIhistogram"]:
+
+        hfileprefix = "_".join( summaryname.split("_")[:-2] + ["UMIhistogram"] )
+        # iterate to create unique file name
+        if os.path.exists(hfileprefix + ".csv"):
+          i = 1
+          while os.path.exists(hfileprefix + str(i) + ".csv"):
+            i += 1
+          hfileprefix += str(i)
+        
+        hfilename = hfileprefix + ".csv"
+
+        with open(hfilename,"w") as hfile:
+
+          for av, count in sorted(average_cluster_size_counter.items()):
+            print(str(av) + "," + str(count), file=hfile)
+
+        print("Average UMI cluster size histogram data saved to", hfilename,"\n")
+        print("To plot histogram, please use UMIhistogram.py script in the Supplementary-Scripts folder as follows:")
+        codestr = "python Supplementary-Scripts/UMIhistogram.py -in "+ hfilename
+        print("#"*(len(codestr) + 4))
+        print(" ", codestr, " ")
+        print("#"*(len(codestr) + 4))
+
+  
+
