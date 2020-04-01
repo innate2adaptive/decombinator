@@ -642,10 +642,6 @@ def collapsinate(barcode_quality_parameters,
 
     # collapse (count) UMIs in each cluster and print to output file
 
-    counts['number_output_unique_dcrs'] = len(clusters)
-    counts['number_output_total_dcrs'] = sum(map(lambda x: len(x),clusters))
-    
-
     print("Collapsing clusters...")
     t0 = time()
 
@@ -656,6 +652,9 @@ def collapsinate(barcode_quality_parameters,
       protodcr = coll.Counter(map(lambda x: x.split("|")[0],clusters[c])).most_common(1)[0][0]
       collapsed[protodcr] += 1
       cluster_sizes[protodcr].append(len(clusters[c]))
+
+    counts['number_output_unique_dcrs'] = len(collapsed)
+    counts['number_output_total_dcrs'] = sum(collapsed.values())      
 
     t1 = time()
     print('  ', round(t1-t0, 2), 'seconds')  
@@ -681,9 +680,7 @@ def collapsinate(barcode_quality_parameters,
 
         outfilenam = outfile + ".gz"
     else:
-        outfilenam = outfile + suffix    
-
-    counts['outfile'] = outfilenam
+        outfilenam = outfile   
 
     # only need to run this bit if interested in the number of times each barcode is repeated in the data
     if inputargs['barcodeduplication'] == True:
@@ -762,7 +759,6 @@ if __name__ == '__main__':
             break
           
       # Generate string to write to summary file
-
       summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] \
         + "\nOutputFile," + counts['outfilenam'] + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") \
         + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"
@@ -815,7 +811,7 @@ if __name__ == '__main__':
           for av, count in sorted(average_cluster_size_counter.items()):
             print(str(av) + "," + str(count), file=hfile)
 
-        print("Average UMI cluster size histogram data saved to", hfilename,"\n")
+        print("\nAverage UMI cluster size histogram data saved to", hfilename)
         print("To plot histogram, please use UMIhistogram.py script in the Supplementary-Scripts folder as follows:")
         codestr = "python Supplementary-Scripts/UMIhistogram.py -in "+ hfilename
         print("#"*(len(codestr) + 4))
