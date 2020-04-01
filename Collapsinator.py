@@ -695,7 +695,7 @@ def collapsinate(barcode_quality_parameters,
         
     counts['outfilenam'] = outfilenam
 
-    return collpased, average_cluster_size_counter
+    return collapsed, average_cluster_size_counter
 
 
 if __name__ == '__main__':
