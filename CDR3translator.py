@@ -31,9 +31,9 @@ import urllib2
 import warnings
 import gzip
 
-__version__ = '4.0.1'
+__version__ = '4.1.0'
 
-# Supress Biopython translation warning when translating sequences where length % 3 != 0
+# Suppress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore")
 
 # TODO Potentially add a flag to combine convergent recombinations into a single row?
@@ -204,7 +204,9 @@ def import_gene_information(inputargs):
         translation_file.close()
         globals()[gene + "_translate_position"] = [int(x.split(",")[1]) for x in translate_data]
         globals()[gene + "_translate_residue"] = [x.split(",")[2] for x in translate_data]
-        globals()[gene + "_functionality"] = [x.split(",")[3] for x in translate_data]
+        globals()[gene + "_genes_covered"] = [x.split(",")[3].replace('|', ',') for x in translate_data]
+        globals()[gene + "_alleles_covered"] = [x.split(",")[4].replace('|', ',') for x in translate_data]
+        globals()[gene + "_functionality"] = [x.split(",")[5].replace('|', ',') for x in translate_data]
 
         if gene == 'v':
             # Get germline CDR data
@@ -215,7 +217,9 @@ def import_gene_information(inputargs):
             v_cdr2 = [x.split(" ")[2] for x in cdr_data]
 
     return v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, \
-           j_translate_position, j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2
+           j_translate_position, j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2, \
+           v_genes_covered, j_genes_covered, v_alleles_covered, j_alleles_covered, \
+           v_functionality, j_functionality
 
 
 def get_cdr3(dcr, headers):
@@ -289,7 +293,7 @@ def get_cdr3(dcr, headers):
     # 5.5 Having found conserved cysteine, only need look downstream to find other end of CDR3
     downstream_c = out_data['sequence_aa'][start_cdr3:]
 
-    # 6. Check for presence of FGXG motif (or equivalent)
+    # 6 Check for presence of FGXG motif (or equivalent)
     site = downstream_c[j_translate_position[j]:j_translate_position[j] + 4]
 
     if re.findall(j_translate_residue[j], site):
@@ -305,12 +309,22 @@ def get_cdr3(dcr, headers):
         out_data['cdr1_aa'] = v_cdr1[v]
         out_data['cdr2_aa'] = v_cdr2[v]
 
+    # 7 Gather additional information
+    for g in ['v', 'j']:
+        out_data['legacy_' + g + '_call'] = out_data[g + '_call']
+        out_data[g + '_call'] = globals()[g + '_genes_covered'][vars()[g]]
+        out_data[g + '_alleles'] = globals()[g + '_alleles_covered'][vars()[g]]
+        out_data[g + '_gene_functionality'] = globals()[g + '_gene_functionality'][vars()[g]]
+
     return out_data
+
 
 
 out_headers = ['sequence_id', 'v_call', 'd_call', 'j_call', 'junction_aa', 'duplicate_count', 'sequence',
                'junction', 'decombinator_id', 'rev_comp', 'productive', 'sequence_aa', 'cdr1_aa', 'cdr2_aa',
                'vj_in_frame', 'stop_codon', 'conserved_c', 'conserved_f',
+               'legacy_v_call', 'legacy_j_call', 'v_alleles', 'j_alleles',
+               'v_gene_functionality', 'j_gene_functionality',
                'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar']
 
 
@@ -356,7 +370,9 @@ if __name__ == '__main__':
 
     # Extract CDR3s
     v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, \
-    j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2 = import_gene_information(inputargs)
+    j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2, \
+    v_genes_covered, j_genes_covered, v_alleles_covered, j_alleles_covered, \
+    v_gene_functionality, j_gene_functionality = import_gene_information(inputargs)
 
     infile = opener(filename, "rU")
 
@@ -395,7 +411,7 @@ if __name__ == '__main__':
                 sys.exit()
 
             cdr3_data = get_cdr3(in_dcr, out_headers)
-            cdr3_data['sequence_id'] = str(counts['line_count'])
+            cdr3_data['sequence_id'] = str(counts['line_count']).zfill(9)  # Pad sequence IDs with leading zeros
 
             v = int(line[:comma[0]])
             j = int(line[comma[0] + 2:comma[1]])
@@ -414,8 +430,8 @@ if __name__ == '__main__':
 
             # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic)
             if inputargs['tags'] == 'extended' and inputargs['species'] == 'human':
-                counts[productivity + "_" + "V-" + v_functionality[v]] += 1
-                counts[productivity + "_" + "J-" + j_functionality[j]] += 1
+                counts[productivity + "_" + "V-" + v_functionality[v].split(',')[0]] += 1
+                counts[productivity + "_" + "J-" + j_functionality[j].split(',')[0]] += 1
 
     print "CDR3 data written to", outfilename
 
