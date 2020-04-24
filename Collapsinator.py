@@ -554,6 +554,24 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
 
     return barcode_dcretc
 
+def h_dist_prob():
+  # calculate probabilites that a certain hamming distance will occur for a comparison between two random UMIs
+  binomial_probabilities = []
+  for hd in range(0,12):
+    binomial = comb(12, hd) * 0.75**hd * 0.25**(12 - hd)
+    binomial_probabilities.append(binomial)
+  return binomial_probabilities
+
+def calc_barcode_threshold(n1, n2, binomial_probablities):
+    N = n1 + n2
+    ncomp = (N**2-N)/2 # total number of comparisons: half matrix - diagonal
+    totalprob = 0.0
+    for hd in range(0,12):
+      totalprob += ncomp * binomial_probablities[hd] # probability of encountering a certain HD is given by the total number of comparisons times the probability for one comparison
+      if totalprob > 0.05: # check if current HD is expected (p>0.05)
+        return max(0, hd - 1) # current HD is expected, so return previous HD as threshold, but minimum th=0
+    print("Error: Could not calculate hamming distance thresholds") # something must have gone wrong if no value is returned at this point
+    sys.exit()
 
 def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
     # input data of form: {barcode: [{member1}, {member2},...], barcode: [{member1}, {member2},...]},
@@ -563,12 +581,16 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
     print("Clustering barcodes...")
     t0 = time()
 
+    binomial_probablities = h_dist_prob()
+
     clusters = coll.defaultdict(list)
 
     barcode_dcretc_total = len(barcode_dcretc)
     count = 0
 
     for i, b1 in enumerate(barcode_dcretc):
+
+      clustered = False
 
       if count % 5000 == 0:
         print("Clustered", count, "/", barcode_dcretc_total, "...", "Time elapsed:", round(time()-t0,2))
@@ -578,11 +600,22 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
       for j,b2 in enumerate(clusters): 
         barcode2, index2, protoseq2 = b2.split("|")
 
-        if lev.distance(barcode1,barcode2) <= barcode_threshold:
+        barcode_distance = lev.distance(barcode1,barcode2)
+
+        # max value for threshold is 5, caculated using N = 2 in binomial threshold calculation
+        if barcode_distance > 5:
+          continue
+
+        n1 = len(barcode_dcretc[b1])
+        n2 = len(clusters[b2])
+        bc_threshold = calc_barcode_threshold(n1, n2, binomial_probablities)
+
+        if barcode_distance < bc_threshold:
 
           if are_seqs_equivalent(protoseq1, protoseq2, seq_threshold):
 
             clusters[b2] += barcode_dcretc[b1]
+            clustered = True
 
             protodcretc_list = clusters[b2]
             seq_counter = coll.Counter(map(lambda x: x.split("|")[1],protodcretc_list))
@@ -597,7 +630,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
             break
 
-      else:
+      if not clustered:
 
         clusters[b1] = barcode_dcretc[b1]
 
