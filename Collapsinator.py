@@ -578,10 +578,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
     t1 = time()
     print('  ', round(t1-t0, 2), 'seconds')
-
-    from IPython import embed
-    embed()
-
+    
     # dump cluster dcrs to separate files if desired
     if inputargs["writeclusters"]:
       dirname = "clusters"
@@ -607,11 +604,11 @@ def collapsinate(barcode_quality_parameters,
                  file_id):
  
     # read in, structure, and quality check input data
-    #barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold)
+    barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold)
 
-    import pickle
-    with open('barcode_dcretc.pickle', 'rb') as handle:
-      barcode_dcretc = pickle.load(handle)
+    # import pickle
+    # with open('barcode_dcretc.pickle', 'rb') as handle:
+    #   barcode_dcretc = pickle.load(handle)
 
     # cluster similar UMIs
     clusters = cluster_UMIs(barcode_dcretc, inputargs, barcode_distance_threshold, lev_threshold)
