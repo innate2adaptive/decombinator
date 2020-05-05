@@ -398,46 +398,14 @@ def find_most_common_dcrseq(dcretclist):
     
     return most_common_dcrseqs[random.choice(max_indices)]
 
-
-def are_seqs_equivalent(seq1, seq2, levdistance_percent_threshold):
-    """
-    Returns 1 if dcretcs can be considered the same, 0 otherwise
-    Defn of equivalent:
-        - if sequences are identical OR
-        - for identical lengthed sequences, if levenshtein distance as a percentage of length is < threshold
-        - for different lengthed sequences, if trimming (from either side) gives a %age lev distance < threshold
-    """
-    if seq1 == seq2:
-        return 1
-         
-    if len(seq1) == len(seq2):
-        lev_percent = 100 * lev.distance(seq1, seq2)/len(seq1)
-        if lev_percent <= levdistance_percent_threshold:
-            return 1
-    
-    if len(seq1) != len(seq2):
-        lev_percent = 100 * lev.distance(seq1, seq2)/min(len(seq1), len(seq2))
-        if lev_percent <= levdistance_percent_threshold:
-            return 1
-
-        max_seq_len = max(len(seq1), len(seq2))
-        min_seq_len = min(len(seq1), len(seq2))
-        both_seqs = [seq1, seq2]
-        longerseq = [x for x in both_seqs if len(x) == max_seq_len][0]
-        shorterseq = [x for x in both_seqs if len(x) == min_seq_len][0]
-        len_diff = len(longerseq) - len(shorterseq)
-        
-        longerseq_trim1 = longerseq[:len(shorterseq)]
-        lev_percent_trim1 = 100 * lev.distance(longerseq_trim1, shorterseq)/len(shorterseq)
-        if lev_percent_trim1 <= levdistance_percent_threshold:
-            return 1
-        
-        longerseq_trim2 = longerseq[len_diff:]
-        lev_percent_trim2 = 100 * lev.distance(longerseq_trim2, shorterseq)/len(shorterseq)
-        if lev_percent_trim2 <= levdistance_percent_threshold:
-            return 1
-        
-    return 0
+def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
+  """
+  Returns True if seqs can be considered the same, False otherwise
+  Definition of equivalent:
+     - levenshtein distance as a percentage of the shorter of the two seqs is < threshold
+  """
+  threshold = len(min(seq1, seq2, key=len)) * lev_percent_threshold
+  return lev.distance(seq1, seq2) <= threshold
 
 def are_barcodes_equivalent(bc1, bc2, threshold):
     if lev.distance(bc1, bc2) <= threshold:
@@ -560,6 +528,8 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
     # where each member is a dictionary based on line from input file
     # A member has structure {'barcode': str, 'dcr': str, 'seq': str, 'seq_qualstring': str, 'seq_id': str, 'collapsed': bool}
 
+    percent_seq_threshold = seq_threshold/100.0
+
     print("Clustering barcodes...")
     t0 = time()
 
@@ -569,6 +539,8 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
     count = 0
 
     for i, b1 in enumerate(barcode_dcretc):
+
+      clustered = False
 
       if count % 5000 == 0:
         print("Clustered", count, "/", barcode_dcretc_total, "...", "Time elapsed:", round(time()-t0,2))
@@ -580,7 +552,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
         if lev.distance(barcode1,barcode2) <= barcode_threshold:
 
-          if are_seqs_equivalent(protoseq1, protoseq2, seq_threshold):
+          if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
 
             clusters[b2] += barcode_dcretc[b1]
 
@@ -595,9 +567,10 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
               del clusters[b2]
 
+            clustered = True
             break
 
-      else:
+      if not clustered:
 
         clusters[b1] = barcode_dcretc[b1]
 
@@ -605,6 +578,9 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
     t1 = time()
     print('  ', round(t1-t0, 2), 'seconds')
+
+    from IPython import embed
+    embed()
 
     # dump cluster dcrs to separate files if desired
     if inputargs["writeclusters"]:
@@ -631,11 +607,11 @@ def collapsinate(barcode_quality_parameters,
                  file_id):
  
     # read in, structure, and quality check input data
-    barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold)
+    #barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold)
 
-    # import pickle
-    # with open('barcode_dcretc.pickle', 'rb') as handle:
-    #   barcode_dcretc = pickle.load(handle)
+    import pickle
+    with open('barcode_dcretc.pickle', 'rb') as handle:
+      barcode_dcretc = pickle.load(handle)
 
     # cluster similar UMIs
     clusters = cluster_UMIs(barcode_dcretc, inputargs, barcode_distance_threshold, lev_threshold)
