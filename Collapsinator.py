@@ -82,7 +82,7 @@ def args():
       derived from the same originator molecule. Default = 10', required=False, default=10)  
   parser.add_argument(
       '-bc', '--bcthreshold', type=int, help='Number of sequence edits that are allowed to consider two barcodes to be derived from same originator \
-      during clustering. Default = 2.', required=False, default=2)
+      during clustering. Default = 3.', required=False, default=3)
   parser.add_argument(
       '-s', '--suppresssummary',  action='store_true', help='Suppress the production of output summary data log', required=False)
   parser.add_argument(
