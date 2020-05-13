@@ -1,45 +1,48 @@
-# Collapsinator
-# Katharine Best and James M. Heather, August 2016, UCL
-# https://innate2adaptive.github.io/Decombinator/
+"""#######################################################################################################################################################
+  Collapsinator
+  Katharine Best and James M. Heather, August 2016, UCL
+  https://innate2adaptive.github.io/Decombinator/
 
 ##################
 ### BACKGROUND ###
 ##################
 
-# Takes the output files of Decombinator (run using the barcoding option) and performs collapsing and error correction
-# This version is a modified version of KB's script collapsinator_20141126.py
-  # That was itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644)
-# Version 4.0.1 includes an improved statistical clustering method by Peter de Greef, Utrecht University
+  Takes the output files of Decombinator (run using the barcoding option) and performs collapsing and error correction
+  This version is a modified version of KB's script collapsinator_20141126.py
+  (That was itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644))
+  Version 4.0.2 includes improved clustering routines measuring the similarity in both barcode and TCR sequence of TCR repertoire data
 
 ##################
 ###### INPUT #####
 ##################
 
-# Takes as input .n12 files produced by Decombinator (v3), assuming it has been run on suitably barcoded and demultiplexed data.
+  Takes as input .n12 files produced by Decombinator (v3 or higher), assuming it has been run on suitably barcoded and demultiplexed data.
 
-# Other optional flags:
+  Other optional flags:
   
-  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
+    -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
   
-  # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
+    -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
   
-  # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
-    # Helps in monitoring progress of large batches. D
+    -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. Helps in monitoring progress of large batches.
 
-  # The other optional flags are somewhat complex, and caution is advised in their alteration.
+  The other optional flags are somewhat complex, and caution is advised in their alteration.
 
-# To see all options, run: python Collapsinator.py -h
+  To see all options, run: python Collapsinator.py -h
 
-# Input files need to be in the appropriate format, consisting of:
-  # V index, J index, # V deletions, # J deletions, insert, ID, inter-tag TCR sequence, inter-tag quality, barcode sequence, barcode quality
+  Input files need to be in the appropriate format, consisting of:
+    V index, J index, V deletions, J deletions, insert, ID, inter-tag TCR sequence, inter-tag quality, barcode sequence, barcode quality
 
 ##################
 ##### OUTPUT #####  
 ##################
    
-# A Decombinator index file, giving each error-corrected DCR index and the frequency with which it appears in the final processed data
+  A Decombinator index file, giving each error-corrected DCR index, and the frequency with which it appears
+  in the final processed data, and an average UMI count, which can be used to estimate the robustness of the
+  data for that particular sequence
 
-########################################################################################################################
+#######################################################################################################################################################"""
+
 from __future__ import division
 import collections as coll
 import random
@@ -132,9 +135,6 @@ def num_check(poss_int):
 def is_dna(poss_dna):
     """ Check whether string is feasibly a DNA sequence read"""
     return set(poss_dna.upper()).issubset({'A', 'C', 'G', 'T', 'N'})
-
-def flatten(l):
-  return [item for sublist in l for item in sublist]
       
 def check_dcr_file(infile):
     """ 
@@ -399,23 +399,14 @@ def find_most_common_dcrseq(dcretclist):
     return most_common_dcrseqs[random.choice(max_indices)]
 
 def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
-  """
-  Returns True if seqs can be considered the same, False otherwise
-  Definition of equivalent:
-     - levenshtein distance as a percentage of the shorter of the two seqs is <= threshold
-  """
+  # Returns True if seqs can be considered the same, False otherwise
+  # Definition of equivalent:
+  #   levenshtein distance as a percentage of the shorter of the two seqs is <= threshold
   threshold = len(min(seq1, seq2, key=len)) * lev_percent_threshold
   return lev.distance(seq1, seq2) <= threshold
 
 def are_barcodes_equivalent(bc1, bc2, threshold):
-    if lev.distance(bc1, bc2) <= threshold:
-        return 1
-    else:
-        return 0
-
-def makecounter():
-    return coll.Counter()
-
+    return lev.distance(bc1, bc2) <= threshold
 
 def read_in_data(barcode_quality_parameters, infile, lev_threshold):
     ###########################################
@@ -475,6 +466,12 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
           
         group_assigned = False
 
+        # Assign reads to groups based on their barcode data. Reads with identical barcodes are grouped together
+        # so long as they have equivalent TCR sequences. Reads with identical barcodes but non-equivalent TCR
+        # sequences are grouped separately.
+        # Data is grouped in dictionary format: {'barcode|index|protoseq' : [dcretc1, dcretc2, ...], ... }
+        # where index counts upwards from zero to help disinguish identical barcodes in different groups,
+        # protoseq is the most common sequence present in the group, and dcretc are the input reads
         if barcode in barcode_lookup:
 
           for index in barcode_lookup[barcode]:
@@ -484,9 +481,8 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
               barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]].append(dcretc)       
               protodcretc_list = barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]]
               seq_counter = coll.Counter(map(lambda x: x.split("|")[1],protodcretc_list))
-              protoseq = seq_counter.most_common(1)[0][0]
+              protoseq = seq_counter.most_common(1)[0][0] # find most common sequence in group
             
-
               if not index[1] == protoseq:
                 # if there is a new protoseq, replace record with old protoseq
                 # with identical record with updated  protoseq
@@ -496,19 +492,20 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
                 barcode_lookup[barcode][index[0]] = [index[0], protoseq]
 
               group_assigned = True
+              # if assigned to a group, stop and move onto next read
               break
 
           if not group_assigned:
+            # if no appropriate group found, create new group with correctly incremented index
             barcode_lookup[barcode].append([index[0] + 1,seq])
             barcode_dcretc["|".join([barcode,str(index[0]+1),seq])].append(dcretc)
             group_assigned = True
 
         else:
-
+          # if no identical barcode found, create new barcode group with index zero
           barcode_lookup[barcode].append([0,seq])
           barcode_dcretc["|".join([barcode,"0",seq])].append(dcretc)
           group_assigned = True
-
 
     inhandle.close()
     
@@ -524,9 +521,12 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
 
 
 def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
-    # input data of form: {barcode: [{member1}, {member2},...], barcode: [{member1}, {member2},...]},
-    # where each member is a dictionary based on line from input file
-    # A member has structure {'barcode': str, 'dcr': str, 'seq': str, 'seq_qualstring': str, 'seq_id': str, 'collapsed': bool}
+    # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
+    # (see read_in_data function for details)
+    # This function merges groups that have both equivalent barcodes and equivalent protoseqs
+    # output data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
+    # Output format is same as input format, but after clustering. The protoseq is recalculated when new
+    # dcretcs are added to a cluster
 
     percent_seq_threshold = seq_threshold/100.0
 
@@ -550,7 +550,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
       for j,b2 in enumerate(clusters): 
         barcode2, index2, protoseq2 = b2.split("|")
 
-        if lev.distance(barcode1,barcode2) <= barcode_threshold:
+        if are_barcodes_quivalent(barcode1, barcode2, barcode_threshold):
 
           if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
 
@@ -558,7 +558,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
             protodcretc_list = clusters[b2]
             seq_counter = coll.Counter(map(lambda x: x.split("|")[1],protodcretc_list))
-            protoseq = seq_counter.most_common(1)[0][0]
+            protoseq = seq_counter.most_common(1)[0][0] # recalculate protoseq (most common sequence), after merging
 
             if not protoseq2 == protoseq:
               # if there is a new protoseq, replace record with old protoseq
@@ -571,7 +571,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
             break
 
       if not clustered:
-
+        # if not appropriate cluster found to add group to, then create a new cluster identical to the group
         clusters[b1] = barcode_dcretc[b1]
 
       count += 1
@@ -579,42 +579,40 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
     t1 = time()
     print('  ', round(t1-t0, 2), 'seconds')
     
-    # dump cluster dcrs to separate files if desired
+    # dump clusters to separate files if desired
     if inputargs["writeclusters"]:
-      dirname = "clusters"
-      count = 1
-      while os.path.isdir(dirname):
-        dirname = "clusters" + str(count)
-        count += 1
-
-      os.mkdir(dirname)
-      print("Writing clusters to directory: ", os.path.abspath(dirname))
-      for k in clusters: 
-        with open(dirname+os.sep+"|".join(k.split("|")[:2])+".txt", "w") as ofile: 
-          for j in clusters[k]: 
-            print(j, file = ofile)
+      write_clusters(clusters)
 
     return clusters
 
-def collapsinate(barcode_quality_parameters,
-                 lev_threshold,
-                 barcode_distance_threshold,
-                 infile, 
-                 outpath,
-                 file_id):
+def write_clusters(clusters):
+    # create directory to store cluster data without overwriting exiting directories
+    dirname = "clusters"
+    count = 1
+    while os.path.isdir(dirname):
+      dirname = "clusters" + str(count)
+      count += 1
+    os.mkdir(dirname)
+
+    print("Writing clusters to directory: ", os.path.abspath(dirname))
+    # write data of each cluster to a separate file and store in clusters directory
+    for k in clusters: 
+      with open(dirname+os.sep+"|".join(k.split("|")[:2])+".txt", "w") as ofile: 
+        for j in clusters[k]: 
+          print(j, file = ofile)
+    return 1
+
+
+def collapsinate(barcode_quality_parameters, lev_threshold, barcode_distance_threshold,
+                 infile, outpath, file_id):
  
     # read in, structure, and quality check input data
     barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold)
-
-    # import pickle
-    # with open('barcode_dcretc.pickle', 'rb') as handle:
-    #   barcode_dcretc = pickle.load(handle)
 
     # cluster similar UMIs
     clusters = cluster_UMIs(barcode_dcretc, inputargs, barcode_distance_threshold, lev_threshold)
 
     # collapse (count) UMIs in each cluster and print to output file
-
     print("Collapsing clusters...")
     t0 = time()
 
@@ -622,7 +620,7 @@ def collapsinate(barcode_quality_parameters,
     cluster_sizes = coll.defaultdict(list)
 
     for c in clusters:
-      protodcr = coll.Counter(map(lambda x: x.split("|")[0],clusters[c])).most_common(1)[0][0]
+      protodcr = coll.Counter(map(lambda x: x.split("|")[0],clusters[c])).most_common(1)[0][0] # find most common dcr in each cluster
       collapsed[protodcr] += 1
       cluster_sizes[protodcr].append(len(clusters[c]))
 
@@ -767,6 +765,7 @@ if __name__ == '__main__':
       print(summstr,file=summaryfile) 
       summaryfile.close()
 
+      # create output data for UMI histogram and save to file (optional)
       if inputargs["UMIhistogram"]:
 
         hfileprefix = "_".join( summaryname.split("_")[:-2] + ["UMIhistogram"] )
@@ -784,12 +783,10 @@ if __name__ == '__main__':
           for av, count in sorted(average_cluster_size_counter.items()):
             print(str(av) + "," + str(count), file=hfile)
 
+        # print instructions for creating histogram plot using script in Supplementary-Scripts
         print("\nAverage UMI cluster size histogram data saved to", hfilename)
         print("To plot histogram, please use UMIhistogram.py script in the Supplementary-Scripts folder as follows:")
         codestr = "python Supplementary-Scripts/UMIhistogram.py -in "+ hfilename
         print("#"*(len(codestr) + 4))
         print(" ", codestr, " ")
         print("#"*(len(codestr) + 4))
-
-  
-
