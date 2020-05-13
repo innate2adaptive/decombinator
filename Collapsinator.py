@@ -82,7 +82,7 @@ def args():
       derived from the same originator molecule. Default = 10', required=False, default=10)  
   parser.add_argument(
       '-bc', '--bcthreshold', type=int, help='Number of sequence edits that are allowed to consider two barcodes to be derived from same originator \
-      during clustering. Default = 3.', required=False, default=3)
+      during clustering. Default = 2.', required=False, default=2)
   parser.add_argument(
       '-s', '--suppresssummary',  action='store_true', help='Suppress the production of output summary data log', required=False)
   parser.add_argument(
@@ -402,7 +402,7 @@ def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
   """
   Returns True if seqs can be considered the same, False otherwise
   Definition of equivalent:
-     - levenshtein distance as a percentage of the shorter of the two seqs is < threshold
+     - levenshtein distance as a percentage of the shorter of the two seqs is <= threshold
   """
   threshold = len(min(seq1, seq2, key=len)) * lev_percent_threshold
   return lev.distance(seq1, seq2) <= threshold
