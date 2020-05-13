@@ -55,7 +55,7 @@ from scipy.special import comb
 import copy
 import os, sys
 
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -190,8 +190,8 @@ def getOligo(oligo_name):
   # New oligos can be added here, specifying their spacers in the given format, and adding them to
   # the returned list.
   oligos = {}
-  oligos["m13"] = {"spcr1": "GTCGTGACTGGGAAAACCCTGG","spcr2":"GTCGTGAT"}
-  oligos["i8"] = {"spcr1":"GTCGTGAT","spcr2":"GTCGTGAT"}
+  oligos['m13'] = {'spcr1': 'GTCGTGACTGGGAAAACCCTGG','spcr2':'GTCGTGAT'}
+  oligos['i8'] = {'spcr1':'GTCGTGAT','spcr2':'GTCGTGAT'}
 
   if oligo_name.lower() not in oligos:
     print("Error: Failed to recognise oligo name. Please choose from " + str(list(oligos.keys())))
@@ -222,14 +222,14 @@ def spacerSearch(subseq,seq):
 def findFirstSpacer(oligo,seq):
     allowance = 4
     spacer = []
-    spcr1 = oligo["spcr1"]
+    spcr1 = oligo['spcr1']
     spacer += spacerSearch(spcr1, seq[0:len(spcr1)+allowance])
     return spacer
 
 def findSecondSpacer(oligo,seq):
     spacer = []
-    spcr1 = oligo["spcr1"]
-    spcr2 = oligo["spcr2"]
+    spcr1 = oligo['spcr1']
+    spcr2 = oligo['spcr2']
     spacer += spacerSearch(spcr2,seq[len(spcr1):])
     return spacer
 
@@ -366,38 +366,6 @@ def barcode_quality_check(qualstring, parameters):
     else:
         return 1
 
-def find_most_common_dcrseq(dcretclist):
-    """
-    Counts occurrences of dcr-seq pairs in dcretc_list. 
-    If one occurs the most, returns this dcr-seq pair
-    If more than one occurs the maximum number of times, returns the one with the highest avg seq quality
-    If more than one of the maximum occurring dcr-seqs has the same highest avg seq quality,
-        returns one of these chosen at random
-    """
-    dcrseq_count = coll.Counter()
-    for detc in dcretclist:
-        d = detc.split('|')[0]
-        s = detc.split('|')[1]
-        dcrseq_count['|'.join([d, s])] += 1
-
-    max_value = max(dcrseq_count.values())
-    most_common_dcrseqs = [ds for ds, c in dcrseq_count.items() if c == max_value]
-    if len(most_common_dcrseqs) == 1:
-        return most_common_dcrseqs[0]
-
-    max_avg_quals = []
-    for ds in most_common_dcrseqs:
-        seq_qual_strings = [detc.split('|')[2] for detc in dcretclist if '|'.join(detc.split('|')[0:2]) == ds]
-        seq_avg_quals = [sum(get_qual_scores(x))/len(x) for x in seq_qual_strings]
-        max_avg_quals.append(max(seq_avg_quals))
-    
-    max_indices = [i for i, x in enumerate(max_avg_quals) if x == max(max_avg_quals)]
-    
-    if len(max_indices) == 1:
-        return most_common_dcrseqs[max_indices[0]]
-    
-    return most_common_dcrseqs[random.choice(max_indices)]
-
 def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
   # Returns True if seqs can be considered the same, False otherwise
   # Definition of equivalent:
@@ -420,7 +388,7 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
         print("Alternatively, disable the input file sanity check by changing the \'dontcheckinput\' flag, i.e. \'-di True\'")
         sys.exit()
        
-    print('Reading data in...')
+    print("Reading data in...")
     t0 = time()
     barcode_dcretc = coll.defaultdict(list)
     barcode_lookup = coll.defaultdict(list)
@@ -429,8 +397,8 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
     inhandle = opener(infile, 'rt')
     
     for lcount, line in enumerate(inhandle):
-        if lcount % 50000 == 0:
-          print("Read in", lcount, "lines...", ". Time elapsed:", round(time()-t0,2))
+        if lcount % 50000 == 0 and lcount != 0:
+          print("   Read in", lcount, "lines... ", round(time()-t0,2), "seconds")
         counts['readdata_input_dcrs'] += 1
         fields = line.rstrip('\n').split(', ')
 
@@ -514,6 +482,8 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
     counts['number_input_total_dcrs'] = sum(input_dcr_counts.values())
       
     t1 = time()
+    print("   Read in total of", lcount+1, "lines")
+    print("  ", counts['readdata_success'], "reads sorted into", len(barcode_dcretc), "initial groups" )
     print('  ', round(t1-t0, 2), 'seconds')
     counts['time_readdata_s'] = t1
 
@@ -530,7 +500,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
     percent_seq_threshold = seq_threshold/100.0
 
-    print("Clustering barcodes...")
+    print("Clustering barcodes groups...")
     t0 = time()
 
     clusters = coll.defaultdict(list)
@@ -543,14 +513,14 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
       clustered = False
 
       if count % 5000 == 0:
-        print("Clustered", count, "/", barcode_dcretc_total, "...", "Time elapsed:", round(time()-t0,2))
+        print("   Clustered", count, "/", barcode_dcretc_total, "...", round(time()-t0,2),"seconds")
 
       barcode1, index1, protoseq1 = b1.split("|")
       
       for j,b2 in enumerate(clusters): 
         barcode2, index2, protoseq2 = b2.split("|")
 
-        if are_barcodes_quivalent(barcode1, barcode2, barcode_threshold):
+        if are_barcodes_equivalent(barcode1, barcode2, barcode_threshold):
 
           if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
 
@@ -577,10 +547,11 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
       count += 1
 
     t1 = time()
-    print('  ', round(t1-t0, 2), 'seconds')
+    print("  ", len(barcode_dcretc), "groups merged into", len(clusters), "clusters")
+    print("  ", round(t1-t0, 2), "seconds")
     
     # dump clusters to separate files if desired
-    if inputargs["writeclusters"]:
+    if inputargs['writeclusters']:
       write_clusters(clusters)
 
     return clusters
@@ -594,10 +565,10 @@ def write_clusters(clusters):
       count += 1
     os.mkdir(dirname)
 
-    print("Writing clusters to directory: ", os.path.abspath(dirname))
+    print("   Writing clusters to directory: ", os.path.abspath(dirname), "...")
     # write data of each cluster to a separate file and store in clusters directory
     for k in clusters: 
-      with open(dirname+os.sep+"|".join(k.split("|")[:2])+".txt", "w") as ofile: 
+      with open(dirname+os.sep+"|".join(k.split("|")[:2])+".txt", 'w') as ofile: 
         for j in clusters[k]: 
           print(j, file = ofile)
     return 1
@@ -632,7 +603,7 @@ def collapsinate(barcode_quality_parameters, lev_threshold, barcode_distance_thr
 
     outfile = outpath + file_id + suffix
     outhandle = open(outfile, 'w')
-    print('Writing to output file', outfile, '...')
+    print("Writing to output file", outfile, "...")
 
     average_cluster_size_counter = coll.Counter()
     for dcr, dcr_count in collapsed.items():
@@ -657,9 +628,11 @@ def collapsinate(barcode_quality_parameters, lev_threshold, barcode_distance_thr
     if inputargs['barcodeduplication'] == True:
         outfile = outpath+file_id+'_barcode_duplication.txt'
         outhandle = open(outfile, 'w')
-        for bc, copies in barcode_duplication.items():
-            print(','.join([bc, str(copies)]), file=outhandle)
+        for bc, copies in clusters.items():
+            barcode_index = "|".join(bc.split("|")[:2])
+            print(','.join([barcode_index, str(len(copies))]), file=outhandle)
         outhandle.close()
+        print("barcode duplication data saved to", outfile)
         
     counts['outfilenam'] = outfilenam
 
@@ -671,6 +644,8 @@ if __name__ == '__main__':
     ########################################
     # Get parameters 
     inputargs = vars(args())
+
+    print("Running Collapsinator version", __version__)
     
     if inputargs['infile'].endswith('.gz'):
       opener = gzip.open
@@ -766,19 +741,19 @@ if __name__ == '__main__':
       summaryfile.close()
 
       # create output data for UMI histogram and save to file (optional)
-      if inputargs["UMIhistogram"]:
+      if inputargs['UMIhistogram']:
 
-        hfileprefix = "_".join( summaryname.split("_")[:-2] + ["UMIhistogram"] )
+        hfileprefix = "_".join( summaryname.split("_")[:-2] + ['UMIhistogram'] )
         # iterate to create unique file name
-        if os.path.exists(hfileprefix + ".csv"):
+        if os.path.exists(hfileprefix + '.csv'):
           i = 1
-          while os.path.exists(hfileprefix + str(i) + ".csv"):
+          while os.path.exists(hfileprefix + str(i) + '.csv'):
             i += 1
           hfileprefix += str(i)
         
-        hfilename = hfileprefix + ".csv"
+        hfilename = hfileprefix + '.csv'
 
-        with open(hfilename,"w") as hfile:
+        with open(hfilename,'w') as hfile:
 
           for av, count in sorted(average_cluster_size_counter.items()):
             print(str(av) + "," + str(count), file=hfile)
