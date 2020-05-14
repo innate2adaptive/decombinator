@@ -1,5 +1,5 @@
 # innate2adaptive / Decombinator 
-## v4.0.1
+## v4.0.2
 
 ##### Innate2Adaptive lab @ University College London, 2019
 ##### Written by James M. Heather, Tahel Ronel, Thomas Peacock, Niclas Thomas and Benny Chain, with help from Katharine Best, Theres Oakes and Mazlina Ismail.
@@ -32,7 +32,7 @@ TCR repertoire sequencing (TCRseq) offers a powerful means to investigate biolog
 
 Decombinator addresses the problem of speed by employing a rapid and [highly efficient string matching algorithm](https://figshare.com/articles/Aho_Corasick_String_Matching_Video/771968) to search the FASTQ files produced by HTS machines for rearranged TCR sequence. The central algorithm searches for 'tag' sequences, the presence of which uniquely indicates the inclusion of particular V or J genes in a recombination. If V and J tags are found, Decombinator can then deduce where the ends of the germline V and J gene sections are (i.e. how much nucleotide removal occurred during V(D)J recombination), and what nucleotide sequence (the 'insert sequence') remains between the two. These five pieces of information - the V and J genes used, how many deletions each had and the insert sequence - contain all of the information required to reconstruct the whole TCR nucleotide sequence, in a more readily stored and analysed way. Decombinator therefore rapidly searches through FASTQ files and outputs these five fields into comma delimited output files, one five-part classifier per line.
 
-The Decombinator suite of scripts are written in **Python v2.7**, and the default parameters are set to analyse data as produced by the ligation-mediated 5' RACE TCR amplification pipeline. The pipeline consists of four scripts, which are applied sequentially to the output of the previous, starting with TCR-containing FASTQ files (produced using the barcoding 5' RACE protocol):
+Version 4 and higher of the Decombinator suite of scripts are written in **Python v3.7**. Older versions are written in Python v2.7. The default parameters are set to analyse data as produced by the ligation-mediated 5' RACE TCR amplification pipeline. The pipeline consists of four scripts, which are applied sequentially to the output of the previous, starting with TCR-containing FASTQ files (produced using the barcoding 5' RACE protocol):
 
 1. Raw FASTQ files are demultiplexed to individual samples
 2. Sample specific files are then searched for rearranged TCRs with Decombinator
@@ -49,17 +49,16 @@ Very large data containing many samples, such as from Illumina NextSeq machines,
 
 ### Required modules
 
-Python 2.7 is required to run this pipeline, along with the following non-standard modules:
+Python 3.7 is required to run this pipeline, along with the following non-standard modules:
 
 * acora
 * biopython
 * regex
 * python-Levenshtein
-* scipy
 
 These can be installed via pip (although most will likely appear in other package managers), e.g.:
 ```bash
-pip install biopython python-levenshtein regex acora scipy
+pip install biopython python-levenshtein regex acora
 ```
 If users are unable to install Python and the required modules, a Python installation complete with necessary packages has been bundled into a Docker container, which should be runnable on most setups. The appropriate image is located [on Dockerhub, under the name 'dcrpython'](https://hub.docker.com/r/decombinator/dcrpython/). (Please note that this is not yet updated for v4)
 
@@ -252,19 +251,22 @@ GTCGTGATNNNNNNGTCGTGATNNNNNNnn
 The collapsing script can therefore use the spacer sequences to be sure we have found the right barcode sequences.
 
 The `Collapsinator.py` script performs the following procedures:
-* Scrolls through each DCR of the input .n12 file
-* First performs error-correction (removing TCR reads produced by errors from e.g. PCR)
-    * Then looks at all the different DCRs associated with a given barcode
-    * Takes the most common inter-tag sequence/DCR combination as the 'true' TCR (as errors are likely to occur during a later PCR cycle, and thus will most often be minority variants, see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
-    * Compare this against all other DCRs that shared the same barcode
-    * Those that only have a few differences are likely erroneous branches, and can be discounted
-    * Frequent but significantly different TCRs could represent 'barcode clash', and thus the process repeats
-* Second the script estimates the true cDNA frequency 
-    * Clusters all barcode sequences found in conjunction with a DCR 
-    * This is required as there could be errors within the barcode sequences themselves
-    * The expected distribution of Hamming distances between UMIs can be modelled as a binomial distribution. To determine whether two UMIs are unexpectedly similar, a threshold is calculated based on the probability of encountering the Hamming distance between their sequences in the given binomial distribution. UMI pairs with a Hamming distance below the threshold are considered part of the same cluster.
-    * The number of final clusters gives a better estimate of the original frequency of that cDNA molecule. Binomial based clustering decreases the overestimation of sequences observed at low frequency, which are likely to be singletons for which the UMI was mutated one or a few times. Further details about this method are provided in the Supplementary Information by [de Greef *et al.*, 2019](https://www.biorxiv.org/content/biorxiv/early/2019/07/03/691501.full.pdf).
-* Outputs a DCR identifier plus an additional sixth field, giving the corrected abundance of that TCR in the sample
+* Scrolls through each line of the input .n12 file containing DCR, barcode and sequence data
+* First performs error-correction (removing TCR reads with forbidden errors e.g. ambigious base calls. Strictness can be modified via the user input parameters)
+* Groups input reads by barcode. Reads with identical barcode and equivalent inter-tag sequence are grouped together. Equivalence is defined as acheving a Levenshtein distance lower than a given threshold, weighted by the lengths of the compares sequences. Reads with identical barcode but non-equivalent sequences are grouped separately.
+* Each group is assigned the most common inter-tag sequence/DCR combination as the 'true' TCR (as errors are likely to occur during a later PCR cycle, and thus will most often be minority variants, see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
+
+After this initial grouping, the script estimates the true cDNA frequency. UMIs that are similar and are associated to a similar TCR are likely to be amplified from the same original DNA molecule, and to differ only due to PCR or sequencing error. Consequently, groups with similar barcodes and sequences are then clustered via the following procedure:
+* The barcode of each group is compared to the barcode of every other group.
+* The expected distribution of distances between UMIs can be modelled as a binomial distribution. Experimentation with simulated datasets found the best threshold for allowing two barcodes to be considered equivalent is when they have Levenshtein distance of less than 3, and this value is set by default. This can be modified through the user input parameters.
+* Groups with barcodes that meet this threshold criteria have their inter-tag sequences compared. Those with equivalent sequences are clustered together. Sequence equivalence is here taken to mean that the two sequences have Levenshtein distance less than or equal to 10% of the length of the shorter of the two sequences. This percentage can be modified through the user input parameters.
+* Upon this merging of groups, the most common inter-tag sequence of the cluster is reassessed and taken as the 'true' TCR. 
+
+Finally, the clusters are collapsed to give the abundance of each TCR in the biological sample.
+* A TCR abundance count is calculated for each TCR by counting the number of clusters that have the same sequence but different barcodes.
+* An average UMI count is calculated for each TCR by summing the number of members in each cluster associated with the TCR sequence, and dividing by the number of those clusters. This gives a measure that can be used to estimate the robustness of the data for that particular sequence.
+
+Collapsinator outputs 7 fields: the 5-part DCR identifier, the corrected abundance of that TCR in the sample, and the average UMI count for that TCR
 
 Collapsing occurs in a chain-blind manner, and so only the decombined '.n12' file is required, without any chain designation, with the only required parameter being the infile:
 
@@ -272,7 +274,7 @@ Collapsing occurs in a chain-blind manner, and so only the decombined '.n12' fil
 python Collapsinator.py -in dcr_AlphaSample1.n12
 ```
 
-A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However the need for such fine tuning will likely be very protocol-specific, and is only suggested for advanced users, and with careful data validation.
+A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However the need for such fine tuning will likely be very protocol-specific, and is only suggested for advanced users, and with careful data validation. A histogram of the average UMI counts can be generated using the `-uh` flag.
 
 The default file extension is '.freq'.
 
