@@ -31,7 +31,7 @@ import urllib
 import warnings
 import gzip
 
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore")
@@ -317,6 +317,8 @@ if __name__ == '__main__':
     # Check input files and parameters
     inputargs = vars(args())
     counts = coll.Counter()
+
+    print("Running CDR3Translator version", __version__)
 
     if inputargs['infile'].endswith('.gz'):
         opener = gzip.open

@@ -71,11 +71,11 @@
   # -nbc/--nobarcoding: Run Decombinator without any barcoding, i.e. use the whole read. 
     # Recommended when running on data not produced using the Innate2Adaptive lab's ligation-mediated amplification protocol
 
-##################
-##### OUTPUT #####  
-##################
-
-# Produces a '.n12' file by default, which is a standard comma-delimited Decombinator output file with several additional fields:
+  ##################
+  ##### OUTPUT #####  
+  ################## 
+  
+  # Produces a '.n12' file by default, which is a standard comma-delimited Decombinator output file with several additional fields:
   # V index, J index, # V deletions, # J deletions, insert, ID, TCR sequence, TCR quality, barcode sequence, barcode quality
   # NB The TCR sequence given here is the 'inter-tag' region, i.e. the sequence between the start of the found V tag the end of the found J tag 
 
@@ -98,7 +98,7 @@ from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
 
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -109,7 +109,7 @@ def args():
 
   # Help flag
   parser = argparse.ArgumentParser(
-      description='Decombinator v4.0.1: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
+      description='Decombinator v4.0.2: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
   # Add arguments
   parser.add_argument(
       '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
