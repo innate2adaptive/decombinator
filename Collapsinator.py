@@ -91,7 +91,7 @@ def args():
   parser.add_argument(
       '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
   parser.add_argument(
-      '-dc', '--dontcount', action='store_true', help='Block the line count from being shown', required=False)
+      '-dc', '--dontcount', action='store_true', help='Block the line count from being shown', required=False, default=False)
   parser.add_argument(
       '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"freq\"', required=False, default="freq")
   parser.add_argument(
@@ -376,7 +376,7 @@ def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
 def are_barcodes_equivalent(bc1, bc2, threshold):
     return lev.distance(bc1, bc2) <= threshold
 
-def read_in_data(barcode_quality_parameters, infile, lev_threshold):
+def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
     ###########################################
     ############# READING DATA IN #############
     ###########################################        
@@ -397,7 +397,7 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
     inhandle = opener(infile, 'rt')
     
     for lcount, line in enumerate(inhandle):
-        if lcount % 50000 == 0 and lcount != 0:
+        if lcount % 50000 == 0 and lcount != 0 and not dont_count:
           print("   Read in", lcount, "lines... ", round(time()-t0,2), "seconds")
         counts['readdata_input_dcrs'] += 1
         fields = line.rstrip('\n').split(', ')
@@ -490,7 +490,7 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold):
     return barcode_dcretc
 
 
-def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
+def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold, dont_count):
     # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
     # (see read_in_data function for details)
     # This function merges groups that have both equivalent barcodes and equivalent protoseqs
@@ -512,7 +512,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold):
 
       clustered = False
 
-      if count % 5000 == 0:
+      if count % 5000 == 0 and not dont_count:
         print("   Clustered", count, "/", barcode_dcretc_total, "...", round(time()-t0,2),"seconds")
 
       barcode1, index1, protoseq1 = b1.split("|")
@@ -575,13 +575,13 @@ def write_clusters(clusters):
 
 
 def collapsinate(barcode_quality_parameters, lev_threshold, barcode_distance_threshold,
-                 infile, outpath, file_id):
+                 infile, outpath, file_id, dont_count):
  
     # read in, structure, and quality check input data
-    barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold)
+    barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count)
 
     # cluster similar UMIs
-    clusters = cluster_UMIs(barcode_dcretc, inputargs, barcode_distance_threshold, lev_threshold)
+    clusters = cluster_UMIs(barcode_dcretc, inputargs, barcode_distance_threshold, lev_threshold, dont_count)
 
     # collapse (count) UMIs in each cluster and print to output file
     print("Collapsing clusters...")
@@ -670,14 +670,15 @@ if __name__ == '__main__':
     outpath = ''
     
     file_id = infile.split('/')[-1].split('.')[0]
+
+    ## this is a boolean for printing progress of the run to the terminal (False for printing, True for not printing; default = False)
+    dont_count = inputargs['dontcount']
+
     ########################################
 
     collapsed, average_cluster_size_counter = collapsinate(barcode_quality_parameters,
-                                        lev_threshold,
-                                        barcode_distance_threshold,
-                                        infile, 
-                                        outpath,
-                                        file_id)
+                                        lev_threshold, barcode_distance_threshold,
+                                        infile, outpath, file_id, dont_count)
     
     counts['end_time'] = time()    
     counts['time_taken_total_s'] = counts['end_time'] - counts['start_time']
