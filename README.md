@@ -1,7 +1,7 @@
 # innate2adaptive / Decombinator 
 ## v4.0.2
 
-##### Innate2Adaptive lab @ University College London, 2019
+##### Innate2Adaptive lab @ University College London, 2020
 ##### Written by James M. Heather, Tahel Ronel, Thomas Peacock, Niclas Thomas and Benny Chain, with help from Katharine Best, Theres Oakes and Mazlina Ismail.
 ##### Incorporating error correction as published in [Gerritsen, Pandit, Andeweg and de Boer (2016)](https://doi.org/10.1093/bioinformatics/btw339).
 
@@ -338,7 +338,7 @@ As of version 4, this script now outputs a tab separated file compatible with th
 | Field | Description | 
 |:---:|---|
 | sequence_id | A unique identifier for a given rearrangement |
-| v_call | V gene used (or multiple, if they cannot be distinguished) |
+| v_call | V gene used (or multiple, if they cannot be distinguished, comma delimited) |
 | d_call | Blank required field (mostly cannot be assigned for TCRb, and rarely useful even then) |
 | j_call | J gene used |
 | junction_aa | CDR3 junction amino acid sequence |
@@ -355,6 +355,12 @@ As of version 4, this script now outputs a tab separated file compatible with th
 | stop_codon | Whether or not the rearrangement contains a stop codon (T/F) |
 | conserved_c | Whether or not the rearrangement contains a detectable conserved cysteine (T/F) |
 | conserved_f | Whether or not the rearrangement contains a detectable conserved phenylalanine or equivalent (T/F) |
+| legacy_v_call | What older versions of Decombinator (i.e. <= v3) referred to this V gene as: e.g. 'TRBV12-3,TRBV12-4' in v4 was previously referred to just as 'TRBV12-4' | 
+| legacy_j_call | What older versions of Decombinator (<= 3) referred to this J gene as | 
+| v_alleles | List of V gene alleles covered by this rearrangment's tag | 
+| j_alleles | List of J gene alleles covered by this rearrangment's tag | 
+| v_gene_functionality | [IMGT predicted functionality](http://www.imgt.org/IMGTScientificChart/SequenceDescription/IMGTfunctionality.html#P1-2) of V gene (or genes) used in this rearrangement (F/ORF/P, comma delimited) | 
+| j_gene_functionality | [IMGT predicted functionality](http://www.imgt.org/IMGTScientificChart/SequenceDescription/IMGTfunctionality.html#P1-2) of J gene (or genes) used in this rearrangement (F/ORF/P, comma delimited) | 
 | sequence_alignment | Format required field - left blank |
 | germline_alignment | Format required field - left blank |
 | v_cigar | Format required field - left blank |
