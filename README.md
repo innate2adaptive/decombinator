@@ -251,19 +251,19 @@ GTCGTGATNNNNNNGTCGTGATNNNNNNnn
 The collapsing script can therefore use the spacer sequences to be sure we have found the right barcode sequences.
 
 The `Collapsinator.py` script performs the following procedures:
-* Scrolls through each line of the input .n12 file containing DCR, barcode and sequence data
-* First performs error-correction (removing TCR reads with forbidden errors e.g. ambigious base calls. Strictness can be modified via the user input parameters)
-* Groups input reads by barcode. Reads with identical barcode and equivalent inter-tag sequence are grouped together. Equivalence is defined as acheving a Levenshtein distance lower than a given threshold, weighted by the lengths of the compares sequences. Reads with identical barcode but non-equivalent sequences are grouped separately.
-* Each group is assigned the most common inter-tag sequence/DCR combination as the 'true' TCR (as errors are likely to occur during a later PCR cycle, and thus will most often be minority variants, see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
+* Scrolls through each line of the input .n12 file containing DCR, barcode and sequence data.
+* Removes TCR reads with forbidden errors, e.g. ambigious base calls (with user input parameters provided to modify strictness).
+* Groups input reads by barcode. Reads with identical barcode and equivalent inter-tag sequence are grouped together. Equivalence is defined as the Levenshtein distance between two sequences being lower than a given threshold, weighted by the lengths of the compared sequences. Reads with identical barcodes but non-equivalent sequences are grouped separately.
+* Each group is assigned the most common inter-tag sequence/DCR combination as the 'true' TCR, as errors are likely to occur during later PCR cycles, and thus will most often be minority variants (see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
 
-After this initial grouping, the script estimates the true cDNA frequency. UMIs that are similar and are associated to a similar TCR are likely to be amplified from the same original DNA molecule, and to differ only due to PCR or sequencing error. Consequently, groups with similar barcodes and sequences are then clustered via the following procedure:
+After this initial grouping, the script estimates the true cDNA frequency. UMIs that are both similar and are associated to a similar TCR are likely to be amplified from the same original DNA molecule, and to differ only due to PCR or sequencing error. Consequently, groups with similar barcodes and sequences are then clustered via the following procedure:
 * The barcode of each group is compared to the barcode of every other group.
-* The expected distribution of distances between UMIs can be modelled as a binomial distribution. Experimentation with simulated datasets found the best threshold for allowing two barcodes to be considered equivalent is when they have Levenshtein distance of less than 3, and this value is set by default. This can be modified through the user input parameters.
-* Groups with barcodes that meet this threshold criteria have their inter-tag sequences compared. Those with equivalent sequences are clustered together. Sequence equivalence is here taken to mean that the two sequences have Levenshtein distance less than or equal to 10% of the length of the shorter of the two sequences. This percentage can be modified through the user input parameters.
+* The expected distribution of distances between UMIs can be modelled as a binomial distribution. Experimentation with simulated datasets found the best threshold for allowing two barcodes to be considered equivalent is when they have a Levenshtein distance of less than 3; a value of 2 is set by default. This can be modified through the user input parameter ```-bc```.
+* Groups with barcodes that meet this threshold criteria have their inter-tag sequences compared. Those with equivalent sequences are clustered together. Sequence equivalence is here taken to mean that the two sequences have a Levenshtein distance less than or equal to 10% of the length of the shorter of the two sequences. This percentage can be modified through the user input parameter ```-lv```.
 * Upon this merging of groups, the most common inter-tag sequence of the cluster is reassessed and taken as the 'true' TCR. 
 
 Finally, the clusters are collapsed to give the abundance of each TCR in the biological sample.
-* A TCR abundance count is calculated for each TCR by counting the number of clusters that have the same sequence but different barcodes.
+* A TCR abundance count is calculated for each TCR by counting the number of clusters that have the same sequence but different barcodes (thus representing the same rearrangement originating from multiple input DNA molecules).
 * An average UMI count is calculated for each TCR by summing the number of members in each cluster associated with the TCR sequence, and dividing by the number of those clusters. This gives a measure that can be used to estimate the robustness of the data for that particular sequence.
 
 Collapsinator outputs 7 fields: the 5-part DCR identifier, the corrected abundance of that TCR in the sample, and the average UMI count for that TCR
