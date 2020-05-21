@@ -74,16 +74,16 @@
 ##################
 
 from __future__ import division
-from itertools import izip
 import time
 import sys
 import argparse
 import gzip
 import os
+import itertools
 import Levenshtein as lev
 import collections as coll
 
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -132,20 +132,20 @@ def fastq_check(infile):
   success = True
     
   if infile.endswith('.gz'):
-    with gzip.open(infile) as possfq:
-      read = [next(possfq) for x in range(4)]
+    with gzip.open(infile, "rt") as possfq:
+      read = [i for i in itertools.islice(possfq, 0, 4)]
   else:
     with open(infile) as possfq:
-      read = [next(possfq) for x in range(4)]    
+      read = [i for i in itertools.islice(possfq, 0, 4)]   
   
   # @ check
-  if read[0][0] <> "@":
+  if not read[0][0] == "@":
     success = False
   # Descriptor check
-  if read[2][0] <> "+":
+  if not read[2][0] == "+":
     success = False
   # Read/quality match check
-  if len(read[1]) <> len(read[3]):
+  if not len(read[1]) == len(read[3]):
     success = False  
   
   return(success)
@@ -193,19 +193,19 @@ def sort_permissions(fl):
 inputargs = vars(args())
 
 if inputargs['outputall'] == False and not inputargs['indexlist']:
-  print "No indexing file provided, and output all option not enabled; one (or both) is required."
+  print("No indexing file provided, and output all option not enabled; one (or both) is required.")
   sys.exit()
 
 for f in [inputargs['read1'], inputargs['read2'], inputargs['index1']]:
   if fastq_check(f) == False:
-    print "FASTQ sanity check failed reading", f, "- please ensure that this file is properly formatted and/or gzip compressed."
+    print("FASTQ sanity check failed reading", f, "- please ensure that this file is properly formatted and/or gzip compressed.")
     sys.exit()
   
 ##########################################################
 ############ CREATE DICTIONARIES FOR INDEXES #############
 ##########################################################
 
-# Version 4.0.1 includes new SP2 indexes 27-102
+# Version 4.0.1 (and above) introduces new SP2 indexes 27-102
 
 # SP1 index = R1 (our own, RC1 proximal index)
 X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
@@ -236,12 +236,12 @@ XXdict = {}
 
 # If given an indexlist, use that to generate named output files
 if inputargs['indexlist']:
-  indexes = list(open(inputargs['indexlist'], "rU"))
+  indexes = list(open(inputargs['indexlist'], "r"))
 
   for x in indexes:
     
     if x == "\n":
-      print "Empty line detected in index file, presumed end of file."
+      print("Empty line detected in index file, presumed end of file.")
       break
 
     elements = x.strip("\n").split(",")
@@ -266,237 +266,236 @@ if inputargs['outputall'] == True:
   allXcombs = [x + "-" + y for x in X1dict.keys() for y in X2dict.keys()]
   
   for x in allXcombs:
-    compound_index = X1dict[x.split("-")[0]] + X2dict[x.split("-")[1]] 
+    compound_index = X1dict[x.split("-")[0]] + X2dict[x.split("-")[1]]
     
     if compound_index not in usedindexes.values():
       XXdict[compound_index] = open("Indexes_" + x + suffix, "a")
       outputreads["Indexes_" + x] = 0
       usedindexes["Indexes_" + x] = compound_index
       
+if __name__ == '__main__':
+  count = 0
+  dmpd_count = 0          # number successfully demultiplexed 
+  fuzzy_count = 0         # number of sequences that were demultiplexed using non-exact index matches
+  clash_count = 0         # number of fuzzy ID clashes
 
-count = 0
-dmpd_count = 0          # number successfully demultiplexed 
-fuzzy_count = 0         # number of sequences that were demultiplexed using non-exact index matches
-clash_count = 0         # number of fuzzy ID clashes
+  fuzzies = []            # list to record IDs matched using fuzzy indexes
 
-fuzzies = []            # list to record IDs matched using fuzzy indexes
-
-t0 = time.time() # Begin timer
-  
-##########################################################
-########### LOOP THROUGH ALL READ FILES IN SYNC ##########
-######## PROCESS INTO CORRECT FORMAT & DEMULTIPLEX #######
-##########################################################
-
-print "Reading input files..."
-
-# Open read files
-if inputargs['read1'].endswith('.gz'):
-  fq1 = readfq(gzip.open(inputargs['read1']))
-else:
-  fq1 = readfq(open(inputargs['read1']))
-  
-if inputargs['index1'].endswith('.gz'):
-  fq2 = readfq(gzip.open(inputargs['index1']))
-else:
-  fq2 = readfq(open(inputargs['index1']))
-
-
-if inputargs['read2'].endswith('.gz'):
-  fq3 = readfq(gzip.open(inputargs['read2']))
-else:
-  fq3 = readfq(open(inputargs['read2']))
-
-print "Demultiplexing data..."
-
-for record1, record2, record3 in izip(fq1, fq2, fq3):
-  # Readfq function with return each read from each file as a 3 part tuple
-    # ('ID', 'SEQUENCE', 'QUALITY')
-  count += 1  
-
-  if count % 100000 == 0 and inputargs['dontcount'] == False:
-    print '\t read', count
-  
-### NB For non-standard Illumina encoded fastqs, might need to change which fields are carried into fq_* vars
-  
-  fq_id = record1[0]
-
-  # N relates to barcode random nucleotides, X denotes index bases
-  
-  ### FORMATTING OUTPUT READ ###
-  
-  Nseq = record3[1][0:45]
-  Nqual = record3[2][0:45]
-
-  X1seq = record1[1][6:12]
-  X1qual = record1[2][6:12]
-
-  X2seq = record2[1]
-  X2qual = record2[2]
-
-  readseq = record1[1][12:] 
-  readqual = record1[2][12:]
-
-  fq_seq = Nseq + X1seq + X2seq + readseq
-  fq_qual = Nqual + X1qual + X2qual + readqual
-  
-  new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
-  
-  ### DEMULTIPLEXING ###
-  
-  seqX = X1seq + X2seq 
-  
-  if seqX in XXdict:
-    # Exact index matches
-          
-    XXdict[seqX].write(new_record)
+  print("Running Demultiplexor version", __version__)
+  t0 = time.time() # Begin timer
     
-    dmpd_count += 1
-    outputreads[str(XXdict[seqX]).split("\'")[1][:-len(suffix)]] += 1
-    
+  ##########################################################
+  ########### LOOP THROUGH ALL READ FILES IN SYNC ##########
+  ######## PROCESS INTO CORRECT FORMAT & DEMULTIPLEX #######
+  ##########################################################
+
+  print("Reading input files...")
+
+  # Open read files
+  if inputargs['read1'].endswith('.gz'):
+    fq1 = readfq(gzip.open(inputargs['read1'],'rt'))
   else:
-    # Otherwise allow fuzzy matching
+    fq1 = readfq(open(inputargs['read1']))
     
-    matches = []
+  if inputargs['index1'].endswith('.gz'):
+    fq2 = readfq(gzip.open(inputargs['index1'], 'rt'))
+  else:
+    fq2 = readfq(open(inputargs['index1']))
+  
+
+  if inputargs['read2'].endswith('.gz'):
+    fq3 = readfq(gzip.open(inputargs['read2'], 'rt'))
+  else:
+    fq3 = readfq(open(inputargs['read2']))
+
+  print("Demultiplexing data...")
+
+  for record1, record2, record3 in zip(fq1, fq2, fq3):
+    # Readfq function with return each read from each file as a 3 part tuple
+      # ('ID', 'SEQUENCE', 'QUALITY')
+    count += 1    
+
+    if count % 100000 == 0 and inputargs['dontcount'] == False:
+      print('\t read', count)
     
-    for ndx in XXdict.keys():
+  ### NB For non-standard Illumina encoded fastqs, might need to change which fields are carried into fq_* vars
+    
+    fq_id = record1[0]  
+
+    # N relates to barcode random nucleotides, X denotes index bases
+    
+    ### FORMATTING OUTPUT READ ###
+    
+    Nseq = record3[1][0:45]
+    Nqual = record3[2][0:45]
+
+    X1seq = record1[1][6:12]
+    X1qual = record1[2][6:12]
+
+    X2seq = record2[1]
+    X2qual = record2[2]
+
+    readseq = record1[1][12:]
+    readqual = record1[2][12:]
+
+    fq_seq = Nseq + X1seq + X2seq + readseq
+    fq_qual = Nqual + X1qual + X2qual + readqual
+    
+    new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
+    
+    ### DEMULTIPLEXING ###
+    
+    seqX = X1seq + X2seq 
+    
+    if seqX in XXdict:
+      # Exact index matches
+            
+      XXdict[seqX].write(new_record)
       
-      if lev.distance(ndx, seqX) <= inputargs['threshold']:
-        matches.append(ndx)
-    
-    if len(matches) == 1:
-      # Only allow fuzzy match if there is one candidate match within threshold
-      XXdict[matches[0]].write(new_record)
       dmpd_count += 1
-      fuzzy_count += 1
-      fuzzies.append(fq_id)
-      outputreads[str(XXdict[matches[0]]).split("\'")[1][:-len(suffix)]] += 1
+      outputreads[str(XXdict[seqX]).split("\'")[1][:-len(suffix)]] += 1
       
     else:
+      # Otherwise allow fuzzy matching
       
-      if len(matches) > 1:
-        clash_count += 1
+      matches = []
+      
+      for ndx in XXdict.keys():
         
-      failed.write(new_record)
-      outputreads['Undetermined'] += 1
-  
-for x in XXdict.values():
-  x.close()
-  sort_permissions(x.name)
-
-failed.close()
-sort_permissions(failed.name)
-fq1.close()
-fq2.close()
-fq3.close()
-
-# If output all is allowed, delete all unused index combinations
-if inputargs['outputall'] == True:
-  for f in outputreads.keys():
-    if outputreads[f] == 0:
-      os.remove(f + suffix)
-      del outputreads[f]
-      del usedindexes[f]
-
-# Gzip compress output
-
-if inputargs['dontgzip'] == False:
-  print "Compressing demultiplexed files..."
-  
-  for f in outputreads.keys():  
-    
-    with open(f + suffix) as infile, gzip.open(f + suffix + '.gz', 'wb',compresslevel=inputargs['compresslevel']) as outfile:
-        outfile.writelines(infile)
-        sort_permissions(outfile.name)
-        print f+suffix,"compressed to",f+suffix+'.gz'
-    os.unlink(f + suffix)
-
-#################################################
-################## STATISTICS ###################
-#################################################
-
-timed = time.time() - t0
-took = round(timed,2)
-#print count, 'reads processed from', rd1file, 'and', fq2file, 'and output into', outfq #FIX
-if took < 60:
-  print '\t\t\t\t\t\t\tTook', took, 'seconds to demultiplex samples'
-else:
-  print '\t\t\t\t\t\t\tTook', round((timed/60),2), 'minutes to jimmy indexes and hexamers around'
-
-
-print count, "reads processed"
-print dmpd_count, "reads demultiplexed"
-print fuzzy_count, "reads demultiplexed using fuzzy index matching"
-
-if clash_count > 0:
-  print clash_count, "reads had fuzzy index clashes (i.e. could have assigned to >1 index) and were discarded"
-
-# Write data to summary file
-if inputargs['suppresssummary'] == False:
-  
-  # Check for directory and make summary file
-  if not os.path.exists('Logs'):
-    os.makedirs('Logs')
-  date = time.strftime("%Y_%m_%d")
-  
-  # Check for existing date-stamped file
-  summaryname = "Logs/" + date + "_Demultiplexing_Summary.csv"
-  if not os.path.exists(summaryname): 
-    summaryfile = open(summaryname, "w")
-  else:
-    # If one exists, start an incremental day stamp
-    for i in range(2,10000):
-      summaryname = "Logs/" + date + "_Demultiplexing_Summary_" + str(i) + ".csv"
-      if not os.path.exists(summaryname): 
-        summaryfile = open(summaryname, "w")
-        break
+        if lev.distance(ndx, seqX) <= inputargs['threshold']:
+          matches.append(ndx)
       
-  # Generate string to write to summary file
-  
-  summstr = "Property,Value\nDirectory," + os.getcwd() + "\nDateFinished," + date + "\nTimeFinished," + time.strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timed,2)) + "\n"
-  
-  for s in ['read1', 'read2', 'index1', 'indexlist', 'extension', 'threshold', 'outputall', 'dontgzip', 'fuzzylist']:
-    summstr = summstr + s + "," + str(inputargs[s]) + "\n"
-  
-  summstr = summstr + "NumberReadsInput," + str(count) + "\nNumberReadsDemultiplexed," + str(dmpd_count) + "\nNumberFuzzyDemultiplexed," + str(fuzzy_count) + "\nNumberIndexClash," + str(clash_count) + "\n\nOutputFile,IndexUsed\n" 
-  
-    # Write out number of reads in and details of each individual output file
-  for x in sorted(usedindexes.keys()):
-    summstr = summstr + x + "," + usedindexes[x] + "\n"
-  
-  if inputargs['indexlist']:
-    summstr = summstr + "\nOutputFile,IndexNumbersUsed(SP1&SP2)\n"
-    for x in indexes:
-      splt = x.rstrip().split(",")
-      summstr = summstr + splt[0] + "," + splt[1] + " & " + splt[2] + "\n"
-  
-  
-  summstr = summstr + "\nOutputFile,NumberReads\n"
-  
-  for x in sorted(outputreads.keys()):
-    summstr = summstr + x + "," + str(outputreads[x]) + "\n"
+      if len(matches) == 1:
+        # Only allow fuzzy match if there is one candidate match within threshold
+        XXdict[matches[0]].write(new_record)
+        dmpd_count += 1
+        fuzzy_count += 1
+        fuzzies.append(fq_id)
+        outputreads[str(XXdict[matches[0]]).split("\'")[1][:-len(suffix)]] += 1
+        
+      else:
+        
+        if len(matches) > 1:
+          clash_count += 1
+          
+        failed.write(new_record)
+        outputreads['Undetermined'] += 1
     
-  print >> summaryfile, summstr 
-  
-  summaryfile.close()
-  sort_permissions(summaryname)
-  
-# Write out list of fuzzy matched sequences, so can fish out later if needed
-if inputargs['threshold'] > 0 and inputargs['fuzzylist'] == True:
-  
-  print "\nOutputting list of reads demultiplexed using fuzzy index matching"
-  
-  # Check for directory and make summary file
-  if not os.path.exists('Logs'):
-    os.makedirs('Logs')
-  date = time.strftime("%Y_%m_%d")
-  
-  fuzzname = "Logs/" + date + "_FuzzyMatchedIDs.txt"
-  fuzzout = open(fuzzname, "w")
-  for f in fuzzies:
-    print >> fuzzout, f
+  for x in XXdict.values():
+    x.close()
+    sort_permissions(x.name)
 
-  fuzzout.close()
-  sort_permissions(fuzzname)
+  failed.close()
+  sort_permissions(failed.name)
+  fq1.close()
+  fq2.close()
+  fq3.close()
+
+  # If output all is allowed, delete all unused index combinations
+  if inputargs['outputall'] == True:
+    for f in outputreads.keys():
+      if outputreads[f] == 0:
+        os.remove(f + suffix)
+        del outputreads[f]
+        del usedindexes[f]
+
+  # Gzip compress output
+
+  if inputargs['dontgzip'] == False:
+    print("Compressing demultiplexed files...")
+    
+    for f in outputreads.keys():
+      
+      with open(f + suffix) as infile, gzip.open(f + suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
+          outfile.writelines(infile)
+          sort_permissions(outfile.name)
+          print(f+suffix,"compressed to",f+suffix+'.gz')
+      os.unlink(f + suffix) 
+
+  #################################################
+  ################## STATISTICS ###################
+  #################################################
+
+  timed = time.time() - t0
+  took = round(timed,2)
+  #print(count, 'reads processed from', rd1file, 'and', fq2file, 'and output into', outfq #FIX)
+  if took < 60:
+    print('\t\t\t\t\t\t\tTook', took, 'seconds to demultiplex samples')
+  else:
+    print('\t\t\t\t\t\t\tTook', round((timed/60),2), 'minutes to jimmy indexes and hexamers around')
   
 
+  print(count, "reads processed")
+  print(dmpd_count, "reads demultiplexed")
+  print(fuzzy_count, "reads demultiplexed using fuzzy index matching")
+
+  if clash_count > 0:
+    print(clash_count, "reads had fuzzy index clashes (i.e. could have assigned to >1 index) and were discarded")
+
+  # Write data to summary file
+  if inputargs['suppresssummary'] == False:
+    
+    # Check for directory and make summary file
+    if not os.path.exists('Logs'):
+      os.makedirs('Logs')
+    date = time.strftime("%Y_%m_%d")
+    
+    # Check for existing date-stamped file
+    summaryname = "Logs/" + date + "_Demultiplexing_Summary.csv"
+    if not os.path.exists(summaryname): 
+      summaryfile = open(summaryname, "w")
+    else:
+      # If one exists, start an incremental day stamp
+      for i in range(2,10000):
+        summaryname = "Logs/" + date + "_Demultiplexing_Summary_" + str(i) + ".csv"
+        if not os.path.exists(summaryname): 
+          summaryfile = open(summaryname, "w")
+          break
+        
+    # Generate string to write to summary file
+    
+    summstr = "Property,Value\nDirectory," + os.getcwd() + "\nDateFinished," + date + "\nTimeFinished," + time.strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timed,2)) + "\n"
+    
+    for s in ['read1', 'read2', 'index1', 'indexlist', 'extension', 'threshold', 'outputall', 'dontgzip', 'fuzzylist']:
+      summstr = summstr + s + "," + str(inputargs[s]) + "\n"
+    
+    summstr = summstr + "NumberReadsInput," + str(count) + "\nNumberReadsDemultiplexed," + str(dmpd_count) + "\nNumberFuzzyDemultiplexed," + str(fuzzy_count) + "\nNumberIndexClash," + str(clash_count) + "\n\nOutputFile,IndexUsed\n"
+    
+      # Write out number of reads in and details of each individual output file
+    for x in sorted(usedindexes.keys()):
+      summstr = summstr + x + "," + usedindexes[x] + "\n"
+    
+    if inputargs['indexlist']:
+      summstr = summstr + "\nOutputFile,IndexNumbersUsed(SP1&SP2)\n"
+      for x in indexes:
+        splt = x.rstrip().split(",")
+        summstr = summstr + splt[0] + "," + splt[1] + " & " + splt[2] + "\n"
+    
+    
+    summstr = summstr + "\nOutputFile,NumberReads\n"
+    
+    for x in sorted(outputreads.keys()):
+      summstr = summstr + x + "," + str(outputreads[x]) + "\n"
+    
+    print(summstr, file=summaryfile)
+    
+    summaryfile.close()
+    sort_permissions(summaryname)
+    
+  # Write out list of fuzzy matched sequences, so can fish out later if needed
+  if inputargs['threshold'] > 0 and inputargs['fuzzylist'] == True:
+    
+    print("\nOutputting list of reads demultiplexed using fuzzy index matching")
+    
+    # Check for directory and make summary file
+    if not os.path.exists('Logs'):
+      os.makedirs('Logs')
+    date = time.strftime("%Y_%m_%d")
+    
+    fuzzname = "Logs/" + date + "_FuzzyMatchedIDs.txt"
+    fuzzout = open(fuzzname, "w")
+    for f in fuzzies:
+      print(f,file=fuzzout)
+
+    fuzzout.close()
+    sort_permissions(fuzzname)
