@@ -27,13 +27,13 @@ import re
 import sys
 import collections as coll
 import os
-import urllib
+import urllib2
 import warnings
 import gzip
 
-__version__ = '4.0.2'
+__version__ = '4.1.0'
 
-# Supress Biopython translation warning when translating sequences where length % 3 != 0
+# Suppress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore")
 
 # TODO Potentially add a flag to combine convergent recombinations into a single row?
@@ -86,10 +86,10 @@ def findfile(filename):
     """
 
     try:
-        testopen = open(str(filename), "rt")
+        testopen = open(str(filename), "rU")
         testopen.close()
     except Exception:
-        print('Cannot find the specified input file. Please try again')
+        print 'Cannot find the specified input file. Please try again'
         sys.exit()
 
 
@@ -109,24 +109,26 @@ def read_tcr_file(species, tagset, gene, filetype, expected_dir_name):
     # First check whether the files are available locally (in pwd or in bundled directory)
     if os.path.isfile(expected_file):
         fl = expected_file
+        fl_opener = open
 
     elif os.path.isfile(expected_dir_name + os.sep + expected_file):
         fl = expected_dir_name + os.sep + expected_file
+        fl_opener = open
 
     else:
         try:
             fl = "https://raw.githubusercontent.com/innate2adaptive/Decombinator-Tags-FASTAs/master/" + expected_file
-            urllib.request.urlopen(fl)  # Request URL, see whether is found
-            fl = urllib.request.urlretrieve(fl)[0]
+            urllib2.urlopen(urllib2.Request(fl))  # Request URL, see whether is found
+            fl_opener = urllib2.urlopen
 
         except Exception:
-            print("Cannot find following file locally or online:", expected_file)
-            print("Please either run Decombinator with internet access, or point Decombinator to local copies " \
-                  "of the tag and FASTA files with the \'-tf\' flag.")
+            print "Cannot find following file locally or online:", expected_file
+            print "Please either run Decombinator with internet access, or point Decombinator to local copies " \
+                  "of the tag and FASTA files with the \'-tf\' flag."
             sys.exit()
 
     # Return opened file, for either FASTA or tag file parsing
-    return fl
+    return fl_opener(fl)
 
 
 def sort_permissions(fl):
@@ -164,22 +166,22 @@ def import_gene_information(inputargs):
     chain = inputargs['chain']
 
     if inputargs['tags'] == "extended" and inputargs['species'] == "mouse":
-        print("Please note that there is currently no extended tag set for mouse TCR genes.\n" \
+        print "Please note that there is currently no extended tag set for mouse TCR genes.\n" \
               "Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n" \
               "In future, consider editing the script to change the default, " \
-              "or use the appropriate flags (-sp mouse -tg original).")
+              "or use the appropriate flags (-sp mouse -tg original)."
         inputargs['tags'] = "original"
 
     if inputargs['tags'] == "extended" and (chain == 'g' or chain == 'd'):
-        print("Please note that there is currently no extended tag set for gamma/delta TCR genes.\n" \
+        print "Please note that there is currently no extended tag set for gamma/delta TCR genes.\n" \
               "Decombinator will now switch the tag set in use from \'extended\' to \'original\'.\n" \
-              "In future, consider editing the script to change the default, or use the appropriate flags.")
+              "In future, consider editing the script to change the default, or use the appropriate flags."
         inputargs['tags'] = "original"
 
     # Check species information
     if inputargs['species'] not in ["human", "mouse"]:
-        print("Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n" \
-              "If mouse is required by default, consider changing the default value in the script.")
+        print "Species not recognised. Please select either \'human\' (default) or \'mouse\'.\n" \
+              "If mouse is required by default, consider changing the default value in the script."
         sys.exit()
 
     # Look for tag and V/J fasta and cysteine position files: if these cannot be found in the working directory,
@@ -191,29 +193,33 @@ def import_gene_information(inputargs):
         # Get FASTA data
         fasta_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "fasta", inputargs['tagfastadir'])
         globals()[gene + "_genes"] = list(SeqIO.parse(fasta_file, "fasta"))
-
-        globals()[gene + "_regions"] = [str(    item.seq.upper()) for item in globals()[gene + "_genes"]]
-        globals()[gene + "_names"] = [str(item.id.upper().split("|")[1]) for item in globals()[gene + "_genes"]]
+        fasta_file.close()
+        globals()[gene + "_regions"] = [str(string.upper(item.seq)) for item in globals()[gene + "_genes"]]
+        globals()[gene + "_names"] = [str(string.upper(item.id).split("|")[1]) for item in globals()[gene + "_genes"]]
 
         # Get conserved translation residue sites and functionality data
-        translation_file = open(read_tcr_file(inputargs['species'], inputargs['tags'], gene, "translate",
-                                         inputargs['tagfastadir']),"rt")
+        translation_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "translate",
+                                         inputargs['tagfastadir'])
         translate_data = [x.rstrip() for x in list(translation_file)]
-
+        translation_file.close()
         globals()[gene + "_translate_position"] = [int(x.split(",")[1]) for x in translate_data]
         globals()[gene + "_translate_residue"] = [x.split(",")[2] for x in translate_data]
-        globals()[gene + "_functionality"] = [x.split(",")[3] for x in translate_data]
+        globals()[gene + "_genes_covered"] = [x.split(",")[3].replace('|', ',') for x in translate_data]
+        globals()[gene + "_alleles_covered"] = [x.split(",")[4].replace('|', ',') for x in translate_data]
+        globals()[gene + "_functionality"] = [x.split(",")[5].replace('|', ',') for x in translate_data]
 
         if gene == 'v':
             # Get germline CDR data
-            cdr_file = open(read_tcr_file(inputargs['species'], inputargs['tags'], gene, "cdrs", inputargs['tagfastadir']), "rt")
+            cdr_file = read_tcr_file(inputargs['species'], inputargs['tags'], gene, "cdrs", inputargs['tagfastadir'])
             cdr_data = [x.rstrip() for x in list(cdr_file)]
             cdr_file.close()
             v_cdr1 = [x.split(" ")[1] for x in cdr_data]
             v_cdr2 = [x.split(" ")[2] for x in cdr_data]
 
     return v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, \
-           j_translate_position, j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2
+           j_translate_position, j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2, \
+           v_genes_covered, j_genes_covered, v_alleles_covered, j_alleles_covered, \
+           v_functionality, j_functionality
 
 
 def get_cdr3(dcr, headers):
@@ -287,7 +293,7 @@ def get_cdr3(dcr, headers):
     # 5.5 Having found conserved cysteine, only need look downstream to find other end of CDR3
     downstream_c = out_data['sequence_aa'][start_cdr3:]
 
-    # 6. Check for presence of FGXG motif (or equivalent)
+    # 6 Check for presence of FGXG motif (or equivalent)
     site = downstream_c[j_translate_position[j]:j_translate_position[j] + 4]
 
     if re.findall(j_translate_residue[j], site):
@@ -303,13 +309,23 @@ def get_cdr3(dcr, headers):
         out_data['cdr1_aa'] = v_cdr1[v]
         out_data['cdr2_aa'] = v_cdr2[v]
 
+    # 7 Gather additional information
+    for g in ['v', 'j']:
+        out_data['legacy_' + g + '_call'] = out_data[g + '_call']
+        out_data[g + '_call'] = globals()[g + '_genes_covered'][vars()[g]]
+        out_data[g + '_alleles'] = globals()[g + '_alleles_covered'][vars()[g]]
+        out_data[g + '_gene_functionality'] = globals()[g + '_gene_functionality'][vars()[g]]
+
     return out_data
+
 
 
 out_headers = ['sequence_id', 'v_call', 'd_call', 'j_call', 'junction_aa', 'duplicate_count', 'sequence',
                'junction', 'decombinator_id', 'rev_comp', 'productive', 'sequence_aa', 'cdr1_aa', 'cdr2_aa',
                'vj_in_frame', 'stop_codon', 'conserved_c', 'conserved_f',
-               'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar', 'av_UMI_cluster_size']
+               'legacy_v_call', 'legacy_j_call', 'v_alleles', 'j_alleles',
+               'v_gene_functionality', 'j_gene_functionality',
+               'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar']
 
 
 if __name__ == '__main__':
@@ -317,8 +333,6 @@ if __name__ == '__main__':
     # Check input files and parameters
     inputargs = vars(args())
     counts = coll.Counter()
-
-    print("Running CDR3Translator version", __version__)
 
     if inputargs['infile'].endswith('.gz'):
         opener = gzip.open
@@ -332,7 +346,7 @@ if __name__ == '__main__':
         if len(chaincheck) == 1:
             chain = chaincheck[0][0]
         else:
-            print("TCR chain not recognised. Please choose from a/b/g/d (case-insensitive).")
+            print "TCR chain not recognised. Please choose from a/b/g/d (case-insensitive)."
             sys.exit()
     else:
         if inputargs['chain'].upper() in ['A', 'ALPHA', 'TRA', 'TCRA']:
@@ -344,7 +358,7 @@ if __name__ == '__main__':
         elif inputargs['chain'].upper() in ['D', 'DELTA', 'TRD', 'TCRD']:
             chain = "d"
         else:
-            print("TCR chain not recognised. Please choose from a/b/g/d (case-insensitive).")
+            print "TCR chain not recognised. Please choose from a/b/g/d (case-insensitive)."
             sys.exit()
 
     inputargs['chain'] = chain  # Correct inputarg chain value so that import gene function gets correct input
@@ -356,53 +370,53 @@ if __name__ == '__main__':
 
     # Extract CDR3s
     v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, \
-    j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2 = import_gene_information(inputargs)
+    j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2, \
+    v_genes_covered, j_genes_covered, v_alleles_covered, j_alleles_covered, \
+    v_gene_functionality, j_gene_functionality = import_gene_information(inputargs)
 
-    infile = opener(filename, "rt")
+    infile = opener(filename, "rU")
 
     counts['line_count'] = 0
 
     # Count non-productive rearrangments
     chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
 
-    print("Translating", chainnams[chain], "chain CDR3s from", inputargs['infile'])
+    print "Translating", chainnams[chain], "chain CDR3s from", inputargs['infile']
 
     filename_id = os.path.basename(filename).split(".")[0]
     outfilename = filename_id + suffix
-    with opener(filename, 'rt') as in_file, open(outfilename, 'wt') as out_file:
+    with opener(filename, 'rU') as in_file, open(outfilename, 'w') as out_file:
         out_file.write('\t'.join(out_headers) + '\n')
 
         for line in in_file:
 
             counts['line_count'] += 1
 
-            tcr_data = line.rstrip().split(",")
-            in_dcr = ",".join(tcr_data[:5])
-            v = int(tcr_data[0])
-            j = int(tcr_data[1])
+            comma = [m.start() for m in re.finditer(',', line)]
 
-            if len(tcr_data) < 5:
-                print("Too few comma-delimited fields detected. Please check input and try again.")
-                sys.exit()
-            elif len(tcr_data) == 5: # pure DCR file, just the five fields (no frequency)
+            if len(comma) == 4:  # pure DCR file, just the five fields (no frequency)
+                in_dcr = line.rstrip()
                 use_freq = False
                 frequency = 1
-            elif len(tcr_data) > 7:  # if not n12 file, or freq file, raise error 
-                print("Too many number of comma-delimited fields detected. Please check input and try again.")
+            elif len(comma) == 5:  # assume that we're working from a .freq file (or equivalent)
+                in_dcr = str(line[:comma[4]])
+                frequency = int(line[comma[4] + 2:].rstrip())
+                use_freq = True
+            elif len(comma) > 5:  # assume that it's an n12 file (no frequency)
+                print "Incorrect number of comma-delimited fields detected. Please check input and try again."
                 sys.exit()
-            else: # freq file with 6 or 7 fields
-                frequency = int(tcr_data[5]) # assume that we're working from a .freq file (or equivalent)
-
-            if len(tcr_data) >= 7:
-                av_UMI_cluster_size = int(tcr_data[6])
             else:
-                av_UMI_cluster_size = ""
+                print "Based on the number of commas per line, script is unable to determine file type. " \
+                      "Please ensure you're inputting a valid file (e.g. .n12 or .freq)."
+                sys.exit()
 
             cdr3_data = get_cdr3(in_dcr, out_headers)
-            cdr3_data['sequence_id'] = str(counts['line_count'])
+            cdr3_data['sequence_id'] = str(counts['line_count']).zfill(9)  # Pad sequence IDs with leading zeros
+
+            v = int(line[:comma[0]])
+            j = int(line[comma[0] + 2:comma[1]])
 
             cdr3_data['duplicate_count'] = frequency
-            cdr3_data['av_UMI_cluster_size'] = av_UMI_cluster_size
 
             if cdr3_data['productive'] == 'T':
                 counts['prod_recomb'] += 1
@@ -416,16 +430,16 @@ if __name__ == '__main__':
 
             # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic)
             if inputargs['tags'] == 'extended' and inputargs['species'] == 'human':
-                counts[productivity + "_" + "V-" + v_functionality[v]] += 1
-                counts[productivity + "_" + "J-" + j_functionality[j]] += 1
+                counts[productivity + "_" + "V-" + v_functionality[v].split(',')[0]] += 1
+                counts[productivity + "_" + "J-" + j_functionality[j].split(',')[0]] += 1
 
-    print("CDR3 data written to", outfilename)
+    print "CDR3 data written to", outfilename
 
     # Compress output
     if not inputargs['dontgzip']:
-        print("Compressing CDR3 output file to", outfilename + ".gz")
+        print "Compressing CDR3 output file to", outfilename + ".gz"
 
-        with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wt') as outfile:
+        with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wb') as outfile:
             outfile.writelines(infile)
         os.unlink(outfilename)
 
@@ -447,14 +461,14 @@ if __name__ == '__main__':
         # Check for existing date-stamped file
         summaryname = "Logs/" + date + "_" + filename_id + "_CDR3_Translation_Summary.csv"
         if not os.path.exists(summaryname):
-            summaryfile = open(summaryname, "wt")
+            summaryfile = open(summaryname, "w")
         else:
             # If one exists, start an incremental day stamp
             for i in range(2, 10000):
                 summaryname = "Logs/" + date + "_" + filename_id + \
                               "_CDR3_Translation_Summary" + str(i) + ".csv"
                 if not os.path.exists(summaryname):
-                    summaryfile = open(summaryname, "wt")
+                    summaryfile = open(summaryname, "w")
                     break
 
         # Generate string to write to summary file
@@ -477,7 +491,7 @@ if __name__ == '__main__':
                         target = p + '_' + g + '-' + f
                         summstr = summstr + '\n' + target + ',' + str(counts[target])
 
-        print(summstr, file=summaryfile)
+        print >> summaryfile, summstr
         summaryfile.close()
         sort_permissions(summaryname)
 
