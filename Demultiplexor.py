@@ -83,6 +83,8 @@ import itertools
 import Levenshtein as lev
 import collections as coll
 
+from IPython import embed
+
 __version__ = '4.0.2'
 
 ##########################################################
@@ -102,6 +104,8 @@ def args():
       '-r2', '--read2', type=str, help='Read 2 FASTQ file', required=True)
   parser.add_argument(
       '-i1', '--index1', type=str, help='Index read FASTQ file', required=True)
+  parser.add_argument(
+      '-i2', '--index2', type=str, help='Second index read FASTQ file (if dual indexing)', required=False)
   parser.add_argument(
       '-ix', '--indexlist', type=str, help='File containing sample/index table', required=False)
   parser.add_argument(
@@ -301,7 +305,12 @@ if __name__ == '__main__':
     fq2 = readfq(gzip.open(inputargs['index1'], 'rt'))
   else:
     fq2 = readfq(open(inputargs['index1']))
-  
+
+  if inputargs['index2']:
+    if inputargs['index2'].endswith('.gz'):
+      fq22 = readfq(gzip.open(inputargs['index2'], 'rt'))
+    else:
+      fq22 = readfq(open(inputargs['index2']))  
 
   if inputargs['read2'].endswith('.gz'):
     fq3 = readfq(gzip.open(inputargs['read2'], 'rt'))
@@ -310,7 +319,19 @@ if __name__ == '__main__':
 
   print("Demultiplexing data...")
 
-  for record1, record2, record3 in zip(fq1, fq2, fq3):
+  if inputargs['index2']:
+      zipfqs = zip(fq1, fq2, fq22, fq3)
+  else:
+      zipfqs = zip(fq1, fq2, fq3)
+
+#  for record1, record2, record3 in zip(fq1, fq2, fq3):
+  for records in zipfqs:
+
+    if inputargs['index2']:
+      record1, record2, record22, record3 = records
+    else:
+       record1, record2, record3 = records 
+
     # Readfq function with return each read from each file as a 3 part tuple
       # ('ID', 'SEQUENCE', 'QUALITY')
     count += 1    
@@ -325,27 +346,51 @@ if __name__ == '__main__':
     # N relates to barcode random nucleotides, X denotes index bases
     
     ### FORMATTING OUTPUT READ ###
-    
-    Nseq = record3[1][0:45]
-    Nqual = record3[2][0:45]
 
-    X1seq = record1[1][6:12]
-    X1qual = record1[2][6:12]
+    # Assume second index embedded within record1
+    if len(records) == 3:
 
-    X2seq = record2[1]
-    X2qual = record2[2]
+      Nseq = record3[1][0:45]
+      Nqual = record3[2][0:45]
 
-    readseq = record1[1][12:]
-    readqual = record1[2][12:]
+      X1seq = record1[1][6:12]
+      X1qual = record1[2][6:12]
 
-    fq_seq = Nseq + X1seq + X2seq + readseq
-    fq_qual = Nqual + X1qual + X2qual + readqual
+      X2seq = record2[1]
+      X2qual = record2[2]
+
+      readseq = record1[1][12:]
+      readqual = record1[2][12:]
+
+      fq_seq = Nseq + X1seq + X2seq + readseq
+      fq_qual = Nqual + X1qual + X2qual + readqual
     
-    new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
+      new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
     
-    ### DEMULTIPLEXING ###
+      seqX = X1seq + X2seq
+
+    if len(records) == 4:
+
+      Nseq = record3[1][0:45]
+      Nqual = record3[2][0:45]
+
+      X1seq = record22[1]
+      X1qual = record22[2]
+
+      X2seq = record2[1]
+      X2qual = record2[2]
+
+      readseq = record1[1][6:]
+      readqual = record1[2][6:]
+
+      fq_seq = Nseq + X1seq + X2seq + readseq
+      fq_qual = Nqual + X1qual + X2qual + readqual
     
-    seqX = X1seq + X2seq 
+      new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
+    
+      seqX = X1seq + X2seq
+
+    ### DEMULTIPLEXING ### 
     
     if seqX in XXdict:
       # Exact index matches
