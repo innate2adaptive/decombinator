@@ -84,8 +84,6 @@ import Levenshtein as lev
 import collections as coll
 from Bio.Seq import Seq
 
-from IPython import embed
-
 __version__ = '4.0.2'
 
 ##########################################################
