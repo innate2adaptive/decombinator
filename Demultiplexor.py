@@ -195,6 +195,76 @@ def sort_permissions(fl):
   if oct(os.stat(fl).st_mode)[4:] != '666':
     os.chmod(str(fl), 0o666)
 
+def read_index_single_file(inputargs):
+
+  suffix = "." + inputargs['extension']
+
+  failed = open("Undetermined" + suffix, "w")
+
+  outputreads = coll.Counter()
+  outputreads["Undetermined"] = 0
+
+  usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
+
+  XXdict = {}
+
+  indexes = list(open(inputargs['indexlist'], "r"))
+
+  for x in indexes:
+    
+    if x == "\n":
+      print("Empty line detected in index file, presumed end of file.")
+      break
+
+    elements = x.strip("\n").split(",")
+    sample = elements[0]
+    
+    open(sample + suffix, "w").close()
+    
+    compound_index = X1dict[elements[1]] + X2dict[elements[2]] 
+    XXdict[compound_index] = open(sample + suffix, "a")
+    
+    outputreads[sample] = 0
+    usedindexes[sample] = compound_index
+
+  return XXdict, outputreads, usedindexes, failed
+
+def read_index_dual_file(inputargs):
+
+  suffix = "." + inputargs['extension']
+
+  failed = open("Undetermined" + suffix, "w")
+
+  outputreads = coll.Counter()
+  outputreads["Undetermined"] = 0
+
+  usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
+
+  XXdict = {}
+
+  for line in (open(inputargs['indexlist'], "r")):
+
+    if line == "\n":
+      print("Empty line detected in index file, presumed end of file.")
+      break
+
+    elements = [y.strip() for y in line.split(",")]
+
+    sample = elements[0]
+    index1 = revcomp(elements[1])
+    index2 = elements[2]
+
+    open(sample + suffix, "w").close()
+
+    compound_index = index2 + index1 
+    XXdict[compound_index] = open(sample + suffix, "a")
+
+    outputreads[sample] = 0
+    usedindexes[sample] = compound_index
+
+    return XXdict, outputreads, usedindexes, failed
+
+
 ###############################################
 ############# SEQUENCE PROCESSING #############
 ###############################################
@@ -237,59 +307,14 @@ X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", 
 
 suffix = "." + inputargs['extension']
 
-failed = open("Undetermined" + suffix, "w")
-
-outputreads = coll.Counter()
-outputreads["Undetermined"] = 0
-
-usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
-
-XXdict = {}
-
-
 # If given an indexlist, use that to generate named output files
 if inputargs['indexlist']:
-
-  for line in (open(inputargs['indexlist'], "r")):
-
-    if line == "\n":
-      print("Empty line detected in index file, presumed end of file.")
-      break
-
-    elements = [y.strip() for y in line.split(",")]
-
-    sample = elements[0]
-    index1 = revcomp(elements[1])
-    index2 = elements[2]
-
-    open(sample + suffix, "w").close()
-
-    compound_index = index1 + index2 
-    XXdict[compound_index] = open(sample + suffix, "a")
-
-    outputreads[sample] = 0
-    usedindexes[sample] = compound_index
-
-  # indexes = list(open(inputargs['indexlist'], "r"))
-
-  # for x in indexes:
-    
-  #   if x == "\n":
-  #     print("Empty line detected in index file, presumed end of file.")
-  #     break
-
-  #   elements = [y.rstrip() for y in x.strip("\n").split(",")]
-  #   embed()
-  #   sample = elements[0]
-    
-  #   open(sample + suffix, "w").close()
-    
-  #   #compound_index = X1dict[elements[1]] + X2dict[elements[2]] 
-  #   XXdict[compound_index] = open(sample + suffix, "a")
-    
-  #   outputreads[sample] = 0
-  #   usedindexes[sample] = compound_index
-
+  # if two index files submitted
+  if inputargs['index2']:
+    XXdict, outputreads, usedindexes, failed = read_index_dual_file(inputargs)
+  # if one index file sumbitted
+  else:
+    XXdict, outputreads, usedindexes, failed = read_index_single_file(inputargs)
 
 # If the outputall option is chosen, output all possible index combinations that exist in the data
   # Note that if an indexlist is provided, those names are still used in the appropriate output files
@@ -335,31 +360,33 @@ if __name__ == '__main__':
   if inputargs['index1'].endswith('.gz'):
     fq2 = readfq(gzip.open(inputargs['index1'], 'rt'))
   else:
-    fq2 = readfq(open(inputargs['index1']))
-
-  if inputargs['index2']:
-    if inputargs['index2'].endswith('.gz'):
-      fq22 = readfq(gzip.open(inputargs['index2'], 'rt'))
-    else:
-      fq22 = readfq(open(inputargs['index2']))  
+    fq2 = readfq(open(inputargs['index1'])) 
 
   if inputargs['read2'].endswith('.gz'):
     fq3 = readfq(gzip.open(inputargs['read2'], 'rt'))
   else:
     fq3 = readfq(open(inputargs['read2']))
 
+  if inputargs['index2']:
+    if inputargs['index2'].endswith('.gz'):
+      fq4 = readfq(gzip.open(inputargs['index2'], 'rt'))
+    else:
+      fq4 = readfq(open(inputargs['index2'])) 
+
   print("Demultiplexing data...")
 
   if inputargs['index2']:
-      zipfqs = zip(fq1, fq2, fq22, fq3)
+      fqs = (fq1, fq2, fq3, fq4)
+      zipfqs = zip(fq1, fq2, fq3, fq4)
   else:
+      fqs = (fq1, fq2, fq3)
       zipfqs = zip(fq1, fq2, fq3)
 
 #  for record1, record2, record3 in zip(fq1, fq2, fq3):
   for records in zipfqs:
 
     if inputargs['index2']:
-      record1, record2, record22, record3 = records
+      record1, record2, record3, record4 = records
     else:
        record1, record2, record3 = records 
 
@@ -402,11 +429,11 @@ if __name__ == '__main__':
 
     if len(records) == 4:
 
-      Nseq = record3[1][0:45]
-      Nqual = record3[2][0:45]
+      Nseq = record4[1][0:45]
+      Nqual = record4[2][0:45]
 
-      X1seq = record22[1]
-      X1qual = record22[2]
+      X1seq = record3[1]
+      X1qual = record3[2]
 
       X2seq = record2[1]
       X2qual = record2[2]
@@ -463,9 +490,8 @@ if __name__ == '__main__':
 
   failed.close()
   sort_permissions(failed.name)
-  fq1.close()
-  fq2.close()
-  fq3.close()
+  for f in fqs:
+    f.close()
 
   # If output all is allowed, delete all unused index combinations
   if inputargs['outputall'] == True:
@@ -543,6 +569,7 @@ if __name__ == '__main__':
     
     if inputargs['indexlist']:
       summstr = summstr + "\nOutputFile,IndexNumbersUsed(SP1&SP2)\n"
+      indexes = list(open(inputargs['indexlist'], "r"))
       for x in indexes:
         splt = x.rstrip().split(",")
         summstr = summstr + splt[0] + "," + splt[1] + " & " + splt[2] + "\n"
