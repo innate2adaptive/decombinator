@@ -262,7 +262,7 @@ def read_index_dual_file(inputargs):
     outputreads[sample] = 0
     usedindexes[sample] = compound_index
 
-    return XXdict, outputreads, usedindexes, failed
+  return XXdict, outputreads, usedindexes, failed
 
 
 ###############################################
@@ -429,11 +429,11 @@ if __name__ == '__main__':
 
     if len(records) == 4:
 
-      Nseq = record4[1][0:45]
-      Nqual = record4[2][0:45]
+      Nseq = record3[1][0:45]
+      Nqual = record3[2][0:45]
 
-      X1seq = record3[1]
-      X1qual = record3[2]
+      X1seq = record4[1]
+      X1qual = record4[2]
 
       X2seq = record2[1]
       X2qual = record2[2]
