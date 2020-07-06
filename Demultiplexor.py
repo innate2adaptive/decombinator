@@ -82,6 +82,7 @@ import os
 import itertools
 import Levenshtein as lev
 import collections as coll
+from Bio.Seq import Seq
 
 from IPython import embed
 
@@ -194,6 +195,14 @@ def sort_permissions(fl):
   if oct(os.stat(fl).st_mode)[4:] != '666':
     os.chmod(str(fl), 0o666)
 
+###############################################
+############# SEQUENCE PROCESSING #############
+###############################################
+
+def revcomp(x):
+  return str(Seq(x).reverse_complement())
+
+
 inputargs = vars(args())
 
 if inputargs['outputall'] == False and not inputargs['indexlist']:
@@ -212,7 +221,7 @@ for f in [inputargs['read1'], inputargs['read2'], inputargs['index1']]:
 # Version 4.0.1 (and above) introduces new SP2 indexes 27-102
 
 # SP1 index = R1 (our own, RC1 proximal index)
-X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
+  X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
 # NB: One index removed due to similarity to others, but exists in earlier datasets: "14":"ACACGG" 
 
 # 'SP2' index = R2 (index read, comes first in rearranged sequence)
@@ -240,24 +249,46 @@ XXdict = {}
 
 # If given an indexlist, use that to generate named output files
 if inputargs['indexlist']:
-  indexes = list(open(inputargs['indexlist'], "r"))
 
-  for x in indexes:
-    
-    if x == "\n":
+  for line in (open(inputargs['indexlist'], "r")):
+
+    if line == "\n":
       print("Empty line detected in index file, presumed end of file.")
       break
 
-    elements = x.strip("\n").split(",")
+    elements = [y.strip() for y in line.split(",")]
+
     sample = elements[0]
-    
+    index1 = revcomp(elements[1])
+    index2 = elements[2]
+
     open(sample + suffix, "w").close()
-    
-    compound_index = X1dict[elements[1]] + X2dict[elements[2]] 
+
+    compound_index = index1 + index2 
     XXdict[compound_index] = open(sample + suffix, "a")
-    
+
     outputreads[sample] = 0
     usedindexes[sample] = compound_index
+
+  # indexes = list(open(inputargs['indexlist'], "r"))
+
+  # for x in indexes:
+    
+  #   if x == "\n":
+  #     print("Empty line detected in index file, presumed end of file.")
+  #     break
+
+  #   elements = [y.rstrip() for y in x.strip("\n").split(",")]
+  #   embed()
+  #   sample = elements[0]
+    
+  #   open(sample + suffix, "w").close()
+    
+  #   #compound_index = X1dict[elements[1]] + X2dict[elements[2]] 
+  #   XXdict[compound_index] = open(sample + suffix, "a")
+    
+  #   outputreads[sample] = 0
+  #   usedindexes[sample] = compound_index
 
 
 # If the outputall option is chosen, output all possible index combinations that exist in the data
