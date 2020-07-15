@@ -289,7 +289,7 @@ for f in [inputargs['read1'], inputargs['read2'], inputargs['index1']]:
 # Version 4.0.1 (and above) introduces new SP2 indexes 27-102
 
 # SP1 index = R1 (our own, RC1 proximal index)
-  X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
+X1dict = {"1":"ATCACG", "2":"CGATGT", "3":"TTAGGC", "4":"TGACCA", "5":"ACAGTG", "6":"GCCAAT", "7": "CAGATC", "8":"ACTTGA", "9":"GATCAG", "10":"TAGCTT","11":"GGCTAC", "12":"CTTGTA", "13":"TAGACT"}
 # NB: One index removed due to similarity to others, but exists in earlier datasets: "14":"ACACGG" 
 
 # 'SP2' index = R2 (index read, comes first in rearranged sequence)
