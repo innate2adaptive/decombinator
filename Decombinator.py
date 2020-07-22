@@ -775,13 +775,19 @@ if __name__ == '__main__':
     date = strftime("%Y_%m_%d")
     
     # Check for existing date-stamped file
-    summaryname = "Logs/" + date + "_" + samplenam + "_Decombinator_Summary.csv"
+    summaryname = "Logs/" + date + "_"
+    if inputargs['chain']:
+      summaryname += chainnams[chain] + "_"
+    summaryname += samplenam + "_Decombinator_Summary.csv"
     if not os.path.exists(summaryname): 
       summaryfile = open(summaryname, "wt")
     else:
       # If one exists, start an incremental day stamp
       for i in range(2,10000):
-        summaryname = "Logs/" + date + "_" + samplenam + "_Decombinator_Summary" + str(i) + ".csv"
+        summaryname = "Logs/" + date + "_"
+        if inputargs['chain']:
+          summaryname += chainnams[chain] + "_"
+        summaryname += samplenam + "_Decombinator_Summary" + str(i) + ".csv"
         if not os.path.exists(summaryname): 
           summaryfile = open(summaryname, "wt")
           break
