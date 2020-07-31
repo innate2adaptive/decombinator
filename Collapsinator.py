@@ -518,16 +518,16 @@ def make_clusters(merge_groups, barcode_dcretc):
       for k in list(subgraph):
         clusters[base_node_barcode] +=  barcode_dcretc[k][1]
 
-      # add remaining barcode/protoseqs that do not need merging to the clusters
-      for i, bdcretc in enumerate(barcode_dcretc):
-          # if already accounted for in the merged_groups then skip over
-        if i in G.nodes:
-          continue
-        else:
-          base_node_barcode = bdcretc[0]
-          clusters[base_node_barcode] = bdcretc[1]
+    # add remaining barcode/protoseqs that do not need merging to the clusters
+    for i, bdcretc in enumerate(barcode_dcretc):
+        # if already accounted for in the merged_groups then skip over
+      if i in G.nodes:
+        continue
+      else:
+        base_node_barcode = bdcretc[0]
+        clusters[base_node_barcode] = bdcretc[1]
 
-      return clusters
+    return clusters
 
 def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold, dont_count):
     # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
@@ -576,7 +576,7 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold, do
     clusters = make_clusters(merge_groups, barcode_dcretc_list)
 
     t1 = time()
-    print("  ", len(barcode_dcretc), "groups merged into", len(clusters), "clusters")
+    print("  ", num_initial_groups, "groups merged into", len(clusters), "clusters")
     print("  ", round(t1-t0, 2), "seconds")
     
     # dump clusters to separate files if desired
