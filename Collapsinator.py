@@ -506,7 +506,7 @@ def make_clusters(merge_groups, barcode_dcretc):
       G.add_edge(i[0], i[1])
 
     # extracts subgraphs (clusters) from the full graph
-    con_comp = nx.connected_components(G) 
+    con_comp = nx.connected_components(G)
 
     for subgraph in con_comp:
       # get full barcode barcode information of the first node in the subgraph from barcode_dcretc
