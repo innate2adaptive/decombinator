@@ -373,6 +373,16 @@ You can also use the 'nonproductivefilter' flag  (`-npf`) to suppress the output
 
 ---
 
+<h1 id="supplementary-scripts">Supplementary Scripts</h1>
+
+A number of useful scripts to supplement the Decombinator pipeline can be found in the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools) repository.
+
+This repository includes scripts to automatically generate test data, randomly subsample existing data, automatically run the Decombinator test data, generate a histograms of average UMI cluster sizes, and to build a summary of log files.
+
+<sub>[↑Top](#top)</sub>
+
+---
+
 <h1 id="generalusage">General usage notes and tips</h1>
 
 ## Being efficient
