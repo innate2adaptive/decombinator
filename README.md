@@ -23,6 +23,7 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 * [Decombining](#decombinator)
 * [Collapsing](#collapsing)
 * [CDR3 extraction](#cdr3)
+* [Supplementary Scripts](#supplementary-scripts)
 * [General usage notes](#generalusage)
 * [Calling Decombinator from other scripts](#calldcr)
 
