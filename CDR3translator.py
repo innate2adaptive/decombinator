@@ -205,12 +205,20 @@ def import_gene_information(inputargs):
         globals()[gene + "_functionality"] = [x.split(",")[3] for x in translate_data]
 
         if gene == 'v':
-            # Get germline CDR data
-            cdr_file = open(read_tcr_file(inputargs['species'], inputargs['tags'], gene, "cdrs", inputargs['tagfastadir']), "rt")
-            cdr_data = [x.rstrip() for x in list(cdr_file)]
-            cdr_file.close()
-            v_cdr1 = [x.split(" ")[1] for x in cdr_data]
-            v_cdr2 = [x.split(" ")[2] for x in cdr_data]
+            
+            if inputargs['species'] == "human":
+                # Get germline CDR data
+                cdr_file = open(read_tcr_file(inputargs['species'], inputargs['tags'], gene, "cdrs", inputargs['tagfastadir']), "rt")
+                cdr_data = [x.rstrip() for x in list(cdr_file)]
+                cdr_file.close()
+                v_cdr1 = [x.split(" ")[1] for x in cdr_data]
+                v_cdr2 = [x.split(" ")[2] for x in cdr_data]
+            else:
+                # cdr_file only exists for human -  CDR1 and CDR2 only written to output tsv
+                # for human. Otherwise create empty lists fo v_cdr1 and v_cdr2, to write empty
+                # fields to output tsv
+                v_cdr1 = [""]*len(globals()[gene + "_genes"])
+                v_cdr2 = [""]*len(globals()[gene + "_genes"])
 
     return v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, \
            j_translate_position, j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2
