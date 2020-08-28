@@ -23,6 +23,7 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 * [Decombining](#decombinator)
 * [Collapsing](#collapsing)
 * [CDR3 extraction](#cdr3)
+* [Supplementary Scripts](#supplementary-scripts)
 * [General usage notes](#generalusage)
 * [Calling Decombinator from other scripts](#calldcr)
 
@@ -368,6 +369,16 @@ As of version 4, this script now outputs a tab separated file compatible with th
 | j_cigar | Format required field - left blank |
 
 You can also use the 'nonproductivefilter' flag  (`-npf`) to suppress the output of non-productive rearrangements. 
+
+<sub>[↑Top](#top)</sub>
+
+---
+
+<h1 id="supplementary-scripts">Supplementary Scripts</h1>
+
+A number of useful scripts to supplement the Decombinator pipeline can be found in the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools) repository.
+
+This repository includes scripts to automatically generate test data, randomly subsample existing data, automatically run the Decombinator test data, generate a histograms of average UMI cluster sizes, and to build a summary of log files.
 
 <sub>[↑Top](#top)</sub>
 
