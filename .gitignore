@@ -1,0 +1,25 @@
+# Decombinator input and output files
+*.cdr3
+*.fastq
+*.fq
+*.freq
+*.n12
+*.nbc
+*.ndx
+
+# Compressed files
+*.gz
+
+# Analysis files
+*.csv
+*.jpg
+*.pdf
+*.png
+*.tsv
+*.txt
+
+# Logs folder
+Logs
+
+# Python bytecode files
+*.pyc

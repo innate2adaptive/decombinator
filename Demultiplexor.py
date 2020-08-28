@@ -82,6 +82,7 @@ import os
 import itertools
 import Levenshtein as lev
 import collections as coll
+from Bio.Seq import Seq
 
 __version__ = '4.0.2'
 
@@ -102,6 +103,8 @@ def args():
       '-r2', '--read2', type=str, help='Read 2 FASTQ file', required=True)
   parser.add_argument(
       '-i1', '--index1', type=str, help='Index read FASTQ file', required=True)
+  parser.add_argument(
+      '-i2', '--index2', type=str, help='Second index read FASTQ file (if dual indexing)', required=False)
   parser.add_argument(
       '-ix', '--indexlist', type=str, help='File containing sample/index table', required=False)
   parser.add_argument(
@@ -190,6 +193,84 @@ def sort_permissions(fl):
   if oct(os.stat(fl).st_mode)[4:] != '666':
     os.chmod(str(fl), 0o666)
 
+def read_index_single_file(inputargs):
+
+  suffix = "." + inputargs['extension']
+
+  failed = open("Undetermined" + suffix, "w")
+
+  outputreads = coll.Counter()
+  outputreads["Undetermined"] = 0
+
+  usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
+
+  XXdict = {}
+
+  indexes = list(open(inputargs['indexlist'], "r"))
+
+  for x in indexes:
+    
+    if x == "\n":
+      print("Empty line detected in index file, presumed end of file.")
+      break
+
+    elements = x.strip("\n").split(",")
+    sample = elements[0]
+    
+    open(sample + suffix, "w").close()
+    
+    compound_index = X1dict[elements[1]] + X2dict[elements[2]] 
+    XXdict[compound_index] = open(sample + suffix, "a")
+    
+    outputreads[sample] = 0
+    usedindexes[sample] = compound_index
+
+  return XXdict, outputreads, usedindexes, failed
+
+def read_index_dual_file(inputargs):
+
+  suffix = "." + inputargs['extension']
+
+  failed = open("Undetermined" + suffix, "w")
+
+  outputreads = coll.Counter()
+  outputreads["Undetermined"] = 0
+
+  usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
+
+  XXdict = {}
+
+  for line in (open(inputargs['indexlist'], "r")):
+
+    if line == "\n":
+      print("Empty line detected in index file, presumed end of file.")
+      break
+
+    elements = [y.strip() for y in line.split(",")]
+
+    sample = elements[0]
+    index1 = revcomp(elements[1])
+    index2 = elements[2]
+
+    open(sample + suffix, "w").close()
+
+    compound_index = index2 + index1 
+    XXdict[compound_index] = open(sample + suffix, "a")
+
+    outputreads[sample] = 0
+    usedindexes[sample] = compound_index
+
+  return XXdict, outputreads, usedindexes, failed
+
+
+###############################################
+############# SEQUENCE PROCESSING #############
+###############################################
+
+def revcomp(x):
+  return str(Seq(x).reverse_complement())
+
+
 inputargs = vars(args())
 
 if inputargs['outputall'] == False and not inputargs['indexlist']:
@@ -224,37 +305,14 @@ X2dict = {"1":"CGTGAT", "2":"ACATCG", "3":"GCCTAA", "4":"TGGTCA", "5":"CACTGT", 
 
 suffix = "." + inputargs['extension']
 
-failed = open("Undetermined" + suffix, "w")
-
-outputreads = coll.Counter()
-outputreads["Undetermined"] = 0
-
-usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
-
-XXdict = {}
-
-
 # If given an indexlist, use that to generate named output files
 if inputargs['indexlist']:
-  indexes = list(open(inputargs['indexlist'], "r"))
-
-  for x in indexes:
-    
-    if x == "\n":
-      print("Empty line detected in index file, presumed end of file.")
-      break
-
-    elements = x.strip("\n").split(",")
-    sample = elements[0]
-    
-    open(sample + suffix, "w").close()
-    
-    compound_index = X1dict[elements[1]] + X2dict[elements[2]] 
-    XXdict[compound_index] = open(sample + suffix, "a")
-    
-    outputreads[sample] = 0
-    usedindexes[sample] = compound_index
-
+  # if two index files submitted
+  if inputargs['index2']:
+    XXdict, outputreads, usedindexes, failed = read_index_dual_file(inputargs)
+  # if one index file sumbitted
+  else:
+    XXdict, outputreads, usedindexes, failed = read_index_single_file(inputargs)
 
 # If the outputall option is chosen, output all possible index combinations that exist in the data
   # Note that if an indexlist is provided, those names are still used in the appropriate output files
@@ -300,17 +358,36 @@ if __name__ == '__main__':
   if inputargs['index1'].endswith('.gz'):
     fq2 = readfq(gzip.open(inputargs['index1'], 'rt'))
   else:
-    fq2 = readfq(open(inputargs['index1']))
-  
+    fq2 = readfq(open(inputargs['index1'])) 
 
   if inputargs['read2'].endswith('.gz'):
     fq3 = readfq(gzip.open(inputargs['read2'], 'rt'))
   else:
     fq3 = readfq(open(inputargs['read2']))
 
+  if inputargs['index2']:
+    if inputargs['index2'].endswith('.gz'):
+      fq4 = readfq(gzip.open(inputargs['index2'], 'rt'))
+    else:
+      fq4 = readfq(open(inputargs['index2'])) 
+
   print("Demultiplexing data...")
 
-  for record1, record2, record3 in zip(fq1, fq2, fq3):
+  if inputargs['index2']:
+      fqs = (fq1, fq2, fq3, fq4)
+      zipfqs = zip(fq1, fq2, fq3, fq4)
+  else:
+      fqs = (fq1, fq2, fq3)
+      zipfqs = zip(fq1, fq2, fq3)
+
+#  for record1, record2, record3 in zip(fq1, fq2, fq3):
+  for records in zipfqs:
+
+    if inputargs['index2']:
+      record1, record2, record3, record4 = records
+    else:
+       record1, record2, record3 = records 
+
     # Readfq function with return each read from each file as a 3 part tuple
       # ('ID', 'SEQUENCE', 'QUALITY')
     count += 1    
@@ -325,27 +402,51 @@ if __name__ == '__main__':
     # N relates to barcode random nucleotides, X denotes index bases
     
     ### FORMATTING OUTPUT READ ###
-    
-    Nseq = record3[1][0:45]
-    Nqual = record3[2][0:45]
 
-    X1seq = record1[1][6:12]
-    X1qual = record1[2][6:12]
+    # Assume second index embedded within record1
+    if len(records) == 3:
 
-    X2seq = record2[1]
-    X2qual = record2[2]
+      Nseq = record3[1][0:45]
+      Nqual = record3[2][0:45]
 
-    readseq = record1[1][12:]
-    readqual = record1[2][12:]
+      X1seq = record1[1][6:12]
+      X1qual = record1[2][6:12]
 
-    fq_seq = Nseq + X1seq + X2seq + readseq
-    fq_qual = Nqual + X1qual + X2qual + readqual
+      X2seq = record2[1]
+      X2qual = record2[2]
+
+      readseq = record1[1][12:]
+      readqual = record1[2][12:]
+
+      fq_seq = Nseq + X1seq + X2seq + readseq
+      fq_qual = Nqual + X1qual + X2qual + readqual
     
-    new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
+      new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
     
-    ### DEMULTIPLEXING ###
+      seqX = X1seq + X2seq
+
+    if len(records) == 4:
+
+      Nseq = record3[1][0:45]
+      Nqual = record3[2][0:45]
+
+      X1seq = record4[1]
+      X1qual = record4[2]
+
+      X2seq = record2[1]
+      X2qual = record2[2]
+
+      readseq = record1[1][6:]
+      readqual = record1[2][6:]
+
+      fq_seq = Nseq + X1seq + X2seq + readseq
+      fq_qual = Nqual + X1qual + X2qual + readqual
     
-    seqX = X1seq + X2seq 
+      new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
+    
+      seqX = X1seq + X2seq
+
+    ### DEMULTIPLEXING ### 
     
     if seqX in XXdict:
       # Exact index matches
@@ -387,9 +488,8 @@ if __name__ == '__main__':
 
   failed.close()
   sort_permissions(failed.name)
-  fq1.close()
-  fq2.close()
-  fq3.close()
+  for f in fqs:
+    f.close()
 
   # If output all is allowed, delete all unused index combinations
   if inputargs['outputall'] == True:
@@ -467,6 +567,7 @@ if __name__ == '__main__':
     
     if inputargs['indexlist']:
       summstr = summstr + "\nOutputFile,IndexNumbersUsed(SP1&SP2)\n"
+      indexes = list(open(inputargs['indexlist'], "r"))
       for x in indexes:
         splt = x.rstrip().split(",")
         summstr = summstr + splt[0] + "," + splt[1] + " & " + splt[2] + "\n"

@@ -790,8 +790,10 @@ if __name__ == '__main__':
 
         # print instructions for creating histogram plot using script in Supplementary-Scripts
         print("\nAverage UMI cluster size histogram data saved to", hfilename)
-        print("To plot histogram, please use UMIhistogram.py script in the Supplementary-Scripts folder as follows:")
-        codestr = "python Supplementary-Scripts/UMIhistogram.py -in "+ hfilename
+        print("To plot histogram, please use UMIhistogram.py script located in the Decombinator-Tools repository.")
+        print("Decombinator-Tools can be found at https://github.com/innate2adaptive/Decombinator-Tools.")
+        print("With the Decombinator-Tools repository downloaded, run:")
+        codestr = "python path/to/Decombinator-Tools/UMIHistogram.py -in "+ hfilename
         print("#"*(len(codestr) + 4))
         print(" ", codestr, " ")
         print("#"*(len(codestr) + 4))
