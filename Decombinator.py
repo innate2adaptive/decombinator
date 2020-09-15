@@ -666,7 +666,7 @@ if __name__ == '__main__':
   if counts['chain_detected'] == 1:
     name_results = inputargs['prefix'] + samplenam
   else:
-    name_results = inputargs['prefix'] + chainnams[chain] + "_" + samplenam
+    name_results = inputargs['prefix'] + samplenam + "_" + chainnams[chain]
   
   if inputargs['nobarcoding'] == False:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
