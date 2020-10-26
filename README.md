@@ -52,14 +52,16 @@ Very large data containing many samples, such as from Illumina NextSeq machines,
 
 Python 3.7 is required to run this pipeline, along with the following non-standard modules:
 
-* acora
-* biopython
-* regex
-* python-Levenshtein
+* acora (>= 2.2)
+* biopython (>= 1.75)
+* networkx (>= 2.5)
+* polyleven (>= 0.5)
+* python-Levenshtein (>= 0.12.0)
+* regex (>= 2020.7.14)
 
 These can be installed via pip (although most will likely appear in other package managers), e.g.:
 ```bash
-pip install biopython python-levenshtein regex acora
+pip install acora>=2.2 biopython>=1.75 networkx>=2.5 polyleven>=0.5 python-levenshtein>=0.12.0 regex>=2020.7.14
 ```
 If users are unable to install Python and the required modules, a Python installation complete with necessary packages has been bundled into a Docker container, which should be runnable on most setups. The appropriate image is located [on Dockerhub, under the name 'dcrpython'](https://hub.docker.com/r/decombinator/dcrpython/). (Please note that this is not yet updated for v4)
 
