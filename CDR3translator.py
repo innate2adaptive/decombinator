@@ -18,7 +18,6 @@ and crucially giving TCR gene name output in the raw format (in addition to the 
 
 from __future__ import division
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 from Bio import SeqIO
 from time import strftime
 import argparse
@@ -31,7 +30,7 @@ import urllib
 import warnings
 import gzip
 
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore")
@@ -259,7 +258,7 @@ def get_cdr3(dcr, headers):
     out_data['sequence'] = ''.join([v_used, ins_nt, j_used])
 
     # 2. Translate
-    out_data['sequence_aa'] = str(Seq(out_data['sequence'], generic_dna).translate())
+     out_data['sequence_aa'] = str(Seq(out_data['sequence']).translate())
 
     # 3. Check whether whole rearrangement is in frame
     if (len(out_data['sequence']) - 1) % 3 == 0:
