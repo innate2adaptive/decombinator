@@ -50,13 +50,12 @@ from time import time, strftime
 import argparse
 import gzip
 import regex
-from scipy.special import comb
 import copy
 import os, sys
 import networkx as nx
 from polyleven import levenshtein as polylev
 
-__version__ = '4.0.3'
+__version__ = '4.0.4'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
