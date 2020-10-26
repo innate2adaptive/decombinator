@@ -258,7 +258,7 @@ def get_cdr3(dcr, headers):
     out_data['sequence'] = ''.join([v_used, ins_nt, j_used])
 
     # 2. Translate
-     out_data['sequence_aa'] = str(Seq(out_data['sequence']).translate())
+    out_data['sequence_aa'] = str(Seq(out_data['sequence']).translate())
 
     # 3. Check whether whole rearrangement is in frame
     if (len(out_data['sequence']) - 1) % 3 == 0:
