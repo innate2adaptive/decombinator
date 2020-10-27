@@ -46,7 +46,6 @@
 from __future__ import division
 import collections as coll
 import random
-import Levenshtein as lev
 from time import time, strftime
 import argparse
 import gzip
@@ -54,8 +53,10 @@ import regex
 from scipy.special import comb
 import copy
 import os, sys
+import networkx as nx
+from polyleven import levenshtein as polylev
 
-__version__ = '4.0.2'
+__version__ = '4.0.3'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -371,10 +372,10 @@ def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
   # Definition of equivalent:
   #   levenshtein distance as a percentage of the shorter of the two seqs is <= threshold
   threshold = len(min(seq1, seq2, key=len)) * lev_percent_threshold
-  return lev.distance(seq1, seq2) <= threshold
+  return polylev(seq1, seq2) <= threshold
 
 def are_barcodes_equivalent(bc1, bc2, threshold):
-    return lev.distance(bc1, bc2) <= threshold
+    return polylev(bc1, bc2) <= threshold
 
 def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
     ###########################################
@@ -401,7 +402,6 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           print("   Read in", lcount, "lines... ", round(time()-t0,2), "seconds")
         counts['readdata_input_dcrs'] += 1
         fields = line.rstrip('\n').split(', ')
-
         bc_locs = get_barcode_positions(fields[8], inputargs, counts)        # barcode locations
 
         if not bc_locs:
@@ -445,12 +445,11 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           for index in barcode_lookup[barcode]:
 
             if are_seqs_equivalent(index[1], seq, lev_threshold):
-
               barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]].append(dcretc)       
               protodcretc_list = barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]]
               seq_counter = coll.Counter(map(lambda x: x.split("|")[1],protodcretc_list))
               protoseq = seq_counter.most_common(1)[0][0] # find most common sequence in group
-            
+
               if not index[1] == protoseq:
                 # if there is a new protoseq, replace record with old protoseq
                 # with identical record with updated  protoseq
@@ -489,6 +488,46 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
 
     return barcode_dcretc
 
+def make_clusters(merge_groups, barcode_dcretc):
+    # Considers clusters as an undirected graph composed of disconnected subgraphs.
+    # The nodes of the graph are the initial groups of barcode/protosequences. Edges between nodes 
+    # describe which inital groups form clusters and should be merged.
+    # We form a graph of only those initial groups that feature in merge_groups (i.e. that should be
+    # merged with one or more other initial groups). The remaining groups that do not need merging are
+    # added to clusters after graph analysis at the end of this function.
+
+    # initialise empty collection
+    clusters = coll.defaultdict(list)
+    
+    # initialise empty graph
+    G = nx.Graph()
+    # add the inital groups from merge_groups to the graph as nodes with edges connected them
+    for i in merge_groups:
+      G.add_edge(i[0], i[1])
+
+    # extracts subgraphs (clusters) from the full graph
+    con_comp = nx.connected_components(G)
+
+    for subgraph in con_comp:
+      # get full barcode barcode information of the first node in the subgraph from barcode_dcretc
+      # this will be serve as the dictionary key for the cluster
+      base_node_barcode = barcode_dcretc[list(subgraph)[0]][0]
+
+      # get the full sequence information of each node in the subgraph from barcode_dcretc and
+      # add them to cluster collection with a cluster representative barcode (base_node_barcode)
+      for k in list(subgraph):
+        clusters[base_node_barcode] +=  barcode_dcretc[k][1]
+
+    # add remaining barcode/protoseqs that do not need merging to the clusters
+    for i, bdcretc in enumerate(barcode_dcretc):
+        # if already accounted for in the merged_groups then skip over
+      if i in G.nodes:
+        continue
+      else:
+        base_node_barcode = bdcretc[0]
+        clusters[base_node_barcode] = bdcretc[1]
+
+    return clusters
 
 def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold, dont_count):
     # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
@@ -503,51 +542,41 @@ def cluster_UMIs(barcode_dcretc, inputargs, barcode_threshold, seq_threshold, do
     print("Clustering barcodes groups...")
     t0 = time()
 
-    clusters = coll.defaultdict(list)
+    # get number of initial groups
+    num_initial_groups = len(barcode_dcretc)
 
-    barcode_dcretc_total = len(barcode_dcretc)
-    count = 0
+    # convert barcode_dcretc collection to list format
+    barcode_dcretc_list = []
+    for i, (j, k) in enumerate(barcode_dcretc.items()): 
+      barcode_dcretc_list.append((j, k))
+    
+    # get only barcodes and corresponding protoseqs for use in pairwise comparison loops below
+    barcode_seqs = [ (x[0].split("|")[0], x[0].split("|")[2] ) for x in barcode_dcretc_list]
+    
+    merge_groups = []
 
-    for i, b1 in enumerate(barcode_dcretc):
+    # these two for loops are the most expensive part of Collapsinator, and take a long time to run
+    # for large input data. It is recommended to limit as many calculatons as possible in this step
+    for i, b1 in enumerate(barcode_seqs):
 
-      clustered = False
+      # keeps track of progress of clustering
+      if i % 5000 == 0 and not dont_count:
+        print("   Clustered", i, "/", num_initial_groups, "...", round(time()-t0,2),"seconds")
 
-      if count % 5000 == 0 and not dont_count:
-        print("   Clustered", count, "/", barcode_dcretc_total, "...", round(time()-t0,2),"seconds")
-
-      barcode1, index1, protoseq1 = b1.split("|")
+      # use offset to compute only comparisons in the triangular matrix (rather than full matrix)
+      for j, b2 in enumerate(barcode_seqs[i+1:]):
       
-      for j,b2 in enumerate(clusters): 
-        barcode2, index2, protoseq2 = b2.split("|")
+        if are_barcodes_equivalent(b1[0], b2[0], barcode_threshold):
 
-        if are_barcodes_equivalent(barcode1, barcode2, barcode_threshold):
+          if are_seqs_equivalent(b1[1], b2[1], percent_seq_threshold):          
 
-          if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
-
-            clusters[b2] += barcode_dcretc[b1]
-
-            protodcretc_list = clusters[b2]
-            seq_counter = coll.Counter(map(lambda x: x.split("|")[1],protodcretc_list))
-            protoseq = seq_counter.most_common(1)[0][0] # recalculate protoseq (most common sequence), after merging
-
-            if not protoseq2 == protoseq:
-              # if there is a new protoseq, replace record with old protoseq
-              # with identical record with updated protoseq 
-              clusters["|".join([barcode2,index2, protoseq])] = clusters[b2]
-
-              del clusters[b2]
-
-            clustered = True
-            break
-
-      if not clustered:
-        # if not appropriate cluster found to add group to, then create a new cluster identical to the group
-        clusters[b1] = barcode_dcretc[b1]
-
-      count += 1
+            # keeps track of which groups of barcodes/sequences should be merged
+            merge_groups.append((i, i+j+1))
+            
+    clusters = make_clusters(merge_groups, barcode_dcretc_list)
 
     t1 = time()
-    print("  ", len(barcode_dcretc), "groups merged into", len(clusters), "clusters")
+    print("  ", num_initial_groups, "groups merged into", len(clusters), "clusters")
     print("  ", round(t1-t0, 2), "seconds")
     
     # dump clusters to separate files if desired
