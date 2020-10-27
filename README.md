@@ -3,8 +3,6 @@
 
 ##### Innate2Adaptive lab @ University College London, 2020
 ##### Written by James M. Heather, Tahel Ronel, Thomas Peacock, Niclas Thomas and Benny Chain, with help from Katharine Best, Theres Oakes and Mazlina Ismail.
-##### Incorporating error correction as published in [Gerritsen, Pandit, Andeweg and de Boer (2016)](https://doi.org/10.1093/bioinformatics/btw339).
-
 
 ---
 
@@ -48,6 +46,43 @@ Very large data containing many samples, such as from Illumina NextSeq machines,
 
 *Please note that some familiarity with Python and command-line script usage is assumed, but everything should be easily managed by those without strong bioinformatic or computational expertise.*
 
+### Virtual Environments
+
+We strongly recommend running the Decombinator pipeline within a virtual environment to avoid potential package dependency clash with other installed python projects. [Conda](https://conda.io/projects/conda/en/latest/index.html) is an easy to use tool to set up separate virtual environments for your projects. This section gives some brief instructions for running Decombinator using Conda. If you are familiar with working with these tools, proceed to the [Required modules](#required-modules) section.
+
+* First follow the instructions provided [here](https://docs.conda.io/en/latest/miniconda.html) to install Miniconda. (Alternatively use [Anaconda](https://docs.anaconda.com/anaconda/install/) - Minconda is smaller conda distribution that is faster to install, and runs with no loss of functionality for Decombinator.)
+
+1. Once downloaded, you can verify conda has installed correctly using the following command in your bash environment:
+```bash
+conda info
+```
+
+2. If building a virtual environment for the first time, create a python v3.7 virtual environment for Decombinator using the following command:
+```bash
+conda create --name dcrpy3 python=3.7 
+```
+You can replace `dcrpy3` with your preferred name for the environment. **Note:** You only need to run this command once for the initial environment creation. If you already have an environment created, skip ahead to step 3.
+
+3. To see a list of your existing conda environments, run the command:
+```bash
+conda env list
+```
+4. Activate your environment using:
+```bash
+source activate dcrpy3
+```
+5. Check which packages and package versions you have installed in your environment using:
+```
+conda list
+```
+6. That's it! Now you have your environment set up, you can proceed to installing the [non-standard packages](#required-modules) required for running Decombinator.
+
+7. To deactivate your environment, use:
+```bash
+conda deactivate
+```
+**Note:** this command will not destroy or delete your environment or installed packages.
+
 ### Required modules
 
 Python 3.7 is required to run this pipeline, along with the following non-standard modules:
@@ -59,7 +94,9 @@ Python 3.7 is required to run this pipeline, along with the following non-standa
 * python-Levenshtein (>= 0.12.0)
 * regex (>= 2020.7.14)
 
-These can be installed via pip (although most will likely appear in other package managers), e.g.:
+**Note:** we aim to keep Decombinator up to date with the latest versions of all packages. The versions given above represent the most recently tested versions of the non-standard packages required for Decombinator.
+
+These modules can be installed via pip (although most will likely appear in other package managers). Pip is a standard package that is automatically installed as part of Anaconda or Minconda. Install the non-standard packages by running the following command:
 ```bash
 pip install acora>=2.2 biopython>=1.75 networkx>=2.5 polyleven>=0.5 python-levenshtein>=0.12.0 regex>=2020.7.14
 ```
@@ -80,6 +117,27 @@ git clone https://github.com/innate2adaptive/Decombinator-Tags-FASTAs.git
 ```
 
 The current version of Decombinator has tag sets for the analysis of alpha/beta and gamma/delta TCR repertoires from both mouse and man. In addition to the original tag set developed for the 2013 Thomas *et al* Bioinformatics paper, an 'extended' tag set has been developed for human alpha/beta repertoires, which covers 'non-functional' V and J genes (ORFs and pseudogenes, according to IMGT nomenclature) as well as just the functional.
+
+### Running Decombinator on a Cluster
+
+The Decombinator pipeline is often run over many GB of data over many hours. Under these circumstances, it can be more practical to use a cluster of workstations rather than run the pipeline locally. This section provides instructions for setting up the pipeline to run on clusters managed by University College London (Legion/Myriad).
+
+* You will first need an account to run jobs on the cluster. Follow the instructions [here](https://www.rc.ucl.ac.uk/docs/Clusters/Myriad/).
+* Once you have logged into the cluster, you should assess which python versions are currently installed:
+```bash
+module avail python
+```
+* Look for the option including `miniconda3` in the output of the previous command. Load this module using the following command:
+```bash
+module load python/miniconda3/4.5.11
+```
+This will load Miniconda, and allow you to create a virtual environment for Decombinator in your local space on the cluster.
+* Follow the instructions given in the [Virtual Environments](#virtual-environments) section.
+Once your environment is activated, install the required non-standard packages as detailed in the [Required packages](#required-packages) section.
+* Install Decombinator using git as described in the [Get Scripts](#get-scripts) section.
+* To run Decombinator on the cluster, you should familiarise yourself with the process of writing, submitting and monitoring job scripts. Guidance for new users is provided [here](https://www.rc.ucl.ac.uk/docs/New_Users/).
+* Note: you will need to include the `module load python/miniconda3/4.5.11` command and `source activate venvname` in your job scripts before calling the Decombinator scripts.
+* Specific example bash scripts for Decombinator that can be modified to suit your data and requirements can be found in the `recipes` directory in the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools) repository.
 
 ### General notes
 
