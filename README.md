@@ -131,9 +131,9 @@ The Decombinator pipeline is often run over many GB of data over many hours. Und
     ```bash
     module load python/miniconda3/4.5.11
     ```
-This will load Miniconda, and allow you to create a virtual environment for Decombinator in your local space on the cluster.
+    This will load Miniconda, and allow you to create a virtual environment for Decombinator in your local space on the cluster.
 * Follow the instructions given in the [Virtual Environments](#virtual-environments) section.
-Once your environment is activated, install the required non-standard packages as detailed in the [Required packages](#required-packages) section.
+Once your environment is activated, install the required non-standard packages as detailed in the [Required modules](#required-modules) section.
 * Install Decombinator using git as described in the [Get Scripts](#get-scripts) section.
 * To run Decombinator on the cluster, you should familiarise yourself with the process of writing, submitting and monitoring job scripts. Guidance for new users is provided [here](https://www.rc.ucl.ac.uk/docs/New_Users/).
 * **Note:** you will need to include the `module load python/miniconda3/4.5.11` command and `source activate venvname` in your job scripts before calling the Decombinator scripts.
