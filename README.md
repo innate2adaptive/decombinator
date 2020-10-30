@@ -137,7 +137,7 @@ Once your environment is activated, install the required non-standard packages a
 * Install Decombinator using git as described in the [Get Scripts](#get-scripts) section.
 * To run Decombinator on the cluster, you should familiarise yourself with the process of writing, submitting and monitoring job scripts. Guidance for new users is provided [here](https://www.rc.ucl.ac.uk/docs/New_Users/).
 * **Note:** you will need to include the `module load python/miniconda3/4.5.11` command and `source activate venvname` in your job scripts before calling the Decombinator scripts.
-* Specific example bash scripts for Decombinator that can be modified to suit your data and requirements can be found in the `recipes` directory in the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools) repository.
+* An example job script for running the Decombinator Test Data on a cluster can be found in the `recipes/jobscripts` directory in the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools) repository. This template script can be modified to suit your own data and requirements.
 
 ### General notes
 
