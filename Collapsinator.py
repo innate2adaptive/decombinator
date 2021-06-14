@@ -11,13 +11,20 @@
   This version is a modified version of KB's script collapsinator_20141126.py
   (That was itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644))
   Version 4.0.2 includes improved clustering routines measuring the similarity in both barcode and TCR sequence of TCR repertoire data
-
+  
+  NOTE - from version 4.1 this optionally looks for barcode 6NI86N at the beginning of the read; instead of M13_6N_I8_6N_I8
+  (i.e. only one spacer).
+  This makes it compatible with the multiplex protocol in which the barcode is incorproated in the RT step
+  In order to work, you must specify an additional command line parameter -ol i8_single
 ##################
 ###### INPUT #####
 ##################
-
-  Takes as input .n12 files produced by Decombinator (v3 or higher), assuming it has been run on suitably barcoded and demultiplexed data.
-
+  
+  Required inputs 
+  -in/--infile : Defines input file.   Takes as input .n12 files produced by Decombinator (v3 or higher), 
+                    assuming it has been run on suitably barcoded and demultiplexed data.
+  -ol/--oligo  : Specifies the spacer (protocol dependent) as M13, I8, I8_single. The I8 protocol is deprecated.
+  
   Other optional flags:
   
     -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
@@ -107,8 +114,8 @@ def args():
       '-pb', '--positionalbarcodes', action='store_true', help='Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible.',\
         required=False)
   parser.add_argument(
-      '-ol', '--oligo', type=str, help='Choose experimental oligo for correct identification of spacers ["M13", "I8"] (default: M13)',\
-        required=False, default="m13")
+      '-ol', '--oligo', type=str, help='Choose experimental oligo for correct identification of spacers ["M13", "I8","I8_single] (default: M13)',\
+        required=True, default="m13")
   parser.add_argument(
       '-wc', '--writeclusters', action='store_true', help='Write cluster data to separate cluster files',\
         required=False, default=False)
@@ -192,7 +199,9 @@ def getOligo(oligo_name):
   oligos = {}
   oligos['m13'] = {'spcr1': 'GTCGTGACTGGGAAAACCCTGG','spcr2':'GTCGTGAT'}
   oligos['i8'] = {'spcr1':'GTCGTGAT','spcr2':'GTCGTGAT'}
-
+  oligos['i8_single'] = {'spcr1':'ATCACGAC'}
+  #print(oligo_name, oligos)
+  
   if oligo_name.lower() not in oligos:
     print("Error: Failed to recognise oligo name. Please choose from " + str(list(oligos.keys())))
     sys.exit()  
@@ -220,7 +229,8 @@ def spacerSearch(subseq,seq):
     return foundseq
 
 def findFirstSpacer(oligo,seq):
-    allowance = 4
+    
+    allowance = 10
     spacer = []
     spcr1 = oligo['spcr1']
     spacer += spacerSearch(spcr1, seq[0:len(spcr1)+allowance])
@@ -285,24 +295,27 @@ def get_barcode_positions(bcseq,inputargs,counts):
 
   # gets spacer sequences of specified oligo
   oligo = getOligo(inputargs['oligo'])
-  
+ 
   # sets first spacer based on specified oligo
   spacers = findFirstSpacer(oligo, bcseq)  
 
   # sequences with no first spacer are removed from analysis
   if not len(spacers) == 1:
     return None
-
-  # sets second spacer based on specified oligo
-  spacers += findSecondSpacer(oligo, bcseq)
-
+    
+  # sets second spacer based on specified oligo (unless single oligo)
+  
+  if not inputargs['oligo'] == 'i8_single': 
+    spacers += findSecondSpacer(oligo, bcseq)
+   
   # sequences which do not have two spacers are logged then removed from analysis
   if not len(spacers) == 2:
     counts['getbarcode_fail_not2spacersfound'] += 1
     return None
-
+    #print(bcseq,spacers)
   spacer_positions = getSpacerPositions(bcseq, spacers)
-
+    #print(spacer_positions)
+    
   # set expected barcode length
   bclength = 6
   # start and end of barcode positions are set
@@ -312,11 +325,73 @@ def get_barcode_positions(bcseq,inputargs,counts):
   b2end   = b2start + bclength
   b1len = b1end - b1start
 
-  # filtering and logging
+# filtering and logging
   if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail': return None
   logExactOrRegexMatch(spacers,oligo,counts)
   logFuzzyMatching(b1len,bclength,spacers,oligo,counts)
 
+  return [b1start,b1end,b2start,b2end]
+
+#this finds positions of barcodes when only one spacer
+def get_barcode_positions2(bcseq,inputargs,counts):
+  """
+  Given a barcode-region sequence, outputs the sequence of the do-docamer barcode.
+  This barcode (theoretically) consists of the concatentation of the two random hexamer sequences contained in the ligation oligo.
+  However errors in sequences and ligation oligo production can mean that the random nucleotides are not always at the expected position.
+  This function uses the known sequence of the spacers (which bound each of the two N6s to their 5') to deduce the random sequences.
+  Returns a list of four numbers, giving the start and stop positions of N1 and N2 respectively.
+  """ 
+  if "N" in bcseq and inputargs['allowNs'] == False:    # ambiguous base-call check 
+    counts['getbarcode_fail_N'] += 1
+    return
+
+  # gets spacer sequences of specified oligo
+  oligo = getOligo(inputargs['oligo'])
+  
+  # sets first spacer based on specified oligo
+  spacers = findFirstSpacer(oligo, bcseq)  
+  #print(spacers)
+  # sequences with no first spacer are removed from analysis
+  if not len(spacers) == 1:
+    return None
+
+  # sets second spacer based on specified oligo
+  #spacers += findSecondSpacer(oligo, bcseq)
+
+  # sequences which do not have two spacers are logged then removed from analysis
+  # if not len(spacers) == 1:
+  # counts['getbarcode_fail_not2spacersfound'] += 1
+  # return None
+
+  spacer_positions = getSpacerPositions(bcseq, spacers)
+
+  # set expected barcode length
+  bclength = 6
+  # start and end of barcode positions are set
+  b1start = 0
+  b1end   = spacer_positions[0]
+  b2start = spacer_positions[0] + len(spacers[0])
+  
+  b2end   = b2start + bclength
+  b1len = b1end - b1start
+
+  # filtering and logging
+  if spacers == [oligo['spcr1']]:
+      counts['getbarcode_pass_exactmatch'] += 1
+  else:
+      counts['getbarcode_pass_regexmatch'] += 1
+
+
+  if b1len == bclength and spacers != [oligo['spcr1']]:
+      counts['getbarcode_pass_fuzzymatch_rightlen'] += 1  
+  elif b1len in [4,5] and spacers != [oligo['spcr1']]:
+      counts['getbarcode_pass_fuzzymatch_short'] += 1 
+  elif b1len >= 7 and spacers != [oligo['spcr1']]:
+      counts['getbarcode_pass_fuzzymatch_long'] += 1
+  elif b1len == bclength:
+       counts['getbarcode_pass_other'] += 1
+  if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail': return None
+  
   return [b1start,b1end,b2start,b2end]
 
 
@@ -401,8 +476,12 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           print("   Read in", lcount, "lines... ", round(time()-t0,2), "seconds")
         counts['readdata_input_dcrs'] += 1
         fields = line.rstrip('\n').split(', ')
-        bc_locs = get_barcode_positions(fields[8], inputargs, counts)        # barcode locations
-
+       
+        if not inputargs['oligo'] == 'i8_single':
+            bc_locs = get_barcode_positions(fields[8], inputargs, counts)        # barcode locations
+        else:
+            bc_locs = get_barcode_positions2(fields[8], inputargs, counts)
+        
         if not bc_locs:
           counts['readdata_fail_no_bclocs'] += 1
           continue
