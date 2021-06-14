@@ -1,4 +1,4 @@
-# Decombinator 
+# Decombinator 4.01
 # James M. Heather, August 2016, UCL
 # https://innate2adaptive.github.io/Decombinator/
 
@@ -17,6 +17,10 @@
   # and vDCR (which was v1.4 modified by James Heather, see Heather et al, Frontiers in Immunology 2016, DOI: 10.3389/fimmu.2015.00644)
   # Now faster, more accurate and easier to use than either of the previous versions.
   
+#Version 4.2 introduces some changes to work with Demultiplexor 4.01 and to work for the new multiplex protocol. It can look for a 
+#barcode in either read 1 (multiplex protocol) or read 2 (ligation protocol). This is controled by a new required flag -bc_read 
+#which must be R1 or R2. The bc_length can also be set - the default is 42
+  
 ##################
 ###### INPUT #####
 ##################
@@ -24,8 +28,12 @@
 # As with entire pipeline, Decombintator is run using command line arguments to provide user parameters
   # All arguments can be read by viewing the help data, by running python Decombintator.py -h
 
-# Takes FASTQ reads produced by Demultiplexor.py (unzipped or gzipped), which is the minimum required command line input, using the -fq flag
-  # NB: Data must have been generated using the appropriate 5'RACE ligation protocol, using the correct SP2-I8-6N-I8-6N oligonucleotide
+# The two required parameters are 
+# 1. -fq/--fastq which identify FASTQ reads produced by Demultiplexor.py (unzipped or gzipped).
+# 2 -br/--bc_read which determines whether teh barcode is obtained from the beginning of R2 as in the standard 
+# 5'RACE ligation protocol, using the M13-I8-6N-I8-6N or the older SP2-I8-6N-I8-6N oligonucleotide; or from teh beginning of R1 
+# as in teh new multiplex protocol. The lenght of seqeunce conttaining the barcode can also be determeind using -bl/--bc_length.
+# The default is 42; but for the multiplex, 22 is enough. 
 
 # The TCR chain locus to look for can be explicitly specified using the -c flag 
   # Users can use their choice of chain identifiers from this list (case insensitive): a/b/g/d/alpha/beta/gamma/delta/TRA/TRB/TRG/TRD/TCRA/TCRB/TCRG/TCRD
@@ -70,6 +78,9 @@
 
   # -nbc/--nobarcoding: Run Decombinator without any barcoding, i.e. use the whole read. 
     # Recommended when running on data not produced using the Innate2Adaptive lab's ligation-mediated amplification protocol
+  
+  #-bl/--bc_length : sets the length of seqeunce to be stored by Decombinator from R1 or R2 (as set by -bc_read) for further use by Collapsinator.
+   
 
   ##################
   ##### OUTPUT #####  
@@ -115,6 +126,8 @@ def args():
       '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
   parser.add_argument(
       '-c', '--chain', type=str, help='TCR chain (a/b/g/d)', required=False)
+  parser.add_argument(
+      '-br','--bc_read',type=str, help='Which read has bar code (R1,R2)',required=True)
   parser.add_argument(
       '-s', '--suppresssummary', action='store_true', help='Suppress the production of summary data log file', required=False)
   parser.add_argument(
@@ -673,11 +686,15 @@ if __name__ == '__main__':
   else:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
     found_tcrs = coll.Counter()
+  ############################################################################################
+  ##################################################################################################
   
-  # Scroll through input file and find TCRs
+  ##################################################################################
+# Scroll through input file and find TCRs
+  
   with open(name_results + suffix, 'w') as outfile:   
     with opener(inputargs['fastq'],"rt") as f:
-      
+            
       for readid, seq, qual in readfq(f):
         start_time = time()
         
@@ -721,10 +738,21 @@ if __name__ == '__main__':
             tcrQ = vdjqual[recom[5]:recom[6]]
           
           if inputargs['nobarcoding'] == False:
-            bcQ = qual[:bclength]
+            #print(inputargs['fastq'].replace("R1.f","R2.f"))
+            if inputargs['bc_read'] == "R2":
+              with opener(inputargs['fastq'].replace("R1.f","R2.f"),"rt") as f1:
+                for readid, seq, qual in readfq(f1): 
+                    bc, bcQ = seq[:bclength],qual[:bclength]
+                    #print(bc + bcQ)
+            if inputargs['bc_read'] == "R1":                
+              with opener(inputargs['fastq'],"rt") as f1:
+                for readid, seq, qual in readfq(f1): 
+                    bc, bcQ = seq[:bclength],qual[:bclength]
+                                
+            #print(bc + bcQ)
             dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-              del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
-              tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
+            del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
+            tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
             outfile.write(dcr_string + '\n')
 
           else:
@@ -750,6 +778,7 @@ if __name__ == '__main__':
     
     with open(name_results + suffix) as infile, gzip.open(name_results + suffix + '.gz', 'wt') as outfile:
         outfile.writelines(infile)
+        open(name_results + suffix).close
     os.unlink(name_results + suffix)
 
     outfilenam = name_results + suffix + ".gz"
