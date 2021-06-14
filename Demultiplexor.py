@@ -6,10 +6,8 @@
 ### BACKGROUND ###
 ##################
 
-# Takes all three reads and simultaneously demultiplexes and formats read 1 for vDCR.py analysis
-  # i.e. adds the first 30 nucleotides of R2 to R1
-  # This will contain the random barcode followed by any V(D)J information downstream, allowing collapsing
-# Demultiplexes using a combination of indexes from third read and another index nested in read 1
+# Version 4.1 takes  three (singlee index or old internal index protocol) or four (DUI) reads and demultiplexes 
+  
 
 # A derivate of DualIndexDemultiplexing.py/FuzzyDID, fuzzily demultiplexes ligation TCR sequencing protocol FASTQ data 
   # i.e. allows a specified number of mismatches in the index sequence
@@ -18,15 +16,20 @@
 ###### INPUT #####
 ##################
 
-# Requires the command line input of at least 3 file names, giving the three Illumina reads
+# Requires the command line input of  3 or 4 file names, giving the two Illumina seqeunce reads, plus the one or two index reads.
   # Files may be uncompressed, or gzipped (and be named accordingly, e.g. File.fastq.gz)
-# A fourth optional comma delimited file detailing sample index specifics is strongly recommended, allowing production of correctly named files
+# A additonal optional comma delimited file detailing sample index specifics is strongly recommended, allowing 
+#production of correctly named files
   # File must give the following details, one sample (or index combination) per line, with no empty lines:
     # Sample name, SP1/R1 index (I), SP2/R2 index (L):
       # e.g.: AlphaSample,1,11
     # If you include one and only one chain description (i.e. alpha, beta, gamma or delta) into your sample name, you need not set chain in Decombinator
     
-# e.g. run: python Demultiplexor.py -r1 read1.fastq -r2 read2.fastq -i1 indexread1.fastq -ix indexes.ndx
+# e.g. run: python Demultiplexor.py -r1 read1.fastq -r2 read2.fastq -i1 indexread1.fastq indexread2.fastq -ix indexes.ndx
+
+# NOTE V4.2 simply takes the two Illumina seqeunce reads, demultiplexes and outputs two reads per sample (annotated _R1, and _R2) 
+#plus two undetermined reads.  In contrast to earlier versions, note that Demultiplexor does not attach a barcode from 
+#read 2 to read 1. This is done direcly in Decombinator.
 
 # Other optional flags:
   
@@ -133,8 +136,9 @@ def fastq_check(infile):
   """fastq_check(file): Performs a rudimentary sanity check to see whether a file is indeed a FASTQ file"""
   
   success = True
-    
+  
   if infile.endswith('.gz'):
+    #print("TEST1")
     with gzip.open(infile, "rt") as possfq:
       read = [i for i in itertools.islice(possfq, 0, 4)]
   else:
@@ -143,12 +147,15 @@ def fastq_check(infile):
   
   # @ check
   if not read[0][0] == "@":
+    
     success = False
   # Descriptor check
   if not read[2][0] == "+":
+    
     success = False
   # Read/quality match check
   if not len(read[1]) == len(read[3]):
+    print(len(read[1]),len(read[3]))
     success = False  
   
   return(success)
@@ -231,15 +238,15 @@ def read_index_dual_file(inputargs):
 
   suffix = "." + inputargs['extension']
 
-  failed = open("Undetermined" + suffix, "w")
-
+  failed1 = open("Undetermined_R1" + suffix, "w")
+  failed2 = open("Undetermined_R2" + suffix, "w")
   outputreads = coll.Counter()
   outputreads["Undetermined"] = 0
 
   usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
 
-  XXdict = {}
-
+  XXdict1 = {}
+  XXdict2 = {}
   for line in (open(inputargs['indexlist'], "r")):
 
     if line == "\n":
@@ -249,18 +256,21 @@ def read_index_dual_file(inputargs):
     elements = [y.strip() for y in line.split(",")]
 
     sample = elements[0]
+    #note reverse complement of index one
     index1 = revcomp(elements[1])
     index2 = elements[2]
 
-    open(sample + suffix, "w").close()
-
+    #open(sample + "_R1" + suffix, "w").close()
+    #open(sample + "_R2" + suffix, "w").close()
     compound_index = index2 + index1 
-    XXdict[compound_index] = open(sample + suffix, "a")
-
+    
+    XXdict1[compound_index] = sample + "_R1" + suffix
+    
     outputreads[sample] = 0
     usedindexes[sample] = compound_index
-
-  return XXdict, outputreads, usedindexes, failed
+    
+    
+  return XXdict1, outputreads, usedindexes, failed1, failed2
 
 
 ###############################################
@@ -309,16 +319,21 @@ suffix = "." + inputargs['extension']
 if inputargs['indexlist']:
   # if two index files submitted
   if inputargs['index2']:
-    XXdict, outputreads, usedindexes, failed = read_index_dual_file(inputargs)
+    XXdict1, outputreads, usedindexes, failed1, failed2 = read_index_dual_file(inputargs)
+    sample_names =list(outputreads.keys())
+    #print(sample_names)
+    #exit()
   # if one index file sumbitted
   else:
     XXdict, outputreads, usedindexes, failed = read_index_single_file(inputargs)
-
+    
+###############################################################################################################
 # If the outputall option is chosen, output all possible index combinations that exist in the data
   # Note that if an indexlist is provided, those names are still used in the appropriate output files
   # Also note that while all combinations are looked for, those which remain unused at the end will be deleted
   
 if inputargs['outputall'] == True:
+  
   # generate all possible index combinations, and then check if they have been generated yet (via an index file)
     # only make those that haven't
   allXcombs = [x + "-" + y for x in X1dict.keys() for y in X2dict.keys()]
@@ -327,10 +342,10 @@ if inputargs['outputall'] == True:
     compound_index = X1dict[x.split("-")[0]] + X2dict[x.split("-")[1]]
     
     if compound_index not in usedindexes.values():
-      XXdict[compound_index] = open("Indexes_" + x + suffix, "a")
+      XXdict1[compound_index] = open("Indexes_" + x + suffix, "a")
       outputreads["Indexes_" + x] = 0
       usedindexes["Indexes_" + x] = compound_index
-      
+####################################################################################################################      
 if __name__ == '__main__':
   count = 0
   dmpd_count = 0          # number successfully demultiplexed 
@@ -388,12 +403,17 @@ if __name__ == '__main__':
     else:
        record1, record2, record3 = records 
 
-    # Readfq function with return each read from each file as a 3 part tuple
+    # Readfq function will return each read from each file as a 3 part tuple
       # ('ID', 'SEQUENCE', 'QUALITY')
     count += 1    
 
-    if count % 100000 == 0 and inputargs['dontcount'] == False:
-      print('\t read', count)
+ #   if count % 100000 == 0 and inputargs['dontcount'] == False:
+    if count % 1000 == 0 and inputargs['dontcount'] == False:
+        print('\t read', count)
+        
+               #os.unlink(f + "_R1"+ suffix) 
+####################################################################################
+  #      exit()
     
   ### NB For non-standard Illumina encoded fastqs, might need to change which fields are carried into fq_* vars
     
@@ -425,10 +445,11 @@ if __name__ == '__main__':
     
       seqX = X1seq + X2seq
 
+#for double index just save R1 and R2 separately
     if len(records) == 4:
 
-      Nseq = record3[1][0:45]
-      Nqual = record3[2][0:45]
+      #Nseq = record3[1][0:45]
+      #Nqual = record3[2][0:45]
 
       X1seq = record4[1]
       X1qual = record4[2]
@@ -436,61 +457,76 @@ if __name__ == '__main__':
       X2seq = record2[1]
       X2qual = record2[2]
 
-      readseq = record1[1][6:]
-      readqual = record1[2][6:]
+      readseq = record1[1]
+      readqual = record1[2]
 
-      fq_seq = Nseq + X1seq + X2seq + readseq
-      fq_qual = Nqual + X1qual + X2qual + readqual
+      #fq_seq = Nseq + X1seq + X2seq + readseq
+      #fq_qual = Nqual + X1qual + X2qual + readqual
     
-      new_record = str("@" + fq_id + "\n" + fq_seq + "\n+\n" + fq_qual + "\n")  
-    
+      new_record1 = str("@" + fq_id + "\n" + record1[1] + "\n+\n" + record1[2] + "\n")  
+      new_record2 = str("@" + fq_id + "\n" + record3[1] + "\n+\n" + record3[2] + "\n") 
       seqX = X1seq + X2seq
 
     ### DEMULTIPLEXING ### 
-    
-    if seqX in XXdict:
+    #print(outputreads.keys())
+        
+    if seqX in XXdict1:
       # Exact index matches
-            
-      XXdict[seqX].write(new_record)
+      filename_1 = open(XXdict1[seqX],"a")     
+      filename_1.write(new_record1)
+      filename_2 = open(XXdict1[seqX].replace("R1.f","R2.f"),"a")
+      filename_2.write(new_record2)
       
       dmpd_count += 1
-      outputreads[str(XXdict[seqX]).split("\'")[1][:-len(suffix)]] += 1
-      
+      outputreads[XXdict1[seqX]] += 1
+      #Sprint(sample_names)
     else:
       # Otherwise allow fuzzy matching
       
       matches = []
       
-      for ndx in XXdict.keys():
+      for ndx in XXdict1.keys():
         
         if lev.distance(ndx, seqX) <= inputargs['threshold']:
           matches.append(ndx)
       
       if len(matches) == 1:
         # Only allow fuzzy match if there is one candidate match within threshold
-        XXdict[matches[0]].write(new_record)
+        #print("fuzzy")
+        filename_1 = open(XXdict1[matches[0]],"a")
+        filename_2 = open(XXdict1[matches[0]].replace("R1.f","R2.f"),"a")
+        
+        #print(filename_1)
+        filename_1.write(new_record1)
+        filename_2.write(new_record2)
         dmpd_count += 1
         fuzzy_count += 1
         fuzzies.append(fq_id)
-        outputreads[str(XXdict[matches[0]]).split("\'")[1][:-len(suffix)]] += 1
+        #print(XXdict1[matches[0]])
+        #exit()
+        outputreads[XXdict1[matches[0]]] += 1
         
       else:
         
         if len(matches) > 1:
           clash_count += 1
           
-        failed.write(new_record)
+        failed1.write(new_record1)
+        failed2.write(new_record2)
         outputreads['Undetermined'] += 1
-    
-  for x in XXdict.values():
-    x.close()
-    sort_permissions(x.name)
-
-  failed.close()
-  sort_permissions(failed.name)
+        
+  for x in XXdict1.values():
+    open(x).close
+    sort_permissions(open(x).name)
+  
+  
+  failed1.close()
+  failed2.close()  
+  sort_permissions(failed1.name)
+  sort_permissions(failed2.name)
   for f in fqs:
-    f.close()
-
+      f.close()
+  
   # If output all is allowed, delete all unused index combinations
   if inputargs['outputall'] == True:
     for f in outputreads.keys():
@@ -500,18 +536,33 @@ if __name__ == '__main__':
         del usedindexes[f]
 
   # Gzip compress output
-
+ 
+ ##########################################################################################################################
+  #print("TEST")
+  #for f in XXdict1.keys():
+  #for f in outputreads.keys():
+             #print(f)
+  #exit()             
   if inputargs['dontgzip'] == False:
-    print("Compressing demultiplexed files...")
-    
-    for f in outputreads.keys():
-      
-      with open(f + suffix) as infile, gzip.open(f + suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
-          outfile.writelines(infile)
-          sort_permissions(outfile.name)
-          print(f+suffix,"compressed to",f+suffix+'.gz')
-      os.unlink(f + suffix) 
-
+           print("Compressing demultiplexed files...")
+           ##exit()
+    #print(outputreads.keys)
+           for f in sample_names:
+             #print(f)
+                          
+             with open(f + "_R1" + suffix) as infile, gzip.open(f + "_R1"+suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
+               outfile.writelines(infile)
+               sort_permissions(outfile.name)
+               print(f+"_R1"+ suffix,"compressed to",f+"_R1"+suffix+'.gz')
+             
+             open(f + "_R1"+ suffix).close
+             os.unlink(f + "_R1"+ suffix) 
+             with open(f + "_R2" + suffix) as infile, gzip.open(f + "_R2"+suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
+               outfile.writelines(infile)
+               sort_permissions(outfile.name)
+               print(f+"_R2"+ suffix,"compressed to",f+"_R2"+suffix+'.gz')
+             open(f + "_R2"+ suffix).close
+             os.unlink(f +"_R2" + suffix)
   #################################################
   ################## STATISTICS ###################
   #################################################
