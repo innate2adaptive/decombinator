@@ -6,7 +6,7 @@
 ### BACKGROUND ###
 ##################
 
-# Version 4.1 takes  three (singlee index or old internal index protocol) or four (DUI) reads and demultiplexes 
+# Version 4.2 takes  three (single index or old internal index protocol) or four (DUI) reads and demultiplexes 
   
 
 # A derivate of DualIndexDemultiplexing.py/FuzzyDID, fuzzily demultiplexes ligation TCR sequencing protocol FASTQ data 
@@ -246,7 +246,7 @@ def read_index_dual_file(inputargs):
   usedindexes = coll.defaultdict(list)       # This keeps a track of all files that have been generated to house demultiplexed reads
 
   XXdict1 = {}
-  XXdict2 = {}
+  
   for line in (open(inputargs['indexlist'], "r")):
 
     if line == "\n":
@@ -538,31 +538,31 @@ if __name__ == '__main__':
   # Gzip compress output
  
  ##########################################################################################################################
-  #print("TEST")
-  #for f in XXdict1.keys():
-  #for f in outputreads.keys():
-             #print(f)
-  #exit()             
+  
   if inputargs['dontgzip'] == False:
            print("Compressing demultiplexed files...")
-           ##exit()
-    #print(outputreads.keys)
            for f in sample_names:
-             #print(f)
-                          
-             with open(f + "_R1" + suffix) as infile, gzip.open(f + "_R1"+suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
-               outfile.writelines(infile)
-               sort_permissions(outfile.name)
-               print(f+"_R1"+ suffix,"compressed to",f+"_R1"+suffix+'.gz')
+              #print(f)
+              with open(f+"_R1"+ suffix) as infile, gzip.open(f + "_R1"+suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
+                outfile.writelines(infile)
+                sort_permissions(outfile.name)
+                print(f+"_R1"+ suffix,"compressed to",f+"_R1"+suffix+'.gz')         
+              try: 
+                os.remove(f + '_R1' + suffix) 
+                #print("works")
+              except: 
+                continue
+              with open(f+"_R2"+ suffix) as infile, gzip.open(f + "_R2"+suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
+                outfile.writelines(infile)
+                sort_permissions(outfile.name)
+                print(f+"_R2"+ suffix,"compressed to",f+"_R2"+suffix+'.gz')         
+              try: 
+                os.remove(f + '_R2' + suffix) 
+                #print("works")
+              except: 
+                continue
              
-             open(f + "_R1"+ suffix).close
-             os.unlink(f + "_R1"+ suffix) 
-             with open(f + "_R2" + suffix) as infile, gzip.open(f + "_R2"+suffix + '.gz', 'wt',compresslevel=inputargs['compresslevel']) as outfile:
-               outfile.writelines(infile)
-               sort_permissions(outfile.name)
-               print(f+"_R2"+ suffix,"compressed to",f+"_R2"+suffix+'.gz')
-             open(f + "_R2"+ suffix).close
-             os.unlink(f +"_R2" + suffix)
+             
   #################################################
   ################## STATISTICS ###################
   #################################################
