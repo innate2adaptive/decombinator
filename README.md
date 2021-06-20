@@ -1,5 +1,5 @@
 # innate2adaptive / Decombinator 
-## v4.0.3
+## v4.2.0
 
 ##### Innate2Adaptive lab @ University College London, 2020
 ##### Written by James M. Heather, Tahel Ronel, Thomas Peacock, Niclas Thomas and Benny Chain, with help from Katharine Best, Theres Oakes and Mazlina Ismail.
@@ -85,7 +85,7 @@ We strongly recommend running the Decombinator pipeline within a virtual environ
 
 ### Required modules
 
-Python 3.7 is required to run this pipeline, along with the following non-standard modules:
+Python 3.7 or above is required to run this pipeline, along with the following non-standard modules:
 
 * acora (>= 2.2)
 * biopython (>= 1.75)
@@ -101,6 +101,8 @@ These modules can be installed via pip (although most will likely appear in othe
 pip install acora>=2.2 biopython>=1.75 networkx>=2.5 polyleven>=0.5 python-levenshtein>=0.12.0 regex>=2020.7.14
 ```
 If users are unable to install Python and the required modules, a Python installation complete with necessary packages has been bundled into a Docker container, which should be runnable on most setups. The appropriate image is located [on Dockerhub, under the name 'dcrpython'](https://hub.docker.com/r/decombinator/dcrpython/). (Please note that this is not yet updated for v4)
+
+If you are using Windows you may need to install VS Buildtools in order to install some packages. 
 
 ### Get scripts
 
@@ -166,43 +168,33 @@ git clone https://github.com/innate2adaptive/Decombinator-Test-Data.git
 
 <h1 id="demultiplexing">Demultiplexor.py</h1>
 
-## Demultiplexing: getting sample-specific, barcoded V(D)J containing reads
+## Demultiplexor : Demultiplexing libraries from Nextseq or Novoseq to get sample-specific, barcoded V(D)J containing reads
+## Allows fuzsy demultiplexing i.e. allows a specified number of mismatches in the index sequence
+
+## Background
 
 *This demultiplexing step is designed specifically to make use of the random barcode sequences introduced during the Chain lab's wet lab TCR amplification protocol. While it should be fairly straightforward to adapt this to other UMI-based approaches, that will require some light modification of the scripts. Users wanting to apply Decombinator to demultiplexed, non-barcoded data can skip this step.*
+* NOTE from V4.2 onwards, demultiplexor produces two outputs R1 and R2; and does not copy the beginning of R2 to the beginning of R1
+* Instead, the barcode is extracted later by Decombinator; this allows for barcodes at teh beginning of R1 (new mutlplex protocol) 
+* and R2 (traditional ligation protocol)
 
-Illumina machines produce 3 FASTQ read files:
-
-* Read 1 
- * Contains the V(D)J sequence and a demultiplexing index (the SP1 index)
-* Read 2 
- * Contains the barcode sequences, and reads into the 5' UTR
-* Index 1 
- * Contains the second demultiplexing index (the typical Illumina index read, giving the SP2 index)
- 
-The demultiplexing script extracts the relevant sequences from each read file and combines them into reads in one file, and demultiplexes them on the two indexes to produce separate sample files containing both the V(D)J and barcode information.
-
-Note that you may need to run `bcl2fastq` or alter a configuration file on your sequencing machine in order to obtain the I1 index read file (which is not advised unless you know what you're doing, please consult whoever runs your machines). For example, this can be achieved on a MiSeq by adding the following line to the `Reporter.exe.config`, under `<appsettings>`:
-
-```bash
-<add key=”CreateFastqForIndexReads” value=”1”/>
-```
 
 You need to provide the demultiplexing script:
 
-* The location of the 3 read files
-* An index csv file giving sample names and indexes
+* The location of the 3 or 4 read files
+* An index csv file giving sample names and index seqeunces 
  * Sample names will be carried downstream, so use sensible identifiers 
  * Including the chain (e.g. 'alpha') will allow auto-detection in subsequent scripts (if *only one* chain is used per file)
- * Do not use space or '.' characters
-* Give numeric indexes, SP1 end first, then SP2 end
- * e.g. `'AlphaSample1,5,9'` would put all reads amplified using SP1-6N-I-5-aRC1 and P7-L-9 in one file
+ * Do not use space  or '.' characters
+* See example index file indexfile_test.csv in test data for the correct format
 
-An example command might look like this:
+An example command for the test data set looks like this:
+
 ```bash
-python Demultiplexor.py -r1 R1.fq.gz -r2 R2.fq.gz -i1 I1.fq.gz -ix IndexFile.ndx
+python Demultiplexor.py -r1 read1_test.fq.gz -r2 read2_test.fq.gz -i1 index1_test.fq.gz -i2 index2_test.fq.gz -ix indexfile_test.csv
 ```
 
-It's also likely that your read files are already demultiplexed by the machine, using just the SP2 indexes alone. Single read files can be produced using bash to output all appropriate reads into one file, e.g.:
+If your read files are demultiplexed by the machine, using just the SP2 indexes alone. Single read files can be produced using bash to output all appropriate reads into one file, e.g.:
 
 ```bash
 # Linux machines
@@ -211,11 +203,71 @@ zcat \*R1\* | gzip > R1.fq.gz
 gunzip -c \*R1\* | gzip > R1.fq.gz
 ```
 
-If you suspect your indexing might be wrong you can use the `'outputall'` flag (`-a`). This outputs demultiplexed files using all possible combination of indexes used in our protocol, and can be used to identify the actual index combinations contained in a run and locate possible cross-contamination. Note that this is only recommended for troubleshooting and not for standard use as it will decrease the number of successfully demultiplexed reads per samples due to fuzzy index matching. 
+### INPUT 
+
+ Requires the command line input of  3 or 4 file names, giving the two Illumina seqeunce reads, plus the one or two index reads.
+ Files may be uncompressed, or gzipped (and be named accordingly, e.g. File.fastq.gz)
+ A additonal optional comma delimited file detailing sample index specifics is strongly recommended, allowing 
+ production of correctly named files
+ File must give the following details, one sample (or index combination) per line, with no empty lines:
+     Sample name, SP1/R1 index (I), SP2/R2 index (L):
+     e.g.: AlphaSample,1,11
+     If you include one and only one chain description (i.e. alpha, beta, gamma or delta) into your sample name, you need not set chain in Decombinator
+    
+** NOTE 
+V4.2 simply takes the two Illumina seqeunce reads, demultiplexes and outputs two reads per sample (annotated _R1, and _R2) 
+plus two undetermined reads.  In contrast to earlier versions, note that Demultiplexor does not attach a barcode from 
+read 2 to read 1. This is done direcly in Decombinator.
+
+** Other optional flags:
+  
+   -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
+  
+   -a/--outputall: Output the results of all possible index combinations currently used in protocol
+*   e.g. Useful in finding potential cross-contaminating or incorrectly indexed samples
+*   NB - This option can be run even if an index list is provided (although only those provided by the index list will be named)
+  
+   -t/--threshold: Specifies the threshold by which indexes can be clustered by fuzzy string matching, allowing for sequencing errors
+*     Default = 2. Setting to zero turns off fuzzy matching, i.e. only allowing exact string matching
+  
+  -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
+*     Using this flag makes the script execute faster, but data will require more storage space. 
+    
+   -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
+*     Helps in monitoring progress of large batches. 
+    
+   -fz/--fuzzylist: Output a list of FASTQ IDs of reads which are demultiplexed using fuzzy (i.e. non-exact) index matching, within the specified threshold.
+*     Default = False, but can be useful to investigate suspected cases of poor quality index reads or clashing sequences.
+
+  -ex/--extension: Allows users to specify the file extension of the demultiplexed FASTQ files produced.
+
+  -cl/--compresslevel: Allows user to specify the speed of gzip compression of output files as an integer from 1 to 9. 
+*     1 is the fastest but offers least compression, 9 is the slowest and offers the most compression. Default for this program is 4. 
+
+* To see all options, run: python Demultiplexor.py -h
+
+
+
+## OUTPUT 
+
+    
+** Versions up to 4.2. 
+A fastq file will be produced for each sample listed in the index file, in the modified format, containing all reads that matched
+ So we go from:        R1 - [6s|X1|----J(D)V-----]  
+                       R2 - [X2]
+                       R3 - [8s|N1|8s|N2|2s|-----5'UTR-----]
+ To: ========>         out- [8s|N1|8s|N2|2s|X1|X2|----J(D)V-----]         
+ Where X = hexamer index sequence, N = random barcode sequence, and Ys = spacer sequences of length Y
+   The 8s sequences can be used downstream to identify the presence and location of random barcode N sequences
+   2s is also kept to allow for the possibility finding N sequences produced from slipped reads
+
+** Version 4.2 Produces 2 outputs per paired index, which are simply R1 and R2 Illumina reads. 
+* NOTE No barcode manipulation is carried out any longer
+
+
 
 Addition of new index sequences will currently require some slight modification of the code, although if people requested the use of a more easily edited external index file that could be incorporated in the next update.
 
-The compression level for the Demultiplexor script can be changed to either speed up analysis, or to further compress output data, by providing the command line argument `-cl` and an integer between 1 (fastest and least compressed) and 9 (slowest and most compressed). The default for Demultiplexor is a compression level of 4.
 
 <sub>[↑Top](#top)</sub>
 
@@ -223,7 +275,7 @@ The compression level for the Demultiplexor script can be changed to either spee
 
 <h1 id="decombinator">Decombinator.py</h1>
 
-## Decombining: identifying rearranged TCRs and outputting their 5-part classifiers
+## Decombinator : identifying rearranged TCRs and outputting their 5-part classifiers, together with unique molecular identifier 
 
 This script performs the key functions of the pipeline, as it searches through demultiplexed reads for rearranged TCR sequences. It looks for short 'tag' sequences (using Aho-Corasick string matching): the presence of a tag uniquely identifies a particular V or J gene. If it finds both a V and a J tag (and the read passes various filters), it assigns the read as recombined, and outputs a five-part Decombinator index (or 'DCR'), which uniquely represents a given TCR rearrangement.
 
@@ -246,51 +298,75 @@ Various additional fields may follow the five part classifier, but the DCR will 
 
 Which corresponds to a rearrangement between TRAV1-2 (V index **1**, with **9** nucleotides deleted) and TRAJ33 (J index **22**, with **0** deletions), with an insert sequence (i.e. non-templated additions to the V and/or the J gene) of '**CTCTA**'. For beta chains, the insert sequence will contain any residual TRBD nucleotides, although as these genes are very short, homologous and typically highly 'nibbled', they are often impossible to differentiate.
 
-`Decombinator.py` needs to be provided with a FASTQ file, using the `-fq` flag (which, if following the Chain lab protocol will have come from the output of `Demultiplexor.py`). Users can also specify:
-* The species: `-sp`
- * 'human' (default) or 'mouse'
-* The TCR chain locus: `-c`
- * Just use the first letter, i.e. a/b/g/d
- * Not required if unambiguously specified in filename
- * This flag will override automatic chain detection
-
 ```bash
 python Decombinator.py -fq AlphaSample1.fq.gz -sp mouse -c a
 ```
+** Version 4.2 introduces some changes to work with Demultiplexor 4.01 and to work for the new multiplex protocol. It can look for a 
+** barcode in either read 1 (multiplex protocol) or read 2 (ligation protocol). This is controled by a new required flag -bc_read 
+** which must be R1 or R2. The bc_length can also be set - the default is 42
 
-The other important flag is that which specifies the DNA strand orientations that are searched for rearrangements: `-or`, for which users can specify 'forward', 'reverse' or 'both'. As the 5' RACE approach used in the Chain lab means that all recombinations will be read from the constant region, the default is set to reverse.
 
-Decombinator also outputs a number of additional fields by default, in order to facilitate error-correction in subsequent processes. These additional fields are, in order:
+## INPUT 
 
-* The FASTQ ID (i.e. the first line of four, following the '@' character)
-    * This allows users to go back to the original FASTQ file and find whole reads of interest
-* The 'inter-tag' sequence, and quality
-    * These two fields are the nucleotide sequence and Q scores of the original FASTQ, running from the start of the found V tag to the end of the found J tag 
-    * This therefore just lifts the part of the sequence that contains the rearrangement/CDR3 sequences, which will be used for error-correction
-* The barcode sequence, and quality
-    * The first 30 bases of each read, carried over from R2 during demultiplexing, contains the two random nucleotide sequences which make up the barcode (UMI)
- 
-```bash
-43, 19, 5, 2, TCGACCTC, M01996:15:000000000-AJF5P:1:1101:17407:1648, AAGTGTCAGACTCAGCGGTGTACTTCTGTGCTCTGTCGACCTCAACAGAGATGACAAGATCATCTTTGGAAAAGGGACACG, HHHGHFHHHHG?FGECHHHHHHHHHGHHFHHGGGGFFHHGFGGHHHHHHHHHHHHHHHHHHHHGHHHHHHHHHHHHHGGGH, GTCGTGATCGGCCGGTCGTGATCGTGCACA, 1AA@A?FFF??DFCGGGEG?FGGAGHGFHC
-```
+ As with entire pipeline, Decombintator is run using command line arguments to provide user parameters
+   All arguments can be read by viewing the help data, by running python Decombintator.py -h
 
-By default Decombinator assigns a 'dcr_' prefix and '.n12' file extension to the output files, to aid in downstream command line data handling. However these can can be altered using the `-pf` and `-ex` flags respectively.
+** The two required parameters are 
+ 1. -fq/--fastq which identify FASTQ reads produced by Demultiplexor.py (unzipped or gzipped).
+ 2 -br/--bc_read which determines whether teh barcode is obtained from the beginning of R2 as in the standard 5'RACE ligation protocol, using the M13-I8-6N-I8-6N or the older SP2-I8-6N-I8-6N oligonucleotide; or from the beginning of R1 as in the new Vbeta multiplex protocol. The length of sequence containing the barcode can also be determined using -bl/--bc_length. The default is 42; but for the multiplex, 22 is enough. 
 
-As Decombinator uses tags to identify different V/J genes it can only detect those genes that went into the tag set. Both human and mouse have an 'original' tag set, which contains all of the prototypical alleles for each 'functional' TCR gene (as defined by IMGT).
-There is also an 'extended' tag set for human alpha/beta genes, which includes tags for the prototypical alleles of all genes, regardless of predicted functionality. This is the default and recommended tag set for humans (due to increased specificity and sensitivity), but users can change this using the `-tg` flag.
+ The TCR chain locus to look for can be explicitly specified using the -c flag 
+ Users can use their choice of chain identifiers from this list (case insensitive): a/b/g/d/alpha/beta/gamma/delta/TRA/TRB/TRG/TRD/TCRA/TCRB/TCRG/TCRD
+ If no chain is provided (or if users which to minimise input arguments), script can infer chain from the FASTQ filename
+ I.e. "alpha_sample.fq" would be searched for alpha chain recombinations
+** NB: This autodetection only works if there is only ONE TCR locus present in name (which must be spelt out in full)
 
-Users wanting to run `Decombinator.py` on their own, non-barcoded data should set the flag `-nbc`. Choosing this option will stop Decombinator from outputting the additional fields required for demultiplexing: instead each classifier will simply be appended an abundance, indicating how many times each identifier appeared in that run. Note that this changes the default file extension to '.nbc', which users may wish to change.
+** Other optional flags:
+  
+   -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
+      
+   -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
+*  Using this flag makes the script execute faster, but data will require more storage space. 
+    
+   -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
+*  Helps in monitoring progress of large batches.
+  
+   -dk/--dontcheck: Suppress the FASTQ sanity check. 
+ * Strongly recommended to leave alone: sanity check inspects first FASTQ read for basic FASTQ parameters.
+  
+   -pf/--prefix: Allows users to specify the prefix of the Decombinator TCR index files produced. Default = 'dcr_'
+  
+   -ex/--extension: Allows users to specify the file extension of the Decombinator TCR index files produced. Default = '.n12'
 
-The supplementary files required by Decombinator can be downloaded by the script from GitHub as it runs. If running offline, you need to [download the files](https://github.com/innate2adaptive/Decombinator-Tags-FASTAs) to the directory where you run Decombinator, or specifically inform it of the path using the `-tfdir` flag.
+  -or/--orientation: Allows users to specify which DNA orientations to check for TCR reads. Default = reverse only, as that's what the protocol produces.
+ * This will likely need to be changed for analysing data produced by protocols other than our own.
 
-Supplementary files are named by the following convention:
-[*species*]\_[*tag set*]\_[*gene type*].[*file type*]  
-E.g.:
-`human_extended_TRAV.tags`
+   -tg/--tags: Allows users to specify which tag set they wish to use. For human alpha/beta TCRs, a new 'extended' tag set is recommended, as it covers more genes.
+ *   An extended tag set is only currently available for human a/b genes.
 
-Also please note the TCR gene naming convention, as determined by IMGT:  
-TRAV1-2*01  
-TR = TCR / A = alpha / V = variable / 1 = family / -2 = subfamily / *01 = allele
+  -sp/--species: Current options are only human or mouse. Help could potentially be provided for generation of tags for different species upon request.
+  
+  -N/--allowNs: Provides users the option to allow 'N's (ambiguous base calls), overriding the filter that typically removes rearrangements that contain them.
+ *  Users are recommended to not allow Ns, as such bases are both themselves low quality data and predict reads that are generally less trustworthy.
+    
+ * -ln/--lenthreshold: The length threshold which (the inter-tag region of) successful rearrangements must be under to be accepted. Default = 130.
+  
+   -tfdir/--tagfastadir: The path to a local copy of a folder containing the FASTA and Decombinator tag files required for offline analysis.
+ *    Ordinarily such files can be downloaded on the fly, reducing local clutter. By default the script looks for the required files in the present working directory, then in a subdirectory called "Decombinator-Tags-FASTAs", then online.
+ *    Files are hosted on GitHub, here: https://github.com/innate2adaptive/Decombinator-Tags-FASTAs
+
+   -nbc/--nobarcoding: Run Decombinator without any barcoding, i.e. use the whole read. 
+ * Recommended when running on data not produced using the Innate2Adaptive lab's ligation-mediated amplification protocol
+  
+  -bl/--bc_length : sets the length of seqeunce to be stored by Decombinator from R1 or R2 (as set by -bc_read) for further use by Collapsinator.
+   
+
+  ## OUTPUT 
+  
+  
+  Produces a '.n12' file by default, which is a standard comma-delimited Decombinator output file with several additional fields:
+  V index, J index, # V deletions, # J deletions, insert, ID, TCR sequence, TCR quality, barcode sequence, barcode quality
+**  NB The TCR sequence given here is the 'inter-tag' region, i.e. the sequence between the start of the found V tag the end of the found J tag 
 
 <sub>[↑Top](#top)</sub>
 
@@ -300,8 +376,13 @@ TR = TCR / A = alpha / V = variable / 1 = family / -2 = subfamily / *01 = allele
 
 ## Collapsing: using the random barcodes to error- and frequency-correct the repertoire
 
-Assuming that Decombinator has been run on data produced using the Chain lab's (or a comparable) UMI protocol, the next step in the analysis will remove errors and duplicates produced during the amplification and sequencing reactions.
-
+Takes the output files of Decombinator (run using the barcoding option) and performs collapsing and error correction. This version is a modified version of KB's script collapsinator_20141126.py (That was itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644))*
+**  Version 4.0.2 includes improved clustering routines measuring the similarity in both barcode and TCR sequence of TCR repertoire data
+  
+**  NOTE - from version 4.2 this optionally looks for barcode 6NI86N at the beginning of the read; instead of M13_6N_I8_6N_I8
+  (i.e. only one spacer).
+  This makes it compatible with the multiplex protocol in which the barcode is incorproated in the RT step and is found at the beginning of R1. 
+ ** from version V4.2  there is a required additional command line parameter -ol (see below for allowed inputs)
 The barcode sequence is contained in one of the additional fields output by `Decombinator.py` in the .n12 files, that which contains the first 42 bases of R2. As Illumina sequencing is particularly error-prone in the reverse read, and that reads can be phased (i.e. they do not always begin with the next nucleotide that follows the sequencing primer) our protocol uses known spacer sequences to border the random barcode bases, so that we can identify the actual random bases. The hexameric barcode locations (N6) are determined in reference to the two spacer sequences like so:
 
 ```
@@ -309,7 +390,7 @@ I8 (spacer) – N6 – I8 – N6 – 2 base overflow (n)
 GTCGTGATNNNNNNGTCGTGATNNNNNNnn
 ```
 
-The collapsing script can therefore use the spacer sequences to be sure we have found the right barcode sequences.
+The collapsing script uses the spacer sequences to identify the exact position of the barcode sequences.
 
 The `Collapsinator.py` script performs the following procedures:
 * Scrolls through each line of the input .n12 file containing DCR, barcode and sequence data.
@@ -351,7 +432,35 @@ Additionally, a script is included to run all current tests at once:
 ```
 python unittests/alltests.py
 ```
+## INPUT 
 
+  
+**  Required inputs 
+  -in/--infile : Defines input file.   Takes as input .n12 files produced by Decombinator (v3 or higher), assuming it has been run on suitably barcoded and demultiplexed data.
+ 
+  -ol/--oligo  : Specifies the spacer (protocol dependent) as M13, I8, I8_single. The I8 protocol is deprecated.
+  
+**  Other optional flags:
+  
+    -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
+  
+    -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
+  
+    -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. Helps in monitoring progress of large batches.
+
+  The other optional flags are somewhat complex, and caution is advised in their alteration.
+
+  To see all options, run: python Collapsinator.py -h
+
+  Input files need to be in the appropriate format, consisting of:
+    V index, J index, V deletions, J deletions, insert, ID, inter-tag TCR sequence, inter-tag quality, barcode sequence, barcode quality
+
+
+## OUTPUT 
+   
+  A Decombinator index file, giving each error-corrected DCR index, and the frequency with which it appears
+  in the final processed data, and an average UMI count, which can be used to estimate the robustness of the
+  data for that particular sequence
 <sub>[↑Top](#top)</sub>
 
 ---
@@ -394,7 +503,7 @@ python CDR3translator.py -in dcr_AlphaSample1.freq
 python CDR3translator.py -in dcr_AnotherSample1.freq -c b
 ```
 
-As of version 4, this script now outputs a tab separated file compatible with the AIRR-seq community format, to encourage data re-use and cross-tool compatibility and comparisons. For details please see [Vander Haiden *et al.* (2018)](http://dx.doi.org/10.3389/fimmu.2018.02206) and the [AIRR community standards](https://docs.airr-community.org/). Note that this format expects certain columns to be present even if the fields are not applicable, so CDR3translator leaves these fields empty. Further fields have been added.
+** NOTE As of version 4, this script now outputs a tab separated file compatible with the AIRR-seq community format, to encourage data re-use and cross-tool compatibility and comparisons. For details please see [Vander Haiden *et al.* (2018)](http://dx.doi.org/10.3389/fimmu.2018.02206) and the [AIRR community standards](https://docs.airr-community.org/). Note that this format expects certain columns to be present even if the fields are not applicable, so CDR3translator leaves these fields empty. Further fields have been added.
 
 | Field | Description | 
 |:---:|---|
