@@ -63,6 +63,7 @@
 ##### OUTPUT #####  
 ##################
     
+# Versions up to 4.2. 
 # A fastq file will be produced for each sample listed in the index file, in the modified format, containing all reads that matched
 # So we go from:        R1 - [6s|X1|----J(D)V-----]  
 #                       R2 - [X2]
@@ -72,7 +73,10 @@
   # The 8s sequences can be used downstream to identify the presence and location of random barcode N sequences
   # 2s is also kept to allow for the possibility finding N sequences produced from slipped reads
 
-##################
+# Version 4.2 Produces 2 outputs per paired index, which are simply R1 and R2 Illumina reads. 
+# NOTE No barcode manipulation is carried out any longer
+ 
+################
 #### PACKAGES ####  
 ##################
 
@@ -474,9 +478,10 @@ if __name__ == '__main__':
       # Exact index matches
       filename_1 = open(XXdict1[seqX],"a")     
       filename_1.write(new_record1)
+      filename_1.close()
       filename_2 = open(XXdict1[seqX].replace("R1.f","R2.f"),"a")
       filename_2.write(new_record2)
-      
+      filename_2.close()
       dmpd_count += 1
       outputreads[XXdict1[seqX]] += 1
       #Sprint(sample_names)
@@ -498,7 +503,9 @@ if __name__ == '__main__':
         
         #print(filename_1)
         filename_1.write(new_record1)
+        filename_1.close()
         filename_2.write(new_record2)
+        filename_2.close()
         dmpd_count += 1
         fuzzy_count += 1
         fuzzies.append(fq_id)
