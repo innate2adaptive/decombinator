@@ -15,7 +15,7 @@
   NOTE - from version 4.1 this optionally looks for barcode 6NI86N at the beginning of the read; instead of M13_6N_I8_6N_I8
   (i.e. only one spacer).
   This makes it compatible with the multiplex protocol in which the barcode is incorproated in the RT step
-  In order to work, you must specify an additional command line parameter -ol i8_single
+  In order to work, you must specify an additional command line parameter -ol (see below)
 ##################
 ###### INPUT #####
 ##################
