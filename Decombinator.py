@@ -738,9 +738,9 @@ if __name__ == '__main__':
             tcrQ = vdjqual[recom[5]:recom[6]]
           
           if inputargs['nobarcoding'] == False:
-            #print(inputargs['fastq'].replace("R1.f","R2.f"))
+            #print(inputargs['fastq'].replace("1.f","2.f"))
             if inputargs['bc_read'] == "R2":
-              with opener(inputargs['fastq'].replace("R1.f","R2.f"),"rt") as f1:
+              with opener(inputargs['fastq'].replace("1.f","2.f"),"rt") as f1:
                 for readid, seq, qual in readfq(f1): 
                     bc, bcQ = seq[:bclength],qual[:bclength]
                     #print(bc + bcQ)
