@@ -93,7 +93,7 @@
 ##################
 #### PACKAGES ####  
 ##################
-
+#print("TEST1")
 from __future__ import division
 import sys          
 import os
@@ -108,8 +108,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
-
-__version__ = '4.0.2'
+#print("TEST2")
+__version__ = '4.2.0'
 
 ##########################################################
 ############# READ IN COMMAND LINE ARGUMENTS #############
@@ -120,7 +120,7 @@ def args():
 
   # Help flag
   parser = argparse.ArgumentParser(
-      description='Decombinator v4.0.2: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
+      description='Decombinator v4.2.0: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
   # Add arguments
   parser.add_argument(
       '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
@@ -221,13 +221,16 @@ def readfq(fp):
     readfq(file):Heng Li's Python implementation of his readfq function 
     https://github.com/lh3/readfq/blob/master/readfq.py
     """
-    
+    #i = 1
     last = None # this is a buffer keeping the last unprocessed line
     while True: # mimic closure; is it a bad idea?
         if not last: # the first record or a record following a fastq
             for l in fp: # search for the start of the next record
                 if l[0] in '>@': # fasta/q header line
                     last = l[:-1] # save this line
+                    #i = i + 1
+                    #if i % 100000 == 0:
+                       #print(i)
                     break
         if not last: break
         name, seqs, last = last[1:].partition(" ")[0], [], None
@@ -241,6 +244,7 @@ def readfq(fp):
             if not last: break
         else: # this is a fastq record
             seq, leng, seqs = ''.join(seqs), 0, []
+            #print(seq)
             for l in fp: # read the quality
                 seqs.append(l[:-1])
                 leng += len(l) - 1
@@ -685,81 +689,92 @@ if __name__ == '__main__':
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert $seqid $tcr_seq $tcr_qual $barcode $barqual')
   else:
     stemplate = string.Template('$v $j $del_v $del_j $nt_insert')
-    found_tcrs = coll.Counter()
+  found_tcrs = coll.Counter()
   ############################################################################################
   ##################################################################################################
   
   ##################################################################################
-# Scroll through input file and find TCRs
-  
-  with open(name_results + suffix, 'w') as outfile:   
-    with opener(inputargs['fastq'],"rt") as f:
-            
-      for readid, seq, qual in readfq(f):
-        start_time = time()
-        
-        if inputargs['nobarcoding'] == False:
-          bc = seq[:bclength]     
-          vdj = seq[bclength:]
-        else:
-          vdj = seq
-        
-        if inputargs['nobarcoding'] == False:
-          if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
-            counts['dcrfilter_barcodeN'] += 1
-        
-        counts['read_count'] += 1
-        if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
-          print('\t read', counts['read_count'])
-    
-        # Get details of the VJ recombination
-        if inputargs['orientation'] == 'reverse':
-          recom = dcr(revcomp(vdj), inputargs)
-          frame = 'reverse'
-        elif inputargs['orientation'] == 'forward':
-          recom = dcr(vdj, inputargs)
-          frame = 'forward'
-        elif inputargs['orientation'] == 'both':
-          recom = dcr(revcomp(vdj), inputargs)
-          frame = 'reverse'
-          if not recom:
-            recom = dcr(vdj, inputargs)
-            frame = 'forward'
-     
-        if recom:
-          counts['vj_count'] += 1
-          vdjqual = qual[bclength:]  
-          
-          if frame == 'reverse':
-            tcrseq = revcomp(vdj)[recom[5]:recom[6]]
-            tcrQ = vdjqual[::-1][recom[5]:recom[6]]
-          elif frame == 'forward':
-            tcrseq = vdj[recom[5]:recom[6]]
-            tcrQ = vdjqual[recom[5]:recom[6]]
-          
-          if inputargs['nobarcoding'] == False:
-            #print(inputargs['fastq'].replace("1.f","2.f"))
-            if inputargs['bc_read'] == "R2":
-              with opener(inputargs['fastq'].replace("1.f","2.f"),"rt") as f1:
-                for readid, seq, qual in readfq(f1): 
-                    bc, bcQ = seq[:bclength],qual[:bclength]
-                    #print(bc + bcQ)
-            if inputargs['bc_read'] == "R1":                
-              with opener(inputargs['fastq'],"rt") as f1:
-                for readid, seq, qual in readfq(f1): 
-                    bc, bcQ = seq[:bclength],qual[:bclength]
-                                
-            #print(bc + bcQ)
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-            del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
-            tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
-            outfile.write(dcr_string + '\n')
+# Scroll through input file and find TCRs 
 
-          else:
-            dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-              del_j = str(recom[3]) + ',', nt_insert = recom[4])      
-            found_tcrs[dcr_string] += 1
-  
+  with open(name_results + suffix, 'w') as outfile:  
+        start_time = time()  
+        if inputargs['nobarcoding'] == False:
+          if inputargs['bc_read'] == "R2":
+            fq1 = readfq(opener(inputargs['fastq'],'rt'))
+            fq2 = readfq(opener(inputargs['fastq'].replace("1.f","2.f"),'rt'))
+          elif inputargs['bc_read'] == "R1":
+            fq1 = readfq(opener(inputargs['fastq'],'rt'))
+            fq2 = fq1
+            
+          fqs = (fq1, fq2)
+          zipfqs = zip(fq1, fq2)
+                        
+          for records in zipfqs:
+               #print(records)
+            record1, record2 = records
+            if inputargs['bc_read'] == "R2": 
+                readid = record1[0]  
+                vdjqual = record1[2]
+                vdj = record1[1]
+                bc = record2[1][:bclength]
+                bcQ = record2[2][:bclength]
+                
+            elif inputargs['bc_read'] == "R1": 
+                readid = record1[0]  
+                vdj = record1[1][bclength:]
+                vdjqual = record1[1][bclength:]
+                bc =  record1[1][0:bclength]
+                bcQ = record1[2][0:bclength]
+                
+                
+            if inputargs['nobarcoding'] == False:
+              if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
+                counts['dcrfilter_barcodeN'] += 1
+            
+            counts['read_count'] += 1
+            #print(counts['read_count'])
+            if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
+                print('\t read', counts['read_count'])
+        
+            # Get details of the VJ recombination
+            if inputargs['orientation'] == 'reverse':
+              recom = dcr(revcomp(vdj), inputargs)
+              frame = 'reverse'
+            elif inputargs['orientation'] == 'forward':
+              recom = dcr(vdj, inputargs)
+              frame = 'forward'
+            elif inputargs['orientation'] == 'both':
+              recom = dcr(revcomp(vdj), inputargs)
+              frame = 'reverse'
+              if not recom:
+                recom = dcr(vdj, inputargs)
+                frame = 'forward'
+         
+            if recom:
+              #print("TEST1")
+              counts['vj_count'] += 1
+               
+              
+              if frame == 'reverse':
+                tcrseq = revcomp(vdj)[recom[5]:recom[6]]
+                tcrQ = vdjqual[::-1][recom[5]:recom[6]]
+              elif frame == 'forward':
+                tcrseq = vdj[recom[5]:recom[6]]
+                tcrQ = vdjqual[recom[5]:recom[6]]
+          
+              if inputargs['nobarcoding'] == False:
+                                            
+            #print(bc + bcQ)
+                dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
+                del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
+                tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
+                outfile.write(dcr_string + '\n')
+
+              else:
+                dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
+                del_j = str(recom[3]) + ',', nt_insert = recom[4])      
+                found_tcrs[dcr_string] += 1
+                outfile.write(dcr_string + '\n')
   if inputargs['nobarcoding'] == True:
     # Write out non-barcoded results, with frequencies
     if inputargs['extension'] == 'n12':
