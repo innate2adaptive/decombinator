@@ -305,7 +305,7 @@ def get_barcode_positions(bcseq,inputargs,counts):
     
   # sets second spacer based on specified oligo (unless single oligo)
   
-  if not inputargs['oligo'] == 'i8_single': 
+  if not str.lower(inputargs['oligo']) == 'i8_single': 
     spacers += findSecondSpacer(oligo, bcseq)
    
   # sequences which do not have two spacers are logged then removed from analysis
@@ -477,11 +477,16 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
         counts['readdata_input_dcrs'] += 1
         fields = line.rstrip('\n').split(', ')
        
-        if not inputargs['oligo'] == 'i8_single':
-            bc_locs = get_barcode_positions(fields[8], inputargs, counts)        # barcode locations
+        if str.lower(inputargs['oligo']) == 'i8_single':
+            bc_locs = get_barcode_positions2(fields[8], inputargs, counts)        # barcode locations
+        elif str.lower(inputargs['oligo']) == 'i8':
+            bc_locs = get_barcode_positions(fields[8], inputargs, counts)
+        elif str.lower(inputargs['oligo']) == 'm13':
+            bc_locs = get_barcode_positions(fields[8], inputargs, counts)
         else:
-            bc_locs = get_barcode_positions2(fields[8], inputargs, counts)
-        
+            print("The flag for the -ol input must be one of M13, I8 or I8_single")
+            exit()
+            
         if not bc_locs:
           counts['readdata_fail_no_bclocs'] += 1
           continue
