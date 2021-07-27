@@ -347,10 +347,10 @@ def get_barcode_positions2(bcseq,inputargs,counts):
 
   # gets spacer sequences of specified oligo
   oligo = getOligo(inputargs['oligo'])
-  
+  #print(oligo['spcr1'])
   # sets first spacer based on specified oligo
   spacers = findFirstSpacer(oligo, bcseq)  
-  #print(spacers)
+  #print('spacer',spacers)
   # sequences with no first spacer are removed from analysis
   if not len(spacers) == 1:
     return None
@@ -364,7 +364,7 @@ def get_barcode_positions2(bcseq,inputargs,counts):
   # return None
 
   spacer_positions = getSpacerPositions(bcseq, spacers)
-
+  #print(spacer_positions)
   # set expected barcode length
   bclength = 6
   # start and end of barcode positions are set
@@ -377,6 +377,7 @@ def get_barcode_positions2(bcseq,inputargs,counts):
 
   # filtering and logging
   if spacers == [oligo['spcr1']]:
+      #print('TEST')
       counts['getbarcode_pass_exactmatch'] += 1
   else:
       counts['getbarcode_pass_regexmatch'] += 1
@@ -389,9 +390,11 @@ def get_barcode_positions2(bcseq,inputargs,counts):
   elif b1len >= 7 and spacers != [oligo['spcr1']]:
       counts['getbarcode_pass_fuzzymatch_long'] += 1
   elif b1len == bclength:
-       counts['getbarcode_pass_other'] += 1
-  if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail': return None
-  
+      counts['getbarcode_pass_other'] += 1
+  if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail': 
+      
+      return None
+  #print(b1start,b1end,b2start,b2end)
   return [b1start,b1end,b2start,b2end]
 
 
@@ -479,20 +482,22 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
        
         if str.lower(inputargs['oligo']) == 'i8_single':
             bc_locs = get_barcode_positions2(fields[8], inputargs, counts)        # barcode locations
+            #print(bc_locs)
+            #exit()
         elif str.lower(inputargs['oligo']) == 'i8':
             bc_locs = get_barcode_positions(fields[8], inputargs, counts)
         elif str.lower(inputargs['oligo']) == 'm13':
             bc_locs = get_barcode_positions(fields[8], inputargs, counts)
         else:
             print("The flag for the -ol input must be one of M13, I8 or I8_single")
-            exit()
+            #exit()
             
         if not bc_locs:
           counts['readdata_fail_no_bclocs'] += 1
           continue
 
         barcode, barcode_qualstring = set_barcode(fields, bc_locs)
-
+        #print(barcode)
         # L and S characters get quality scores of "?", representative of Q30 scores
 
         if not barcode_quality_check(barcode_qualstring, barcode_quality_parameters):

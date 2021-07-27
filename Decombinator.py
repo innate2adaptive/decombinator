@@ -725,7 +725,7 @@ if __name__ == '__main__':
                 vdjqual = record1[1][bclength:]
                 bc =  record1[1][0:bclength]
                 bcQ = record1[2][0:bclength]
-                
+                #print(bc)
                 
             if inputargs['nobarcoding'] == False:
               if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
