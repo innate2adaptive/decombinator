@@ -169,7 +169,7 @@ git clone https://github.com/innate2adaptive/Decombinator-Test-Data.git
 <h1 id="demultiplexing">Demultiplexor.py</h1>
 
 ## Demultiplexor : Demultiplexing libraries from Nextseq or Novoseq to get sample-specific, barcoded V(D)J containing reads
-## Allows fuzsy demultiplexing i.e. allows a specified number of mismatches in the index sequence
+## Allows fuzzy demultiplexing i.e. allows a specified number of mismatches in the index sequence
 
 ## Background
 
