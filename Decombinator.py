@@ -79,7 +79,7 @@
   # -nbc/--nobarcoding: Run Decombinator without any barcoding, i.e. use the whole read. 
     # Recommended when running on data not produced using the Innate2Adaptive lab's ligation-mediated amplification protocol
   
-  #-bl/--bc_length : sets the length of seqeunce to be stored by Decombinator from R1 or R2 (as set by -bc_read) for further use by Collapsinator.
+  #-bl/--bclength : sets the length of seqeunce to be stored by Decombinator from R1 or R2 (as set by -bc_read) for further use by Collapsinator.
    
 
   ##################
@@ -839,7 +839,7 @@ if __name__ == '__main__':
     # Generate string to write to summary file 
     summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] + "\nOutputFile," + outfilenam \
       + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\nInputArguments:,\n"
-    for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'orientation', 'lenthreshold']:
+    for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'orientation', 'lenthreshold', 'bc_read', 'bclength']:
       summstr = summstr + s + "," + str(inputargs[s]) + "\n"
 
     counts['pc_decombined'] = counts['vj_count'] / counts['read_count']
