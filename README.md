@@ -306,7 +306,7 @@ python Decombinator.py -fq AlphaSample1.fq.gz -sp mouse -c a
 ** which must be R1 or R2. The bc_length can also be set - the default is 42. An example command for the multiplex protocol may look like this:
 
 ```bash
-python Decombinator.py -fq BetaSample1.fq.gz -c b -br R1 -bl 22
+python Decombinator.py -fq BetaSample1_R1.fq.gz -c b -br R1 -bl 22
 ```
 
 
