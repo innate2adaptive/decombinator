@@ -423,7 +423,7 @@ python Collapsinator.py -in dcr_AlphaSample1.n12
 From Version 4.2 onwards, the oligo flag needs to be included in the command. For example, to run Collapsinator on samples from the multiplex protocol
 
 ```bash
-python Collapsinator.py -in dcr_BetaSample1.n12 -ol I8_single
+python Collapsinator.py -in dcr_BetaSample1_R1.n12 -ol I8_single
 ```
 
 A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However the need for such fine tuning will likely be very protocol-specific, and is only suggested for advanced users, and with careful data validation. A histogram of the average UMI counts can be generated using the `-uh` flag.
