@@ -828,7 +828,7 @@ if __name__ == '__main__':
         + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"
 
       for s in ['extension', 'dontgzip', 'allowNs', 'dontcheckinput', 'barcodeduplication', 'minbcQ', 'bcQbelowmin', 'bcthreshold', \
-        'lenthreshold', 'percentlevdist', 'avgQthreshold', 'positionalbarcodes']:
+        'lenthreshold', 'percentlevdist', 'avgQthreshold', 'positionalbarcodes', 'oligo']:
         summstr = summstr + s + "," + str(inputargs[s]) + "\n"
 
       counts['pc_input_dcrs'] = counts['number_input_total_dcrs'] / counts['readdata_input_dcrs']

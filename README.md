@@ -303,7 +303,11 @@ python Decombinator.py -fq AlphaSample1.fq.gz -sp mouse -c a
 ```
 ** Version 4.2 introduces some changes to work with Demultiplexor 4.01 and to work for the new multiplex protocol. It can look for a 
 ** barcode in either read 1 (multiplex protocol) or read 2 (ligation protocol). This is controled by a new required flag -bc_read 
-** which must be R1 or R2. The bc_length can also be set - the default is 42
+** which must be R1 or R2. The bc_length can also be set - the default is 42. An example command for the multiplex protocol may look like this:
+
+```bash
+python Decombinator.py -fq BetaSample1_R1.fq.gz -c b -br R1 -bl 22
+```
 
 
 ## INPUT 
@@ -414,6 +418,12 @@ Collapsing occurs in a chain-blind manner, and so only the decombined '.n12' fil
 
 ```bash
 python Collapsinator.py -in dcr_AlphaSample1.n12
+```
+
+From Version 4.2 onwards, the oligo flag needs to be included in the command. For example, to run Collapsinator on samples from the multiplex protocol
+
+```bash
+python Collapsinator.py -in dcr_BetaSample1_R1.n12 -ol I8_single
 ```
 
 A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However the need for such fine tuning will likely be very protocol-specific, and is only suggested for advanced users, and with careful data validation. A histogram of the average UMI counts can be generated using the `-uh` flag.
@@ -667,5 +677,6 @@ The published history of the development of the pipeline is covered in the follo
 * [Oakes et al (2017), Frontiers in Immunology: *Quantitative Characterization of the T Cell Receptor Repertoire of Naïve and Memory Subsets Using an Integrated Experimental and Computational Pipeline Which Is Robust, Economical, and Versatile*](https://doi.org/10.3389/fimmu.2017.01267)
 * [Uddin et al (2019), Cancer Immunosurveillance: *An Economical, Quantitative, and Robust Protocol for High-Throughput T Cell Receptor Sequencing from Tumor or Blood*](http:/dx.doi.org/10.1007/978-1-4939-8885-3_2)
 * [Uddin et al (2019), Methods in Enzymology: *Quantitative analysis of the T cell receptor repertoire*](https://doi.org/10.1016/bs.mie.2019.05.054)
+* [Peacock et al (2020), Bioinformatics: *Decombinator V4: an improved AIRR compliant-software package for T-cell receptor sequence annotation*](https://doi.org/10.1093/bioinformatics/btaa758)
 
 <sup>[↑Top](#top)</sup>
