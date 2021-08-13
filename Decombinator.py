@@ -714,15 +714,15 @@ if __name__ == '__main__':
             record1, record2 = records
             if inputargs['bc_read'] == "R2": 
                 readid = record1[0]  
-                vdjqual = record1[2]
                 vdj = record1[1]
+                vdjqual = record1[2]
                 bc = record2[1][:bclength]
                 bcQ = record2[2][:bclength]
                 
             elif inputargs['bc_read'] == "R1": 
                 readid = record1[0]  
                 vdj = record1[1][bclength:]
-                vdjqual = record1[1][bclength:]
+                vdjqual = record1[2][bclength:]
                 bc =  record1[1][0:bclength]
                 bcQ = record1[2][0:bclength]
                 #print(bc)
