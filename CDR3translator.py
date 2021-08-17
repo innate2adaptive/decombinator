@@ -74,7 +74,9 @@ def args():
     parser.add_argument('-tfdir', '--tagfastadir', type=str, required=False, default="Decombinator-Tags-FASTAs",
                         help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis.'
                              'Default = \"Decombinator-Tags-FASTAs\".')
-
+    parser.add_argument('-nbc', '--nobarcoding', action='store_true', required=False,
+                        help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.')
+ 
     return parser.parse_args()
 
 
@@ -388,19 +390,24 @@ if __name__ == '__main__':
             v = int(tcr_data[0])
             j = int(tcr_data[1])
 
-            if len(tcr_data) < 5:
-                print("Too few comma-delimited fields detected. Please check input and try again.")
-                sys.exit()
-            elif len(tcr_data) == 5: # pure DCR file, just the five fields (no frequency)
+            if inputargs['nobarcoding']:
                 use_freq = False
                 frequency = 1
-            else: # freq file with 6 or 7 fields
-                frequency = int(tcr_data[5]) # assume that we're working from a .freq file (or equivalent)
-
-            if len(tcr_data) >= 7:
-                av_UMI_cluster_size = int(tcr_data[6])
-            else:
                 av_UMI_cluster_size = ""
+
+            else:
+                if tcr_data[5].strip().isnumeric():
+                    frequency = int(tcr_data[5])
+                else:
+                    print("TCR frequency could not be detected. If using non-barcoded data," \
+                            " please include the additional '-nbc' argument when running" \
+                            " CDR3translator.")
+                    sys.exit()
+
+                if tcr_data[6].strip().isnumeric():
+                    av_UMI_cluster_size = int(tcr_data[6])
+                else:
+                    av_UMI_cluster_size = ""
 
             cdr3_data = get_cdr3(in_dcr, out_headers)
             cdr3_data['sequence_id'] = str(counts['line_count'])
