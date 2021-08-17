@@ -394,9 +394,6 @@ if __name__ == '__main__':
             elif len(tcr_data) == 5: # pure DCR file, just the five fields (no frequency)
                 use_freq = False
                 frequency = 1
-            elif len(tcr_data) > 7:  # if not n12 file, or freq file, raise error 
-                print("Too many number of comma-delimited fields detected. Please check input and try again.")
-                sys.exit()
             else: # freq file with 6 or 7 fields
                 frequency = int(tcr_data[5]) # assume that we're working from a .freq file (or equivalent)
 
