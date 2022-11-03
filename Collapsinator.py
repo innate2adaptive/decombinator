@@ -473,10 +473,19 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
 
     input_dcr_counts = coll.Counter()
     inhandle = opener(infile, 'rt')
-    
+    ratio =1 
+    l = 0
     for lcount, line in enumerate(inhandle):
-        if lcount % 50000 == 0 and lcount != 0 and not dont_count:
+        if ratio < 0.01 and (time()-t0)> 3600:
+          break        
+        if lcount % 5000 == 0 and lcount != 0 and not dont_count:
           print("   Read in", lcount, "lines... ", round(time()-t0,2), "seconds")
+          #print(l)
+          ratio = (len(barcode_lookup)-l)/len(barcode_lookup)
+          l = len(barcode_lookup)
+          #print(len(barcode_lookup))
+          print(round(ratio,2))
+                  
         counts['readdata_input_dcrs'] += 1
         fields = line.rstrip('\n').split(', ')
        
@@ -528,10 +537,17 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
         # Data is grouped in dictionary format: {'barcode|index|protoseq' : [dcretc1, dcretc2, ...], ... }
         # where index counts upwards from zero to help disinguish identical barcodes in different groups,
         # protoseq is the most common sequence present in the group, and dcretc are the input reads
+        
         if barcode in barcode_lookup:
-
+#          print(len(barcode_lookup[barcode][0]))
+#          print("NEW")
+          #print(barcode_dcretc.values())
+          
           for index in barcode_lookup[barcode]:
-
+            #print("NEW")
+            #print(index)
+            #print(barcode_lookup[barcode])                 
+            #print(barcode_lookup[barcode].keys(),"NEW")
             if are_seqs_equivalent(index[1], seq, lev_threshold):
               barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]].append(dcretc)       
               protodcretc_list = barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]]
