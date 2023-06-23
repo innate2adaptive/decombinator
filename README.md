@@ -546,6 +546,7 @@ python CDR3translator.py -in dcr_AnotherSample1.freq -c b
 | v_cigar | Format required field - left blank |
 | d_cigar | Format required field - left blank |
 | j_cigar | Format required field - left blank |
+| av_UMI_cluster_size | The average UMI count for this particular sequence |
 
 You can also use the 'nonproductivefilter' flag  (`-npf`) to suppress the output of non-productive rearrangements. 
 
