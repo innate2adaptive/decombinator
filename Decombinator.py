@@ -108,57 +108,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
-#print("TEST2")
+
 __version__ = '4.2.0'
-
-##########################################################
-############# READ IN COMMAND LINE ARGUMENTS #############
-##########################################################
-
-def args():
-  """args(): Obtains command line arguments which dictate the script's behaviour"""
-
-  # Help flag
-  parser = argparse.ArgumentParser(
-      description='Decombinator v4.2.0: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
-  # Add arguments
-  parser.add_argument(
-      '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
-  parser.add_argument(
-      '-c', '--chain', type=str, help='TCR chain (a/b/g/d)', required=False)
-  parser.add_argument(
-      '-br','--bc_read',type=str, help='Which read has bar code (R1,R2)',required=True)
-  parser.add_argument(
-      '-s', '--suppresssummary', action='store_true', help='Suppress the production of summary data log file', required=False)
-  parser.add_argument(
-      '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
-  parser.add_argument(
-      '-dk', '--dontcheck', action='store_true', help='Skip the FASTQ check', required=False, default=False)  
-  parser.add_argument(
-      '-dc', '--dontcount', action='store_true', help='Stop Decombinator printing a running count', required=False)
-  parser.add_argument(
-      '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"n12\"', required=False, default="n12")
-  parser.add_argument(
-      '-pf', '--prefix', type=str, help='Specify the prefix of the output DCR file. Default = \"dcr_\"', required=False, default="dcr_")
-  parser.add_argument(
-      '-or', '--orientation', type=str, help='Specify the orientation to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")  
-  parser.add_argument(
-      '-tg', '--tags', type=str, help='Specify which Decombinator tag set to use (extended or original). Default = extended', required=False, default="extended")
-  parser.add_argument(
-      '-sp', '--species', type=str, help='Specify which species TCR repertoire the data consists of (human or mouse). Default = human', required=False, default="human")
-  parser.add_argument(
-      '-N', '--allowNs', action='store_true', help='Whether to allow VJ rearrangements containing ambiguous base calls (\'N\'). Default = False', required=False)
-  parser.add_argument(
-      '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
-  parser.add_argument(
-      '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
-      Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
-  parser.add_argument(
-      '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
-  parser.add_argument(
-      '-bl', '--bclength', type=int, help='Length of barcode sequence, if applicable. Default is set to 42 bp.', required=False, default=42)
-
-  return parser.parse_args()
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
@@ -651,9 +602,6 @@ def sort_permissions(fl):
 
 def decombinator(inputargs: dict) -> list:
   """Function wrapper for decombinator."""
-# if __name__ == '__main__': TODO delete?
-
-  # inputargs = vars(args()) TODO delete?
   
   print("Running Decombinator version", __version__)
 
@@ -702,7 +650,6 @@ def decombinator(inputargs: dict) -> list:
 # Scroll through input file and find TCRs 
 
   outdata = []
-  # with open(name_results + suffix, 'w') as outfile: TODO: delete?
   start_time = time()  
   if inputargs['nobarcoding'] == False:
     if inputargs['bc_read'] == "R2":
@@ -769,53 +716,28 @@ def decombinator(inputargs: dict) -> list:
           tcrQ = vdjqual[recom[5]:recom[6]]
     
         if inputargs['nobarcoding'] == False:
-                                      
-      # #print(bc + bcQ) TODO: delete?
-      #     dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-      #     del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
-      #     tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
-      #     outdata.append(dcr_string)
           dcr_output = [str(recom[0]), str(recom[1]), str(recom[2]), \
                         str(recom[3]), recom[4], readid, tcrseq, \
                         tcrQ, bc, bcQ]     
           outdata.append(dcr_output)
-          # outfile.write(dcr_string + '\n') TODO: delete?
 
         else: # TODO: create non-barcode alternative OR delete non-barcode methodology
           dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
           del_j = str(recom[3]) + ',', nt_insert = recom[4])      
           found_tcrs[dcr_string] += 1
           outdata.append(dcr_string)
-          # outfile.write(dcr_string + '\n') TODO: delete?
 
   if inputargs['nobarcoding'] == True:
     # Write out non-barcoded results, with frequencies
     if inputargs['extension'] == 'n12':
       print("Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'.")
       suffix = '.nbc'
-    # with open(name_results + suffix, 'w') as outfile: # TODO: delete?
     for x in found_tcrs.most_common():
       outdata.append(x[0] + ", " + str(found_tcrs[x[0]]))
-      # outfile.write(x[0] + ", " + str(found_tcrs[x[0]]) + '\n') TODO: delete?
       
   
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']
-
-  # TODO: Delete section below? All is part of file organisation
-  # if inputargs['dontgzip'] == False:
-  #   print("Compressing Decombinator output file,", name_results + suffix, "...")
-    
-  #   with open(name_results + suffix) as infile, gzip.open(name_results + suffix + '.gz', 'wt') as outfile:
-  #       outfile.writelines(infile)
-  #       open(name_results + suffix).close
-  #   os.unlink(name_results + suffix)
-
-  #   outfilenam = name_results + suffix + ".gz"
-  # else:
-  #   outfilenam = name_results + suffix
-    
-  # sort_permissions(outfilenam)
   
   ##############################################
   ############# WRITE SUMMARY DATA #############
@@ -823,7 +745,6 @@ def decombinator(inputargs: dict) -> list:
 
   print("Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), chainnams[chain], "VJ rearrangements")
   print("Reading from", inputargs['fastq'] + ", writing to variable")
-  # print("Reading from", inputargs['fastq'] + ", writing to", outfilenam) # TODO: delete?
   print("Took", str(round(timetaken,2)), "seconds")
 
   # Write data to summary file
@@ -892,6 +813,5 @@ def decombinator(inputargs: dict) -> list:
     print(summstr,file=summaryfile) 
     summaryfile.close()
     sort_permissions(summaryname)
-  # sys.exit() # TODO: delete?
   
   return outdata

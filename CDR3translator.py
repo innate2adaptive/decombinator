@@ -38,49 +38,6 @@ warnings.filterwarnings("ignore")
 
 # TODO Potentially add a flag to combine convergent recombinations into a single row?
 
-# def args():
-#     """
-#     :return: Command line arguments which dictate the script's behaviour
-#     """
-
-#     # Help flag
-#     parser = argparse.ArgumentParser(
-#         description='Translate and extract CDR3 sequences from Decombinator classifier files. '
-#                     'Please see https://innate2adaptive.github.io/Decombinator/ for details.')
-#     # Add arguments
-#     parser.add_argument('-in', '--infile', type=str, required=True,
-#                         help='File containing 5 part Decombinator indexes, (with/without frequencies)')
-
-#     parser.add_argument('-c', '--chain', type=str, help='TCR chain (a/b/g/d)', required=False)
-
-#     parser.add_argument('-sp', '--species', type=str, required=False, default="human",
-#                         help='Specify which species TCR repertoire the data consists of (human or mouse). '
-#                              'Default = human')
-
-#     parser.add_argument('-tg', '--tags', type=str, required=False, default="extended",
-#                         help='Specify which Decombinator tag set to use (extended or original). Default = extended')
-
-#     parser.add_argument('-s', '--suppresssummary', action='store_true', required=False,
-#                         help='Suppress the production of summary data log')
-
-#     parser.add_argument('-npf', '--nonproductivefilter', action='store_true', required=False,
-#                         help='Filter out non-productive reads from the output')
-
-#     parser.add_argument('-dz', '--dontgzip', action='store_true', required=False,
-#                         help='Stop the output FASTQ files automatically being compressed with gzip')
-
-#     parser.add_argument('-dc', '--dontcount', action='store_true', required=False,
-#                         help='Stop printing the running count')
-
-#     parser.add_argument('-tfdir', '--tagfastadir', type=str, required=False, default="Decombinator-Tags-FASTAs",
-#                         help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis.'
-#                              'Default = \"Decombinator-Tags-FASTAs\".')
-#     parser.add_argument('-nbc', '--nobarcoding', action='store_true', required=False,
-#                         help='Option to run CD3translator without barcoding, i.e. so as to run on data produced by any protocol.')
- 
-#     return parser.parse_args()
-
-
 def findfile(filename):
     """
     :param filename: Check whether input file exists or not
@@ -321,23 +278,13 @@ out_headers = ['sequence_id', 'v_call', 'd_call', 'j_call', 'junction_aa', 'dupl
                'vj_in_frame', 'stop_codon', 'conserved_c', 'conserved_f',
                'sequence_alignment', 'germline_alignment', 'v_cigar', 'd_cigar', 'j_cigar', 'av_UMI_cluster_size']
 
-
-# if __name__ == '__main__': # TODO delete?
-
 def cdr3translator(data: list, inputargs: dict) -> list:
+    """Function Wrapper for CDR3translator"""
 
-    # Check input files and parameters
-    # inputargs = vars(args())
     global counts
     counts = coll.Counter()
 
     print("Running CDR3Translator version", __version__)
-
-    # TODO: delete
-    # if inputargs['infile'].endswith('.gz'):
-    #     opener = gzip.open
-    # else:
-    #     opener = open
 
     # Get chain information
     if not inputargs['chain']:
@@ -365,17 +312,12 @@ def cdr3translator(data: list, inputargs: dict) -> list:
 
     suffix = ".tsv"
 
-    # TODO delete
-    # filename = inputargs['infile']
-    # findfile(filename)
-
     # Extract CDR3s # TODO create class object to hold globals
     global v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, \
     j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2
     v_regions, j_regions, v_names, j_names, v_translate_position, v_translate_residue, j_translate_position, \
     j_translate_residue, v_functionality, j_functionality, v_cdr1, v_cdr2 = import_gene_information(inputargs)
 
-    # infile = opener(filename, "rt") TODO delete?
     infile = data
 
     counts['line_count'] = 0
@@ -387,20 +329,12 @@ def cdr3translator(data: list, inputargs: dict) -> list:
 
     filename_id = os.path.basename(inputargs['fastq']).split(".")[0]
     outfilename = filename_id + suffix
-    # with data as in_file, open(outfilename, 'wt') as out_file: TODO delete?
-
-    # with open(outfilename, 'wt') as out_file: TODO delete?
-
-    # out_file.write('\t'.join(out_headers) + '\n') TODO delete?
 
     out_data = []
 
     for line in data:
 
         counts['line_count'] += 1
-
-        # tcr_data = line.rstrip().split(",") # TODO delete?
-        # in_dcr = ",".join(tcr_data[:5]) # TODO delete?
         tcr_data = line
         in_dcr = tcr_data[:5]
         v = int(tcr_data[0])
@@ -412,7 +346,6 @@ def cdr3translator(data: list, inputargs: dict) -> list:
             av_UMI_cluster_size = ""
 
         else:
-            # if tcr_data[5].strip().isnumeric(): # TODO delete?
             if isinstance(tcr_data[5], int):
                 frequency = tcr_data[5]
             else:
@@ -422,7 +355,6 @@ def cdr3translator(data: list, inputargs: dict) -> list:
                 sys.exit()
 
             if isinstance(tcr_data[6], (int, float)):
-            # if tcr_data[6].strip().isnumeric(): TODO delete?
                 av_UMI_cluster_size = tcr_data[6]
             else:
                 av_UMI_cluster_size = ""
@@ -436,13 +368,11 @@ def cdr3translator(data: list, inputargs: dict) -> list:
         if cdr3_data['productive'] == 'T':
             counts['prod_recomb'] += 1
             productivity = "P"
-            # out_file.write('\t'.join([str(cdr3_data[x]) for x in out_headers]) + '\n') TODO delete?
             out_data.append([cdr3_data[x] for x in out_headers])
         else:
             productivity = "NP"
             counts['NP_count'] += 1
             if not inputargs['nonproductivefilter']:
-                # out_file.write('\t'.join([str(cdr3_data[x]) for x in out_headers]) + '\n') TODO delete?
                 out_data.append([cdr3_data[x] for x in out_headers])
 
         # Count the number of number of each type of gene functionality (by IMGT definitions, based on prototypic)
@@ -453,21 +383,6 @@ def cdr3translator(data: list, inputargs: dict) -> list:
     out_df = pd.DataFrame(out_data, columns=out_headers)
 
     print("CDR3 data written to dataframe")
-
-    # Compress output TODO delete?
-    # if not inputargs['dontgzip']:
-    #     print("Compressing CDR3 output file to", outfilename + ".gz")
-
-    #     with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wt') as outfile:
-    #         outfile.writelines(infile)
-    #     os.unlink(outfilename)
-
-    #     outfilenam = outfilename + ".gz"
-
-    # else:
-    #     outfilenam = outfilename
-
-    # sort_permissions(outfilenam)
 
     # Write data to summary file
     if not inputargs['suppresssummary']:
