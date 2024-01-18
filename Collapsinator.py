@@ -58,6 +58,7 @@ import argparse
 import gzip
 import regex
 import copy
+import ast
 import os, sys
 import networkx as nx
 from polyleven import levenshtein as polylev
@@ -68,62 +69,63 @@ __version__ = '4.0.4'
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
 
-def args():
-  """args(): Obtains command line arguments which dictate the script's behaviour"""
+# TODO: delete?
+# def args():
+#   """args(): Obtains command line arguments which dictate the script's behaviour"""
 
-  # Help flag
-  parser = argparse.ArgumentParser(
-      description='Collapse and error correct Decombined TCR sequences produced using the Chain lab\'s ligation TCRseq protocol. Please see https://innate2adaptive.github.io/Decombinator/ for details.')
-  # Add arguments
-  parser.add_argument(
-      '-in', '--infile', type=str, help='File containing raw verbose Decombinator output, i.e. \
-      5 part classifier plus barcode and inter-tag sequence and quality strings', required=True)
-  parser.add_argument(
-      '-mq', '--minbcQ', type=int, help='Minimum quality score that barcode nucleotides should be to for that rearrangement to be retained. Default = 20.', \
-        required=False, default=20)
-  parser.add_argument(
-      '-bm', '--bcQbelowmin', type=int, help='Number of nucleotides per barcode whose quality score are allowed to be below -mq and still be retained. Default = 1.', \
-        required=False, default=1)
-  parser.add_argument(
-      '-aq', '--avgQthreshold', type=int, help='Average quality threshold that barcode sequences must remain above for rearrangements to be retained. Default = 30', \
-        required=False, default=30)
-  parser.add_argument(
-      '-lv', '--percentlevdist', type=int, help='Percentage Levenshtein distance that is allowed to estimate whether two sequences within a barcode are \
-      derived from the same originator molecule. Default = 10', required=False, default=10)  
-  parser.add_argument(
-      '-bc', '--bcthreshold', type=int, help='Number of sequence edits that are allowed to consider two barcodes to be derived from same originator \
-      during clustering. Default = 2.', required=False, default=2)
-  parser.add_argument(
-      '-s', '--suppresssummary',  action='store_true', help='Suppress the production of output summary data log', required=False)
-  parser.add_argument(
-      '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
-  parser.add_argument(
-      '-dc', '--dontcount', action='store_true', help='Block the line count from being shown', required=False, default=False)
-  parser.add_argument(
-      '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"freq\"', required=False, default="freq")
-  parser.add_argument(
-      '-N', '--allowNs', action='store_true', help='Used to allow VJ rearrangements containing ambiguous base calls (\'N\')', required=False)
-  parser.add_argument(
-      '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
-  parser.add_argument(
-      '-di', '--dontcheckinput', action='store_true', help='Override the inputfile sanity check', required=False)
-  parser.add_argument(
-      '-bd', '--barcodeduplication', action='store_true', help='Optionally output a file containing the final list of clustered barcodes, and their frequencies',\
-        required=False)
-  parser.add_argument(
-      '-pb', '--positionalbarcodes', action='store_true', help='Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible.',\
-        required=False)
-  parser.add_argument(
-      '-ol', '--oligo', type=str, help='Choose experimental oligo for correct identification of spacers ["M13", "I8","I8_single] (default: M13)',\
-        required=True, default="m13")
-  parser.add_argument(
-      '-wc', '--writeclusters', action='store_true', help='Write cluster data to separate cluster files',\
-        required=False, default=False)
-  parser.add_argument(
-      '-uh', '--UMIhistogram', action='store_true', help='Creates histogram of average UMI cluster sizes',\
-        required=False, default=False)
+#   # Help flag
+#   parser = argparse.ArgumentParser(
+#       description='Collapse and error correct Decombined TCR sequences produced using the Chain lab\'s ligation TCRseq protocol. Please see https://innate2adaptive.github.io/Decombinator/ for details.')
+#   # Add arguments
+#   parser.add_argument(
+#       '-in', '--infile', type=str, help='File containing raw verbose Decombinator output, i.e. \
+#       5 part classifier plus barcode and inter-tag sequence and quality strings', required=True)
+#   parser.add_argument(
+#       '-mq', '--minbcQ', type=int, help='Minimum quality score that barcode nucleotides should be to for that rearrangement to be retained. Default = 20.', \
+#         required=False, default=20)
+#   parser.add_argument(
+#       '-bm', '--bcQbelowmin', type=int, help='Number of nucleotides per barcode whose quality score are allowed to be below -mq and still be retained. Default = 1.', \
+#         required=False, default=1)
+#   parser.add_argument(
+#       '-aq', '--avgQthreshold', type=int, help='Average quality threshold that barcode sequences must remain above for rearrangements to be retained. Default = 30', \
+#         required=False, default=30)
+#   parser.add_argument(
+#       '-lv', '--percentlevdist', type=int, help='Percentage Levenshtein distance that is allowed to estimate whether two sequences within a barcode are \
+#       derived from the same originator molecule. Default = 10', required=False, default=10)  
+#   parser.add_argument(
+#       '-bc', '--bcthreshold', type=int, help='Number of sequence edits that are allowed to consider two barcodes to be derived from same originator \
+#       during clustering. Default = 2.', required=False, default=2)
+#   parser.add_argument(
+#       '-s', '--suppresssummary',  action='store_true', help='Suppress the production of output summary data log', required=False)
+#   parser.add_argument(
+#       '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
+#   parser.add_argument(
+#       '-dc', '--dontcount', action='store_true', help='Block the line count from being shown', required=False, default=False)
+#   parser.add_argument(
+#       '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"freq\"', required=False, default="freq")
+#   parser.add_argument(
+#       '-N', '--allowNs', action='store_true', help='Used to allow VJ rearrangements containing ambiguous base calls (\'N\')', required=False)
+#   parser.add_argument(
+#       '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
+#   parser.add_argument(
+#       '-di', '--dontcheckinput', action='store_true', help='Override the inputfile sanity check', required=False)
+#   parser.add_argument(
+#       '-bd', '--barcodeduplication', action='store_true', help='Optionally output a file containing the final list of clustered barcodes, and their frequencies',\
+#         required=False)
+#   parser.add_argument(
+#       '-pb', '--positionalbarcodes', action='store_true', help='Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible.',\
+#         required=False)
+#   parser.add_argument(
+#       '-ol', '--oligo', type=str, help='Choose experimental oligo for correct identification of spacers ["M13", "I8","I8_single] (default: M13)',\
+#         required=True, default="m13")
+#   parser.add_argument(
+#       '-wc', '--writeclusters', action='store_true', help='Write cluster data to separate cluster files',\
+#         required=False, default=False)
+#   parser.add_argument(
+#       '-uh', '--UMIhistogram', action='store_true', help='Creates histogram of average UMI cluster sizes',\
+#         required=False, default=False)
   
-  return parser.parse_args()
+#   return parser.parse_args()
 
     
 ########################################################################################################################
@@ -167,6 +169,7 @@ def check_dcr_file(infile):
         else:
           fields = next(poss_dcr).rstrip().split(", ")
         
+        # TODO: reimplement these checks as tests
         # Check lines contain correct number of fields
         if len(fields) != 10:
           print('Input Decombinator file sanity check fail: file does not contain the correct number of comma-delimited fields (ten).')
@@ -326,7 +329,9 @@ def get_barcode_positions(bcseq,inputargs,counts):
   b1len = b1end - b1start
 
 # filtering and logging
-  if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail': return None
+  
+  if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail':
+     return None
   logExactOrRegexMatch(spacers,oligo,counts)
   logFuzzyMatching(b1len,bclength,spacers,oligo,counts)
 
@@ -392,9 +397,7 @@ def get_barcode_positions2(bcseq,inputargs,counts):
   elif b1len == bclength:
       counts['getbarcode_pass_other'] += 1
   if filterShortandLongBarcodes(b1len,b2end,bcseq,counts) == 'fail': 
-      
       return None
-  #print(b1start,b1end,b2start,b2end)
   return [b1start,b1end,b2start,b2end]
 
 
@@ -454,17 +457,18 @@ def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
 def are_barcodes_equivalent(bc1, bc2, threshold):
     return polylev(bc1, bc2) <= threshold
 
-def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
+def read_in_data(data, inputargs, barcode_quality_parameters, lev_threshold, dont_count):
     ###########################################
     ############# READING DATA IN #############
     ###########################################        
         
     # Check whether file appears to contain suitable verbose Decombinator output for collapsing
-    if inputargs['dontcheckinput'] == False:
-      if check_dcr_file(infile) != True:
-        print("Please check that file contains suitable Decombinator output for collapsing.")
-        print("Alternatively, disable the input file sanity check by changing the \'dontcheckinput\' flag, i.e. \'-di True\'")
-        sys.exit()
+    # TODO: reimplement this section as tests
+    # if inputargs['dontcheckinput'] == False:
+    #   if check_dcr_file(infile) != True:
+    #     print("Please check that file contains suitable Decombinator output for collapsing.")
+    #     print("Alternatively, disable the input file sanity check by changing the \'dontcheckinput\' flag, i.e. \'-di True\'")
+    #     sys.exit()
        
     print("Reading data in...")
     t0 = time()
@@ -472,10 +476,11 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
     barcode_lookup = coll.defaultdict(list)
 
     input_dcr_counts = coll.Counter()
-    inhandle = opener(infile, 'rt')
+    # inhandle = opener(infile, 'rt') # TODO: delete?
     ratio =1 
     l = 0
-    for lcount, line in enumerate(inhandle):
+
+    for lcount, line in enumerate(data):
         if ratio < 0.01 and (time()-t0)> 3600:
           break        
         if lcount % 5000 == 0 and lcount != 0 and not dont_count:
@@ -487,16 +492,17 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           print(round(ratio,2))
                   
         counts['readdata_input_dcrs'] += 1
-        fields = line.rstrip('\n').split(', ')
+        # fields = line.rstrip('\n').split(', ') # TODO delete?
+        # fields = line
        
         if str.lower(inputargs['oligo']) == 'i8_single':
-            bc_locs = get_barcode_positions2(fields[8], inputargs, counts)        # barcode locations
+            bc_locs = get_barcode_positions2(line[8], inputargs, counts)        # barcode locations
             #print(bc_locs)
             #exit()
         elif str.lower(inputargs['oligo']) == 'i8':
-            bc_locs = get_barcode_positions(fields[8], inputargs, counts)
+            bc_locs = get_barcode_positions(line[8], inputargs, counts)
         elif str.lower(inputargs['oligo']) == 'm13':
-            bc_locs = get_barcode_positions(fields[8], inputargs, counts)
+            bc_locs = get_barcode_positions(line[8], inputargs, counts)
         else:
             print("The flag for the -ol input must be one of M13, I8 or I8_single")
             #exit()
@@ -505,7 +511,7 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           counts['readdata_fail_no_bclocs'] += 1
           continue
 
-        barcode, barcode_qualstring = set_barcode(fields, bc_locs)
+        barcode, barcode_qualstring = set_barcode(line, bc_locs)
         #print(barcode)
         # L and S characters get quality scores of "?", representative of Q30 scores
 
@@ -514,20 +520,21 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           counts['readdata_fail_low_barcode_quality'] += 1
           continue
 
-        dcr = ', '.join(line.rstrip('\n').split(', ')[:5])
+        # dcr = ', '.join(line.rstrip('\n').split(', ')[:5])
+        dcr = line[:5]
         input_dcr_counts[str(dcr)] += 1
             
-        seq = fields[6]
+        seq = line[6]
             
-        if len(seq) > inputargs['lenthreshold']: 
+        if len(seq) > inputargs['lenthreshold']:
           # end V tag to start J tag too long to be sane
           counts['readdata_fail_overlong_intertag_seq'] += 1
           continue
             
         counts['readdata_success'] += 1
-        seq_qualstring = fields[7]
-        seq_id = fields[5]
-        dcretc = '|'.join([dcr, seq, seq_qualstring, seq_id])
+        seq_qualstring = line[7]
+        seq_id = line[5]
+        dcretc = '|'.join([str(dcr), seq, seq_qualstring, seq_id])
           
         group_assigned = False
 
@@ -544,10 +551,6 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           #print(barcode_dcretc.values())
           
           for index in barcode_lookup[barcode]:
-            #print("NEW")
-            #print(index)
-            #print(barcode_lookup[barcode])                 
-            #print(barcode_lookup[barcode].keys(),"NEW")
             if are_seqs_equivalent(index[1], seq, lev_threshold):
               barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]].append(dcretc)       
               protodcretc_list = barcode_dcretc[barcode + "|" + str(index[0]) + "|" + index[1]]
@@ -578,7 +581,7 @@ def read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count):
           barcode_dcretc["|".join([barcode,"0",seq])].append(dcretc)
           group_assigned = True
 
-    inhandle.close()
+    # inhandle.close() # TODO: delete?
     
     counts['readdata_barcode_dcretc_keys'] = len(barcode_dcretc.keys())
     counts['number_input_unique_dcrs'] = len(input_dcr_counts.keys())
@@ -707,11 +710,11 @@ def write_clusters(clusters):
     return 1
 
 
-def collapsinate(barcode_quality_parameters, lev_threshold, barcode_distance_threshold,
-                 infile, outpath, file_id, dont_count):
+def collapsinate(data, inputargs, barcode_quality_parameters, lev_threshold, barcode_distance_threshold,
+                 outpath, file_id, dont_count):
  
     # read in, structure, and quality check input data
-    barcode_dcretc = read_in_data(barcode_quality_parameters, infile, lev_threshold, dont_count)
+    barcode_dcretc = read_in_data(data, inputargs, barcode_quality_parameters, lev_threshold, dont_count)
 
     # cluster similar UMIs
     clusters = cluster_UMIs(barcode_dcretc, inputargs, barcode_distance_threshold, lev_threshold, dont_count)
@@ -734,28 +737,35 @@ def collapsinate(barcode_quality_parameters, lev_threshold, barcode_distance_thr
     t1 = time()
     print('  ', round(t1-t0, 2), 'seconds')  
 
-    outfile = outpath + file_id + suffix
-    outhandle = open(outfile, 'w')
-    print("Writing to output file", outfile, "...")
+    # TODO: delete?
+    # outfile = outpath + file_id + suffix
+    # outhandle = open(outfile, 'w')
+    # print("Writing to output file", outfile, "...")
+    print("Writing to variable...")
+    out_data = []
 
     average_cluster_size_counter = coll.Counter()
     for dcr, dcr_count in collapsed.items():
       av_clus_size = round(sum(cluster_sizes[dcr])/dcr_count)
       average_cluster_size_counter[av_clus_size] += 1
-      print(', '.join([dcr, str(dcr_count), str(av_clus_size)]), file=outhandle)
-    outhandle.close()
+      list_dcr = ast.literal_eval(dcr) # TODO: keep data in object form throughout
+      list_dcr.extend([dcr_count, av_clus_size])
+      out_data.append(list_dcr)
+      # print(', '.join([dcr, str(dcr_count), str(av_clus_size)]), file=outhandle) TODO: delete?
+    # outhandle.close() # TODO: delete?
 
-    if inputargs['dontgzip'] == False:  # Gzip output file
-        print("Compressing output to", outfile + ".gz ...")
+    # TODO: delete?
+    # if inputargs['dontgzip'] == False:  # Gzip output file
+    #     print("Compressing output to", outfile + ".gz ...")
       
-        with open(outfile) as inf, gzip.open(outfile + '.gz', 'wt') as outf:
-            outf.writelines(inf)
-        outf.close()
-        os.unlink(outfile)
+    #     with open(outfile) as inf, gzip.open(outfile + '.gz', 'wt') as outf:
+    #         outf.writelines(inf)
+    #     outf.close()
+    #     os.unlink(outfile)
 
-        outfilenam = outfile + ".gz"
-    else:
-        outfilenam = outfile   
+    #     outfilenam = outfile + ".gz"
+    # else:
+    #     outfilenam = outfile   
 
     # only need to run this bit if interested in the number of times each barcode is repeated in the data
     if inputargs['barcodeduplication'] == True:
@@ -767,26 +777,27 @@ def collapsinate(barcode_quality_parameters, lev_threshold, barcode_distance_thr
         outhandle.close()
         print("barcode duplication data saved to", outfile)
         
-    counts['outfilenam'] = outfilenam
+    counts['outfilenam'] = "Saved to variable"
 
-    return collapsed, average_cluster_size_counter
+    return out_data, collapsed, average_cluster_size_counter
 
-
-if __name__ == '__main__':
+def collapsinator(data: list, inputargs: dict) -> list:
 
     ########################################
     # Get parameters 
-    inputargs = vars(args())
+    # inputargs = vars(args()) TODO: delete?
 
     print("Running Collapsinator version", __version__)
     
-    if inputargs['infile'].endswith('.gz'):
-      opener = gzip.open
-    else:
-      opener = open    
+    # TODO: delete?
+    # if inputargs['infile'].endswith('.gz'):
+    #   opener = gzip.open
+    # else:
+    #   opener = open    
     
     suffix = "." + inputargs['extension']
     
+    global counts
     counts = coll.Counter()
     counts['start_time'] = time()   
         
@@ -799,19 +810,20 @@ if __name__ == '__main__':
     ## this is the number of barcode edits that are allowed to call two barcodes equivalent
     barcode_distance_threshold = inputargs['bcthreshold']
 
-    infile = inputargs['infile']
+    # infile = inputargs['infile'] TODO: delete?
     outpath = ''
     
-    file_id = infile.split('/')[-1].split('.')[0]
+    file_id = inputargs['fastq'].split('/')[-1].split('.')[0]
 
     ## this is a boolean for printing progress of the run to the terminal (False for printing, True for not printing; default = False)
     dont_count = inputargs['dontcount']
 
     ########################################
 
-    collapsed, average_cluster_size_counter = collapsinate(barcode_quality_parameters,
+    out_data, collapsed, average_cluster_size_counter = collapsinate(data, inputargs,
+                                        barcode_quality_parameters,
                                         lev_threshold, barcode_distance_threshold,
-                                        infile, outpath, file_id, dont_count)
+                                        outpath, file_id, dont_count)
     
     counts['end_time'] = time()    
     counts['time_taken_total_s'] = counts['end_time'] - counts['start_time']
@@ -839,7 +851,7 @@ if __name__ == '__main__':
             break
           
       # Generate string to write to summary file
-      summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['infile'] \
+      summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] \
         + "\nOutputFile," + counts['outfilenam'] + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") \
         + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"
 
@@ -901,3 +913,6 @@ if __name__ == '__main__':
         print("#"*(len(codestr) + 4))
         print(" ", codestr, " ")
         print("#"*(len(codestr) + 4))
+  
+    del counts
+    return out_data
