@@ -126,7 +126,7 @@ def args():
     # parser.add_argument('-nbc', '--nobarcoding', action='store_true', required=False,
                         # help='Option to run CD3translator without barcoding, i.e. so as to run on data produced by any protocol.')
  
-    return parser.parse_args()
+    return vars(parser.parse_args())
 
 def sort_permissions(fl):
     """

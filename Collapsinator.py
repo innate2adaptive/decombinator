@@ -815,3 +815,8 @@ def collapsinator(data: list, inputargs: dict) -> list:
   
     del counts
     return out_data
+
+if __name__ == "__main__":
+  print("Calling Collapsinator from the shell has been depreciated as of Decombinator V4.3. \
+        Please check the README on how to update your script, or alternativley change branch to decombinator_v4.2 \
+        which retains this functionality.")

@@ -8,7 +8,7 @@ startTime = datetime.now()
 
 if __name__ == '__main__':
 
-    inputargs = vars(args())
+    inputargs = args()
 
     # Run pipline, ovewriting data after each function call to save memory
     data = decombinator(inputargs)

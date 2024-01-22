@@ -431,3 +431,8 @@ def cdr3translator(data: list, inputargs: dict) -> list:
 
     del counts
     return out_df
+
+if __name__ == "__main__":
+  print("Calling CDR3translator from the shell has been depreciated as of Decombinator V4.3. \
+        Please check the README on how to update your script, or alternativley change branch to decombinator_v4.2 \
+        which retains this functionality.")

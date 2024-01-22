@@ -815,3 +815,9 @@ def decombinator(inputargs: dict) -> list:
     sort_permissions(summaryname)
   
   return outdata
+
+
+if __name__ == "__main__":
+  print("Calling Decombinator from the shell has been depreciated as of Decombinator V4.3. \
+        Please check the README on how to update your script, or alternativley change branch to decombinator_v4.2 \
+        which retains this functionality.")
