@@ -108,63 +108,21 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
-#print("TEST2")
+
 __version__ = '4.2.0'
-
-##########################################################
-############# READ IN COMMAND LINE ARGUMENTS #############
-##########################################################
-
-def args():
-  """args(): Obtains command line arguments which dictate the script's behaviour"""
-
-  # Help flag
-  parser = argparse.ArgumentParser(
-      description='Decombinator v4.2.0: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
-  # Add arguments
-  parser.add_argument(
-      '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
-  parser.add_argument(
-      '-c', '--chain', type=str, help='TCR chain (a/b/g/d)', required=False)
-  parser.add_argument(
-      '-br','--bc_read',type=str, help='Which read has bar code (R1,R2)',required=True)
-  parser.add_argument(
-      '-s', '--suppresssummary', action='store_true', help='Suppress the production of summary data log file', required=False)
-  parser.add_argument(
-      '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
-  parser.add_argument(
-      '-dk', '--dontcheck', action='store_true', help='Skip the FASTQ check', required=False, default=False)  
-  parser.add_argument(
-      '-dc', '--dontcount', action='store_true', help='Stop Decombinator printing a running count', required=False)
-  parser.add_argument(
-      '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"n12\"', required=False, default="n12")
-  parser.add_argument(
-      '-pf', '--prefix', type=str, help='Specify the prefix of the output DCR file. Default = \"dcr_\"', required=False, default="dcr_")
-  parser.add_argument(
-      '-or', '--orientation', type=str, help='Specify the orientation to search in (forward/reverse/both). Default = reverse', required=False, default="reverse")  
-  parser.add_argument(
-      '-tg', '--tags', type=str, help='Specify which Decombinator tag set to use (extended or original). Default = extended', required=False, default="extended")
-  parser.add_argument(
-      '-sp', '--species', type=str, help='Specify which species TCR repertoire the data consists of (human or mouse). Default = human', required=False, default="human")
-  parser.add_argument(
-      '-N', '--allowNs', action='store_true', help='Whether to allow VJ rearrangements containing ambiguous base calls (\'N\'). Default = False', required=False)
-  parser.add_argument(
-      '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
-  parser.add_argument(
-      '-tfdir', '--tagfastadir', type=str, help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis. \
-      Default = \"Decombinator-Tags-FASTAs\".', required=False, default="Decombinator-Tags-FASTAs")
-  parser.add_argument(
-      '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
-  parser.add_argument(
-      '-bl', '--bclength', type=int, help='Length of barcode sequence, if applicable. Default is set to 42 bp.', required=False, default=42)
-
-  return parser.parse_args()
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
 ##########################################################
 
-def fastq_check(infile):
+def opener_check(inputargs):
+  # Determine compression status (and thus opener required)
+  if inputargs['fastq'].endswith('.gz'):
+    return gzip.open
+  else:
+    return open
+
+def fastq_check(infile, opener):
   """fastq_check(file): Performs a rudimentary sanity check to see whether a file is indeed a FASTQ file"""
   
   success = True
@@ -642,21 +600,16 @@ def sort_permissions(fl):
 ############# READ IN COMMAND LINE ARGUMENTS #############
 ##########################################################
 
-if __name__ == '__main__':
-
-  inputargs = vars(args())
+def decombinator(inputargs: dict) -> list:
+  """Function wrapper for decombinator."""
   
   print("Running Decombinator version", __version__)
 
-  # Determine compression status (and thus opener required)
-  if inputargs['fastq'].endswith('.gz'):
-    opener = gzip.open
-  else:
-    opener = open
+  opener = opener_check(inputargs)
 
   # Brief FASTQ sanity check
   if inputargs['dontcheck'] == False:
-    if not fastq_check(inputargs['fastq']) == True:
+    if not fastq_check(inputargs['fastq'], opener) == True:
       print("FASTQ sanity check failed reading", inputargs['fastq'], "- please ensure that this file is a properly formatted FASTQ.")
       sys.exit()
   
@@ -696,118 +649,102 @@ if __name__ == '__main__':
   ##################################################################################
 # Scroll through input file and find TCRs 
 
-  with open(name_results + suffix, 'w') as outfile:  
-        start_time = time()  
-        if inputargs['nobarcoding'] == False:
-          if inputargs['bc_read'] == "R2":
-            fq1 = readfq(opener(inputargs['fastq'],'rt'))
-            fq2 = readfq(opener(inputargs['fastq'].replace("1.f","2.f"),'rt'))
-          elif inputargs['bc_read'] == "R1":
-            fq1 = readfq(opener(inputargs['fastq'],'rt'))
-            fq2 = fq1
-            
-          fqs = (fq1, fq2)
-          zipfqs = zip(fq1, fq2)
-                        
-          for records in zipfqs:
-               #print(records)
-            record1, record2 = records
-            if inputargs['bc_read'] == "R2": 
-                readid = record1[0]  
-                vdj = record1[1]
-                vdjqual = record1[2]
-                bc = record2[1][:bclength]
-                bcQ = record2[2][:bclength]
-                
-            elif inputargs['bc_read'] == "R1": 
-                readid = record1[0]  
-                vdj = record1[1][bclength:]
-                vdjqual = record1[2][bclength:]
-                bc =  record1[1][0:bclength]
-                bcQ = record1[2][0:bclength]
-                #print(bc)
-                
-            if inputargs['nobarcoding'] == False:
-              if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
-                counts['dcrfilter_barcodeN'] += 1
-            
-            counts['read_count'] += 1
-            #print(counts['read_count'])
-            if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
-                print('\t read', counts['read_count'])
-        
-            # Get details of the VJ recombination
-            if inputargs['orientation'] == 'reverse':
-              recom = dcr(revcomp(vdj), inputargs)
-              frame = 'reverse'
-            elif inputargs['orientation'] == 'forward':
-              recom = dcr(vdj, inputargs)
-              frame = 'forward'
-            elif inputargs['orientation'] == 'both':
-              recom = dcr(revcomp(vdj), inputargs)
-              frame = 'reverse'
-              if not recom:
-                recom = dcr(vdj, inputargs)
-                frame = 'forward'
-         
-            if recom:
-              #print("TEST1")
-              counts['vj_count'] += 1
-               
-              
-              if frame == 'reverse':
-                tcrseq = revcomp(vdj)[recom[5]:recom[6]]
-                tcrQ = vdjqual[::-1][recom[5]:recom[6]]
-              elif frame == 'forward':
-                tcrseq = vdj[recom[5]:recom[6]]
-                tcrQ = vdjqual[recom[5]:recom[6]]
+  outdata = []
+  start_time = time()  
+  if inputargs['nobarcoding'] == False:
+    if inputargs['bc_read'] == "R2":
+      fq1 = readfq(opener(inputargs['fastq'],'rt'))
+      fq2 = readfq(opener(inputargs['fastq'].replace("1.f","2.f"),'rt'))
+    elif inputargs['bc_read'] == "R1":
+      fq1 = readfq(opener(inputargs['fastq'],'rt'))
+      fq2 = fq1
+      
+    fqs = (fq1, fq2)
+    zipfqs = zip(fq1, fq2)
+                  
+    for records in zipfqs:
+          #print(records)
+      record1, record2 = records
+      if inputargs['bc_read'] == "R2": 
+          readid = record1[0]  
+          vdj = record1[1]
+          vdjqual = record1[2]
+          bc = record2[1][:bclength]
+          bcQ = record2[2][:bclength]
           
-              if inputargs['nobarcoding'] == False:
-                                            
-            #print(bc + bcQ)
-                dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-                del_j = str(recom[3]) + ',', nt_insert = recom[4] + ',', seqid = readid + ',', tcr_seq = tcrseq + ',', \
-                tcr_qual = tcrQ + ',', barcode = bc + ',', barqual = bcQ )      
-                outfile.write(dcr_string + '\n')
+      elif inputargs['bc_read'] == "R1": 
+          readid = record1[0]  
+          vdj = record1[1][bclength:]
+          vdjqual = record1[2][bclength:]
+          bc =  record1[1][0:bclength]
+          bcQ = record1[2][0:bclength]
+          #print(bc)
+          
+      if inputargs['nobarcoding'] == False:
+        if "N" in bc and inputargs['allowNs'] == False:       # Ambiguous base in barcode region
+          counts['dcrfilter_barcodeN'] += 1
+      
+      counts['read_count'] += 1
+      #print(counts['read_count'])
+      if counts['read_count'] % 100000 == 0 and inputargs['dontcount'] == False:
+          print('\t read', counts['read_count'])
+  
+      # Get details of the VJ recombination
+      if inputargs['orientation'] == 'reverse':
+        recom = dcr(revcomp(vdj), inputargs)
+        frame = 'reverse'
+      elif inputargs['orientation'] == 'forward':
+        recom = dcr(vdj, inputargs)
+        frame = 'forward'
+      elif inputargs['orientation'] == 'both':
+        recom = dcr(revcomp(vdj), inputargs)
+        frame = 'reverse'
+        if not recom:
+          recom = dcr(vdj, inputargs)
+          frame = 'forward'
+    
+      if recom:
+        #print("TEST1")
+        counts['vj_count'] += 1
+          
+        
+        if frame == 'reverse':
+          tcrseq = revcomp(vdj)[recom[5]:recom[6]]
+          tcrQ = vdjqual[::-1][recom[5]:recom[6]]
+        elif frame == 'forward':
+          tcrseq = vdj[recom[5]:recom[6]]
+          tcrQ = vdjqual[recom[5]:recom[6]]
+    
+        if inputargs['nobarcoding'] == False:
+          dcr_output = [str(recom[0]), str(recom[1]), str(recom[2]), \
+                        str(recom[3]), recom[4], readid, tcrseq, \
+                        tcrQ, bc, bcQ]     
+          outdata.append(dcr_output)
 
-              else:
-                dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
-                del_j = str(recom[3]) + ',', nt_insert = recom[4])      
-                found_tcrs[dcr_string] += 1
-                outfile.write(dcr_string + '\n')
+        else: # TODO: create non-barcode alternative OR delete non-barcode methodology
+          dcr_string = stemplate.substitute( v = str(recom[0]) + ',', j = str(recom[1]) + ',', del_v = str(recom[2]) + ',', \
+          del_j = str(recom[3]) + ',', nt_insert = recom[4])      
+          found_tcrs[dcr_string] += 1
+          outdata.append(dcr_string)
+
   if inputargs['nobarcoding'] == True:
     # Write out non-barcoded results, with frequencies
     if inputargs['extension'] == 'n12':
       print("Non-barcoding option selected, but default output file extension (n12) detected. Automatically changing to 'nbc'.")
       suffix = '.nbc'
-    with open(name_results + suffix, 'w') as outfile:
-      for x in found_tcrs.most_common():
-        outfile.write(x[0] + ", " + str(found_tcrs[x[0]]) + '\n')
+    for x in found_tcrs.most_common():
+      outdata.append(x[0] + ", " + str(found_tcrs[x[0]]))
       
   
   counts['end_time'] = time()
   timetaken = counts['end_time']-counts['start_time']
-
-  if inputargs['dontgzip'] == False:
-    print("Compressing Decombinator output file,", name_results + suffix, "...")
-    
-    with open(name_results + suffix) as infile, gzip.open(name_results + suffix + '.gz', 'wt') as outfile:
-        outfile.writelines(infile)
-        open(name_results + suffix).close
-    os.unlink(name_results + suffix)
-
-    outfilenam = name_results + suffix + ".gz"
-  else:
-    outfilenam = name_results + suffix
-    
-  sort_permissions(outfilenam)
   
   ##############################################
   ############# WRITE SUMMARY DATA #############
   ##############################################
 
   print("Analysed", "{:,}".format(counts['read_count']), "reads, finding", "{:,}".format(counts['vj_count']), chainnams[chain], "VJ rearrangements")
-  print("Reading from", inputargs['fastq'] + ", writing to", outfilenam)
+  print("Reading from", inputargs['fastq'] + ", writing to variable")
   print("Took", str(round(timetaken,2)), "seconds")
 
   # Write data to summary file
@@ -837,7 +774,7 @@ if __name__ == '__main__':
           break
 
     # Generate string to write to summary file 
-    summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] + "\nOutputFile," + outfilenam \
+    summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] + "\nOutputFile," + "python variable" \
       + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\nInputArguments:,\n"
     for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'orientation', 'lenthreshold', 'bc_read', 'bclength']:
       summstr = summstr + s + "," + str(inputargs[s]) + "\n"
@@ -876,4 +813,11 @@ if __name__ == '__main__':
     print(summstr,file=summaryfile) 
     summaryfile.close()
     sort_permissions(summaryname)
-  sys.exit()
+  
+  return outdata
+
+
+if __name__ == "__main__":
+  print("Calling Decombinator from the shell has been depreciated as of Decombinator V4.3. \
+        Please check the README on how to update your script, or alternativley change branch to decombinator_v4.2 \
+        which retains this functionality.")
