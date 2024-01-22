@@ -1,5 +1,5 @@
 # innate2adaptive / Decombinator 
-## v4.2.0
+## v4.3.0
 
 ##### Innate2Adaptive lab @ University College London, 2020
 ##### Written by James M. Heather, Tahel Ronel, Thomas Peacock, Niclas Thomas and Benny Chain, with help from Katharine Best, Theres Oakes and Mazlina Ismail.
@@ -18,23 +18,23 @@ Decombinator is a fast and efficient tool for the analysis of T-cell receptor (T
 * [Installation](#installation)
 * [Test data](#testdata)
 * [Demultiplexing](#demultiplexing)
+* [Pipeline](#pipeline)
 * [Decombining](#decombinator)
 * [Collapsing](#collapsing)
 * [CDR3 extraction](#cdr3)
 * [Supplementary Scripts](#supplementary-scripts)
 * [General usage notes](#generalusage)
-* [Calling Decombinator from other scripts](#calldcr)
 
 ---
 
 TCR repertoire sequencing (TCRseq) offers a powerful means to investigate biological samples to see what sequences are present in what distribution. However current high-throughput sequencing (HTS) technologies can produce large amounts of raw data, which presents a computational burden to analysis. Such raw data will also unavoidably contain errors relative to the original input molecules, which could confound the results of any experiment.
 
-Decombinator addresses the problem of speed by employing a rapid and [highly efficient string matching algorithm](https://figshare.com/articles/Aho_Corasick_String_Matching_Video/771968) to search the FASTQ files produced by HTS machines for rearranged TCR sequence. The central algorithm searches for 'tag' sequences, the presence of which uniquely indicates the inclusion of particular V or J genes in a recombination. If V and J tags are found, Decombinator can then deduce where the ends of the germline V and J gene sections are (i.e. how much nucleotide removal occurred during V(D)J recombination), and what nucleotide sequence (the 'insert sequence') remains between the two. These five pieces of information - the V and J genes used, how many deletions each had and the insert sequence - contain all of the information required to reconstruct the whole TCR nucleotide sequence, in a more readily stored and analysed way. Decombinator therefore rapidly searches through FASTQ files and outputs these five fields into comma delimited output files, one five-part classifier per line.
+Decombinator addresses the problem of speed by employing a rapid and [highly efficient string matching algorithm](https://figshare.com/articles/Aho_Corasick_String_Matching_Video/771968) to search the FASTQ files produced by HTS machines for rearranged TCR sequences. The central algorithm searches for 'tag' sequences, the presence of which uniquely indicates the inclusion of particular V or J genes in a recombination. If V and J tags are found, Decombinator can then deduce where the ends of the germline V and J gene sections are (i.e. how much nucleotide removal occurred during V(D)J recombination), and what nucleotide sequence (the 'insert sequence') remains between the two. These five pieces of information - the V and J genes used, how many deletions each had and the insert sequence - contain all of the information required to reconstruct the whole TCR nucleotide sequence, in a more readily stored and analysed way. Decombinator therefore rapidly searches through FASTQ files and outputs these five fields into comma-delimited output files, one five-part classifier per line.
 
 Version 4 and higher of the Decombinator suite of scripts are written in **Python v3.7**. Older versions are written in Python v2.7. The default parameters are set to analyse data as produced by the ligation-mediated 5' RACE TCR amplification pipeline. The pipeline consists of four scripts, which are applied sequentially to the output of the previous, starting with TCR-containing FASTQ files (produced using the barcoding 5' RACE protocol):
 
 1. Raw FASTQ files are demultiplexed to individual samples
-2. Sample specific files are then searched for rearranged TCRs with Decombinator
+2. Sample-specific files are then searched for rearranged TCRs with Decombinator
 3. Decombined data is error-corrected ('collapsed') with reference to the random barcode sequences added prior to amplification
 4. Error-corrected data is translated and CDR3 sequences are extracted, in addition to the IMGT V and J gene names, the full-length variable region sequence (and the 'collapsed' sample abundance if applicable).
 
@@ -100,7 +100,6 @@ These modules can be installed via pip (although most will likely appear in othe
 ```bash
 pip install acora>=2.2 biopython>=1.75 networkx>=2.5 polyleven>=0.5 python-levenshtein>=0.12.0 regex>=2020.7.14
 ```
-If users are unable to install Python and the required modules, a Python installation complete with necessary packages has been bundled into a Docker container, which should be runnable on most setups. The appropriate image is located [on Dockerhub, under the name 'dcrpython'](https://hub.docker.com/r/decombinator/dcrpython/). (Please note that this is not yet updated for v4)
 
 If you are using Windows you may need to install VS Buildtools in order to install some packages. 
 
@@ -139,7 +138,7 @@ Once your environment is activated, install the required non-standard packages a
 * Install Decombinator using git as described in the [Get Scripts](#get-scripts) section.
 * To run Decombinator on the cluster, you should familiarise yourself with the process of writing, submitting and monitoring job scripts. Guidance for new users is provided [here](https://www.rc.ucl.ac.uk/docs/New_Users/).
 * **Note:** you will need to include the `module load python/miniconda3/4.5.11` command and `source activate venvname` in your job scripts before calling the Decombinator scripts.
-* An example job script for running the Decombinator Test Data on a cluster can be found in the `recipes/jobscripts` directory in the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools) repository. This template script can be modified to suit your own data and requirements.
+<!-- * An example job script for running the Decombinator Test Data on a cluster can be found in the `recipes/jobscripts` directory in the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools) repository. This template script can be modified to suit your own data and requirements. -->
 
 ### General notes
 
@@ -172,6 +171,8 @@ git clone https://github.com/innate2adaptive/Decombinator-Test-Data.git
 ## Allows fuzzy demultiplexing i.e. allows a specified number of mismatches in the index sequence
 
 ## Background
+
+* **As of V4.3, the demultiplexing step is already performed by the RNA sequencing provider, therefore it is not included (as of yet) in the recent functionalising refactor. If required for a different data source, please follow the instructions below before moving onto the Decombinator pipeline.**
 
 *This demultiplexing step is designed specifically to make use of the random barcode sequences introduced during the Chain lab's wet lab TCR amplification protocol. While it should be fairly straightforward to adapt this to other UMI-based approaches, that will require some light modification of the scripts. Users wanting to apply Decombinator to demultiplexed, non-barcoded data can skip this step.*
 * NOTE from V4.2 onwards, demultiplexor produces two outputs R1 and R2; and does not copy the beginning of R2 to the beginning of R1
@@ -248,7 +249,7 @@ read 2 to read 1. This is done direcly in Decombinator.
 
 
 
-## OUTPUT 
+### OUTPUT 
 
     
 ** Versions up to 4.2. 
@@ -273,24 +274,50 @@ Addition of new index sequences will currently require some slight modification 
 
 ---
 
-<h1 id="decombinator">Decombinator.py</h1>
+<h1 id="pipeline">dcr_pipeline.py</h1>
 
-## Decombinator : identifying rearranged TCRs and outputting their 5-part classifiers, together with unique molecular identifier 
+## Decombinator Pipeline: NEW as of V4.3
+
+`dcr_pipeline.py` acts as the main function for the three key scripts used at present in the Chain lab (Decombinator, Collapsinator, and CDR3translator).
+These scripts have been repackaged into functions that require `inputargs`, a dictionary created by `args()` in `dcr_utilities`, and (in the case of Collapsinator and CDR3translator) a `data` object, which is a list output by the previous function in the chain (`decombinator()` -> `collapsinator()` -> `cdr3translator()`).
+The reasons for this change are:
+
+1. Skip I/O steps between pipeline elements.
+2. Lay the groundwork for adopting a more Pythonic object-orientated approach in future changes.
+
+As this change breaks users' existing scripts a major version increment will occur upon completion of this refactor, and at present the modules contain a message that notifies users of the change if run directly from the terminal.
+
+The pipeline is now called step-by-step by running `dcr_pipeline.py` from the shell, with any arguments specified (input arguments are shared between pipeline steps) e.g.:
+
+```bash
+python dcr_pipeline.py -fq some_fastq_file.fq.gz -br R2 -bl 42 -c a -ol M13 -dz
+```
+
+This script will load in a fastq file, process the data through the entire pipeline, and write out (via `write_out()`) the data into the AIRRseq community `.tsv` format.
+
+Please see the below sections for the effects of all arguments on each function.
+
+<sub>[↑Top](#top)</sub>
+
+---
+
+<h1 id="decombinator">decombinator()</h1>
+
+## Decombinator : identifying rearranged TCRs and outputting their 5-part classifiers, together with a unique molecular identifier 
 
 This script performs the key functions of the pipeline, as it searches through demultiplexed reads for rearranged TCR sequences. It looks for short 'tag' sequences (using Aho-Corasick string matching): the presence of a tag uniquely identifies a particular V or J gene. If it finds both a V and a J tag (and the read passes various filters), it assigns the read as recombined, and outputs a five-part Decombinator index (or 'DCR'), which uniquely represents a given TCR rearrangement.
 
-All DCR-containing output files are comma-delimited, with the fields of that five part classifier containing, in order:
+All DCR-containing output files are comma-delimited, with the fields of that five-part classifier containing, in order:
 * The V index (which V gene was used)
 * The J index
-* Number of V deletions (relative to germ line)
+* Number of V deletions (relative to germline)
 * Number of J deletions
-* Insert sequence (the nucleotide sequence between end of deleted V and J)
+* Insert sequence (the nucleotide sequence between the end of deleted V and J)
 
-The V and J indices are arbitrary numbers based on the order of the tag sequences in the relevant tag file (using Python indexing, which starts at 0 rather than 1). Also note that the number of V and J deletions actually just represents how many bases have been removed from the end of that particular germline gene (as given in the germline FASTA files in the additional file repo); it is entirely possible that more bases where actually deleted, and just that the same bases have been re-added.
+The V and J indices are arbitrary numbers based on the order of the tag sequences in the relevant tag file (using Python indexing, which starts at 0 rather than 1). Also, note that the number of V and J deletions just represents how many bases have been removed from the end of that particular germline gene (as given in the germline FASTA files in the additional file repo); it is entirely possible that more bases were deleted, and just that the same bases have been re-added.
+Additionally, there are low frequencies of (predominantly alpha chain) recombinations where there is no detectable insertion, and where the nucleotides at the junction between the germline V and J genes could have derived from either. In such circumstances, the nucleotides will arbitrarily be deemed to have derived from the V gene, and thus count towards deletions from the J, however it is impossible to know which gene originally contributed these residues.
 
-Additionally there are low frequencies of (predominantly alpha chain) recombinations where there is no detectable insertion, and where the nucleotides at the junction between the germline V and J genes could have derived from either. In such circumstances the nucleotides will arbitrarily be deemed to have derived from the V gene, and thus count towards deletions from the J, however it is impossible to know which gene originally contributed these residues.
-
-Various additional fields may follow the five part classifier, but the DCR will always occupy the first five positions. An example identifier, from a human alpha chain file, might look like this:
+Various additional fields may follow the five-part classifier, but the DCR will always occupy the first five positions. An example identifier, from a human alpha chain file, might look like this:
 
 ```bash
 1, 22, 9, 0, CTCTA
@@ -298,22 +325,22 @@ Various additional fields may follow the five part classifier, but the DCR will 
 
 Which corresponds to a rearrangement between TRAV1-2 (V index **1**, with **9** nucleotides deleted) and TRAJ33 (J index **22**, with **0** deletions), with an insert sequence (i.e. non-templated additions to the V and/or the J gene) of '**CTCTA**'. For beta chains, the insert sequence will contain any residual TRBD nucleotides, although as these genes are very short, homologous and typically highly 'nibbled', they are often impossible to differentiate.
 
-```bash
-python Decombinator.py -fq AlphaSample1.fq.gz -sp mouse -c a
-```
-** Version 4.2 introduces some changes to work with Demultiplexor 4.01 and to work for the new multiplex protocol. It can look for a 
-** barcode in either read 1 (multiplex protocol) or read 2 (ligation protocol). This is controled by a new required flag -bc_read 
-** which must be R1 or R2. The bc_length can also be set - the default is 42. An example command for the multiplex protocol may look like this:
 
-```bash
-python Decombinator.py -fq BetaSample1_R1.fq.gz -c b -br R1 -bl 22
-```
+** Version 4.2 introduces some changes to work with Demultiplexor 4.01 and to work for the new multiplex protocol. It can look for a 
+** barcode in either read 1 (multiplex protocol) or read 2 (ligation protocol). This is controlled by a new required flag -bc_read 
+** which must be R1 or R2. The bc_length can also be set - the default is 42.
 
 
 ## INPUT 
 
- As with entire pipeline, Decombintator is run using command line arguments to provide user parameters
-   All arguments can be read by viewing the help data, by running python Decombintator.py -h
+ To call Decombinator first create an `inputargs` object and then call `decombinator` upon that object:
+ ```python
+ inputargs = args()
+ data = decombinator(inputargs)
+ ```
+ As `args()` obtains the arguments supplied in the shell script (including the file location), no data object is required.
+
+### `dcr_pipeline` arguments
 
 ** The two required parameters are 
  1. -fq/--fastq which identify FASTQ reads produced by Demultiplexor.py (unzipped or gzipped).
@@ -368,15 +395,25 @@ python Decombinator.py -fq BetaSample1_R1.fq.gz -c b -br R1 -bl 22
   ## OUTPUT 
   
   
-  Produces a '.n12' file by default, which is a standard comma-delimited Decombinator output file with several additional fields:
-  V index, J index, # V deletions, # J deletions, insert, ID, TCR sequence, TCR quality, barcode sequence, barcode quality
-**  NB The TCR sequence given here is the 'inter-tag' region, i.e. the sequence between the start of the found V tag the end of the found J tag 
+  Produces a list of lists with the following entries:
+  1. V index
+  2. J index
+  3. Number of V deletions
+  4. Number of J deletions
+  5. insert
+  6. ID
+  7. TCR sequence
+  8. TCR quality
+  9. barcode sequence
+  10. barcode quality
+
+**  NB The TCR sequence given here is the 'inter-tag' region, i.e. the sequence between the start of the found V tag and the end of the found J tag.
 
 <sub>[↑Top](#top)</sub>
 
 ---
 
-<h1 id="collapsing">Collapsinator.py</h1>
+<h1 id="collapsing">collapsinator()</h1>
 
 ## Collapsing: using the random barcodes to error- and frequency-correct the repertoire
 
@@ -385,9 +422,8 @@ Takes the output files of Decombinator (run using the barcoding option) and perf
   
 **  NOTE - from version 4.2 this optionally looks for barcode 6NI86N at the beginning of the read; instead of M13_6N_I8_6N_I8
   (i.e. only one spacer).
-  This makes it compatible with the multiplex protocol in which the barcode is incorproated in the RT step and is found at the beginning of R1. 
- ** from version V4.2  there is a required additional command line parameter -ol (see below for allowed inputs)
-The barcode sequence is contained in one of the additional fields output by `Decombinator.py` in the .n12 files, that which contains the first 42 bases of R2. As Illumina sequencing is particularly error-prone in the reverse read, and that reads can be phased (i.e. they do not always begin with the next nucleotide that follows the sequencing primer) our protocol uses known spacer sequences to border the random barcode bases, so that we can identify the actual random bases. The hexameric barcode locations (N6) are determined in reference to the two spacer sequences like so:
+  This makes it compatible with the multiplex protocol in which the barcode is incorporated in the RT step and is found at the beginning of R1. ** From version V4.2  there is a required additional command line parameter -ol (see below for allowed inputs)
+The barcode sequence is contained in one of the additional fields output by `decombinator()`, which contains the first 42 bases of R2. As Illumina sequencing is particularly error-prone in the reverse read, and that reads can be phased (i.e. they do not always begin with the next nucleotide that follows the sequencing primer) our protocol uses known spacer sequences to border the random barcode bases, so that we can identify the actual random bases. The hexameric barcode locations (N6) are determined in reference to the two spacer sequences like so:
 
 ```
 I8 (spacer) – N6 – I8 – N6 – 2 base overflow (n)
@@ -396,13 +432,13 @@ GTCGTGATNNNNNNGTCGTGATNNNNNNnn
 
 The collapsing script uses the spacer sequences to identify the exact position of the barcode sequences.
 
-The `Collapsinator.py` script performs the following procedures:
-* Scrolls through each line of the input .n12 file containing DCR, barcode and sequence data.
-* Removes TCR reads with forbidden errors, e.g. ambigious base calls (with user input parameters provided to modify strictness).
-* Groups input reads by barcode. Reads with identical barcode and equivalent inter-tag sequence are grouped together. Equivalence is defined as the Levenshtein distance between two sequences being lower than a given threshold, weighted by the lengths of the compared sequences. Reads with identical barcodes but non-equivalent sequences are grouped separately.
+The `collapsinator()` script performs the following procedures:
+* Scrolls through each line of the input object containing DCR, barcode and sequence data.
+* Removes TCR reads with forbidden errors, e.g. ambiguous base calls (with user input parameters provided to modify strictness).
+* Groups input reads by barcode. Reads with identical barcodes and equivalent inter-tag sequences are grouped together. Equivalence is defined as the Levenshtein distance between two sequences being lower than a given threshold, weighted by the lengths of the compared sequences. Reads with identical barcodes but non-equivalent sequences are grouped separately.
 * Each group is assigned the most common inter-tag sequence/DCR combination as the 'true' TCR, as errors are likely to occur during later PCR cycles, and thus will most often be minority variants (see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
 
-After this initial grouping, the script estimates the true cDNA frequency. UMIs that are both similar and are associated to a similar TCR are likely to be amplified from the same original DNA molecule, and to differ only due to PCR or sequencing error. Consequently, groups with similar barcodes and sequences are then clustered via the following procedure:
+After this initial grouping, the script estimates the true cDNA frequency. UMIs that are both similar and are associated with a similar TCR are likely to be amplified from the same original DNA molecule and to differ only due to PCR or sequencing error. Consequently, groups with similar barcodes and sequences are then clustered via the following procedure:
 * The barcode of each group is compared to the barcode of every other group.
 * The expected distribution of distances between UMIs can be modelled as a binomial distribution. Experimentation with simulated datasets found the best threshold for allowing two barcodes to be considered equivalent is when they have a Levenshtein distance of less than 3; a value of 2 is set by default. This can be modified through the user input parameter ```-bc```.
 * Groups with barcodes that meet this threshold criteria have their inter-tag sequences compared. Those with equivalent sequences are clustered together. Sequence equivalence is here taken to mean that the two sequences have a Levenshtein distance less than or equal to 10% of the length of the shorter of the two sequences. This percentage can be modified through the user input parameter ```-lv```.
@@ -410,40 +446,19 @@ After this initial grouping, the script estimates the true cDNA frequency. UMIs 
 
 Finally, the clusters are collapsed to give the abundance of each TCR in the biological sample.
 * A TCR abundance count is calculated for each TCR by counting the number of clusters that have the same sequence but different barcodes (thus representing the same rearrangement originating from multiple input DNA molecules).
-* An average UMI count is calculated for each TCR by summing the number of members in each cluster associated with the TCR sequence, and dividing by the number of those clusters. This gives a measure that can be used to estimate the robustness of the data for that particular sequence.
+* An average UMI count is calculated for each TCR by summing the number of members in each cluster associated with the TCR sequence and dividing by the number of those clusters. This gives a measure that can be used to estimate the robustness of the data for that particular sequence.
 
 Collapsinator outputs 7 fields: the 5-part DCR identifier, the corrected abundance of that TCR in the sample, and the average UMI count for that TCR
 
-Collapsing occurs in a chain-blind manner, and so only the decombined '.n12' file is required, without any chain designation, with the only required parameter being the infile:
+Collapsinator is called by:
 
-```bash
-python Collapsinator.py -in dcr_AlphaSample1.n12
+```python
+collapsinator_output = collapsinator(decombinator_output, inputargs)
 ```
 
-From Version 4.2 onwards, the oligo flag needs to be included in the command. For example, to run Collapsinator on samples from the multiplex protocol
+A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However, the need for such fine-tuning will likely be very protocol-specific and is only suggested for advanced users, and with careful data validation. A histogram of the average UMI counts can be generated using the `-uh` flag.
 
-```bash
-python Collapsinator.py -in dcr_BetaSample1_R1.n12 -ol I8_single
-```
-
-A number of the filters and thresholds can be altered using different command line flags. In particular, changing the R2 barcode quality score and TCR sequence edit distance thresholds (via the `-mq` `-bm` `-aq` and `-lv` flags) are the most influential parameters. However the need for such fine tuning will likely be very protocol-specific, and is only suggested for advanced users, and with careful data validation. A histogram of the average UMI counts can be generated using the `-uh` flag.
-
-The default file extension is '.freq'.
-
-## Collapsinator Test Suite
-
-A large number of unit tests for the Collapsinator error correction stage can be found in the `unittests` folder. These tests cover a range of cases to ensure the correct analysis of spacers with minor errors. Separate sets of tests are included for both the former and current experimental protocols used by the Chain Lab. These can act as a template for anyone wishing to design tests for differing protocols.
-
-Individual tests can be run as in the following example:
-```
-python unittests/I8tests/I8correctlength.py
-```
-Additionally, a script is included to run all current tests at once:
-```
-python unittests/alltests.py
-```
-## INPUT 
-
+## INPUT
   
 **  Required inputs 
   -in/--infile : Defines input file.   Takes as input .n12 files produced by Decombinator (v3 or higher), assuming it has been run on suitably barcoded and demultiplexed data.
@@ -452,34 +467,34 @@ python unittests/alltests.py
   
 **  Other optional flags:
   
-    -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
+    -s/--supresssummary: Suppress the production of a summary file containing details of the run into a 'Logs' directory. 
   
     -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
   
-    -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. Helps in monitoring progress of large batches.
+    -dc/--dontcount: Suppress whether or not to show the running line count, every 100,000 reads. Helps in monitoring the progress of large batches.
 
   The other optional flags are somewhat complex, and caution is advised in their alteration.
 
-  To see all options, run: python Collapsinator.py -h
+  To see all options, view the collapsinator section of `args()`
 
-  Input files need to be in the appropriate format, consisting of:
+  Input objects need to be in the appropriate format, consisting of:
     V index, J index, V deletions, J deletions, insert, ID, inter-tag TCR sequence, inter-tag quality, barcode sequence, barcode quality
 
 
 ## OUTPUT 
    
-  A Decombinator index file, giving each error-corrected DCR index, and the frequency with which it appears
-  in the final processed data, and an average UMI count, which can be used to estimate the robustness of the
-  data for that particular sequence
+  A list of lists, giving each error-corrected DCR index, the frequency with which it appears
+  in the final processed data, and an average UMI count, which can be used to estimate the robustness of the data for that particular sequence.
+
 <sub>[↑Top](#top)</sub>
 
 ---
 
-<h1 id="cdr3">CDR3translator.py</h1>
+<h1 id="cdr3">cdr3translator()</h1>
 
 ## TCR translation and CDR3 extraction: turning DCR indexes into complementarity determining region 3 sequences
 
-As the hypervariable region and the primary site of antigenic contact, the CDR3 is almost certainly going to be the region of most interest for most analyses. By convention, the [CDR3 junction is defined](http://dx.doi.org/10.1016/S0145-305X(02)00039-3) as running from the position of the second conserved cysteine encoded in the 3' of the V gene to the phenylalanine in the conserved 'FGXG' motif in the J gene. However, some genes use non-canonical residues/motifs, and the position of these motifs varies.
+As the hypervariable region and the primary site of antigenic contact, the CDR3 is almost certainly going to be the region of most interest for many analyses. By convention, the [CDR3 junction is defined as](http://dx.doi.org/10.1016/S0145-305X(02)00039-3) running from the position of the second conserved cysteine encoded in the 3' of the V gene to the phenylalanine in the conserved 'FGXG' motif in the J gene. However, some genes use non-canonical residues/motifs, and the position of these motifs varies.
 
 In looking for CDR3s, we also find 'non-productive' reads, i.e. those that don't appear to be able to make productive, working TCRs. This is determined based on the presence of stop codons, being out of frame, or lacking appropriate CDR3 motifs. 
 
@@ -499,21 +514,22 @@ DTGVSQNPRHKITKRGQNVTFRCDPISEHNRLYWYRQTLGQGPEFLTYFQNEAQLEKSRLLSDRFSAERPKGSFSTLEIQ
 CASSLEAGINSPLHF
 ```
 
-In order to do so, a third kind of supplementary data file is used, .translate files, which provide the additional information required for CDR3 extraction for each gene type (a/b/g/d, V/J). They meet the same naming conventions as the tag and FASTA files, and consist of four comma-delimited fields, detailing:
+In order to do so, a third kind of supplementary data file is used, .translate files, which provide the additional information required for CDR3 extraction for each gene type (a/b/g/d, V/J). They are stored in the [TCR tag repository](https://github.com/innate2adaptive/Decombinator-Tags-FASTAs) and meet the same naming conventions as the tag and FASTA files and consist of four comma-delimited fields, detailing:
 * Gene name
 * Conserved motif position (whether C or FGXG)
-* Conserved motif sequence (to account for the the non-canonical)
+* Conserved motif sequence (to account for the non-canonical)
 * IMGT-defined gene functionality (F/ORF/P)
 
-`CDR3translator.py` only requires an input file, and to be told which TCR chain is being examined (although this can also be inferred from the file name, as with `Decombinator.py`. Input can be collapsed or not (e.g. .freq or .n12), and the program will retain the frequency information if present.
-
-```bash
-python CDR3translator.py -in dcr_AlphaSample1.freq
-# or
-python CDR3translator.py -in dcr_AnotherSample1.freq -c b
+`cdr3translator()` requires a `collapsinator()` output and an `inputargs` dict:
+```python
+cdr3translator_data = cdr3translator(collapsinator_data, inputargs)
 ```
+### write_out()
+---
 
-** NOTE As of version 4, this script now outputs a tab separated file compatible with the AIRR-seq community format, to encourage data re-use and cross-tool compatibility and comparisons. For details please see [Vander Haiden *et al.* (2018)](http://dx.doi.org/10.3389/fimmu.2018.02206) and the [AIRR community standards](https://docs.airr-community.org/). Note that this format expects certain columns to be present even if the fields are not applicable, so CDR3translator leaves these fields empty. Further fields have been added.
+To output your data to a `.tsv` file in the format discussed below, call `write_out(cdr3_translator_data)`.
+
+** NOTE As of version 4, this script now outputs a tab-separated file compatible with the AIRR-seq community format, to encourage data re-use and cross-tool compatibility and comparisons. For details please see [Vander Haiden *et al.* (2018)](http://dx.doi.org/10.3389/fimmu.2018.02206) and the [AIRR community standards](https://docs.airr-community.org/). Note that this format expects certain columns to be present even if the fields are not applicable, so CDR3translator leaves these fields empty. Further fields have been added.
 
 | Field | Description | 
 |:---:|---|
@@ -566,18 +582,6 @@ This repository includes scripts to automatically generate test data, randomly s
 
 <h1 id="generalusage">General usage notes and tips</h1>
 
-## Being efficient
-
-* Use the help flag (`-h`) to see all options for a given script
-* Where possible, run scripts in same folder as data
-    * Should work remotely, but recommended not to
-* Use bash loops to iterate over many samples
-    * For example, to run the CDR3 translation script on all alpha .freq files in the current directory:
-`for x in *alpha*.freq.gz; do echo $x; python ligTCRtranslateCDR3.py -in $x -c a; done`
-* There is also a [makefile available](https://github.com/innate2adaptive/automate-decombinator) to automate the pipeline from start to finish
-* Ideally don't pool alpha and beta of one individual into same index for sequencing
-    * You may wish to know the fraction of reads Decombining, which will be confounded if there are multiple samples or chains per index combination
-
 ## Be aware of the defaults
 
 * These scripts are all set up to analyse data produced from our ligation TCR protocol, and thus the defaults reflect this
@@ -627,46 +631,12 @@ docker run -it --rm --name dcr -v "$PWD":/usr/src/myapp -w /usr/src/myapp decomb
 
 ---
 
-<h1 id="calldcr">Calling Decombinator from other Python scripts</h1>
-
-As an open source Python script, `Decombinator` (and associated functions) can be called by other scripts, allowing advanced users to incorporate our rapid TCR assignation into their own scripts, permitting the development of highly bespoke functionalities.
-
-If you would like to call Decombinator from other scripts you need to make sure you fulfil the correct requirements upstream of actually looking for rearrangements. You will thus need to:
-
-* Set up some 'dummy' input arguments, as there are some that Decombinator will expect
-* Run the 'import_tcr_info' function, which sets up your environment with all of the required variables (by reading in the tags and FASTQs, building the tries etc)
-
-An example script which calls Decombinator might therefore look like this:
-
-```python
-import Decombinator as dcr
-
-# Set up dummy command line arguments 
-inputargs = {"chain":"b", "species":"human", "tags":"extended", "tagfastadir":"no", "lenthreshold":130, "allowNs":False, "fastq":"blank"}
-
-# Initalise variables
-dcr.import_tcr_info(inputargs)
-
-testseq = "CACTCTGAAGATCCAGCGCACACAGCAGGAGGACTCCGCCGTGTATCTCTGTGCCAGCAGCTTATTAGTGTTAGCGAGCTCCTACAATGAGCAGTTCTTCGGGCCAGGGACACGGCTCACCGTGCTAGAGGACCTGAAA"
-
-# Try and Decombine this test sequence
-print dcr.dcr(testseq, inputargs)
-```
-
-This script produces the following list output:
-`[42, 6, 2, 0, 'TTAGTGTTAGCGAG', 22, 118]`
-
-The first five fields of this list correspond to the standard DCR index as described above, while the last two indicate the start position of the V tag and the end position of the J tag (thus definining the 'inter-tag region').
-
-Users may wish to therefore loop through their data that requires Decombining, and call this function on each iteration. However bear in mind that run in this manner Decombinator only checks whatever DNA orientation it's given: if you need to check both orientations then I suggest running one orientation through first, checking whether there's output, and if not then running the reverse orientation through again (which can be easily obtained using the Seq functionality of the Biopython package).
-
-<sup>[↑Top](#top)</sup>
-
----
-
 ### Legacy Decombinator versions
 
-If users wish to view previous versions of Decombinator, v2.2 is available from the old GitHub repo [uclinfectionimmunity / Decombinator](https://github.com/uclinfectionimmunity/Decombinator/). However it is not recommended that this script be used for analysis as it lacks some key error-reduction features that have been integrated into subsequent versions, and is no longer supported.
+If users wish to view previous versions of Decombinator:
+* v4.2 is available as a branch `decombinator_v4.2` of this repo.
+
+* v2.2 is available from the old GitHub repo [uclinfectionimmunity / Decombinator](https://github.com/uclinfectionimmunity/Decombinator/). However it is not recommended that this script be used for analysis as it lacks some key error-reduction features that have been integrated into subsequent versions, and is no longer supported.
 
 ---
 
