@@ -9,7 +9,7 @@ def args():
     # Help flag
     parser = argparse.ArgumentParser(
         description='Decombinator v4.2.0: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details.')
-    # Decombinator args
+    # Decombinator arguments
     parser.add_argument(
         '-fq', '--fastq', type=str, help='Correctly demultiplexed/processed FASTQ file containing TCR reads', required=True)
     parser.add_argument(
@@ -46,10 +46,7 @@ def args():
     parser.add_argument(
         '-bl', '--bclength', type=int, help='Length of barcode sequence, if applicable. Default is set to 42 bp.', required=False, default=42)
 
-    # Collapsinator args
-    #   parser.add_argument( TODO: delete? no longer needed as reading from variable
-    #       '-in', '--infile', type=str, help='File containing raw verbose Decombinator output, i.e. \
-    #       5 part classifier plus barcode and inter-tag sequence and quality strings', required=True)
+    # Collapsinator arguments
     parser.add_argument(
         '-mq', '--minbcQ', type=int, help='Minimum quality score that barcode nucleotides should be to for that rearrangement to be retained. Default = 20.', \
         required=False, default=20)
@@ -65,18 +62,6 @@ def args():
     parser.add_argument(
         '-bc', '--bcthreshold', type=int, help='Number of sequence edits that are allowed to consider two barcodes to be derived from same originator \
         during clustering. Default = 2.', required=False, default=2)
-    #   parser.add_argument( TODO: delete? duplicate with decombinator
-    #   '-s', '--suppresssummary',  action='store_true', help='Suppress the production of output summary data log', required=False)
-    #   parser.add_argument( TODO: delete? duplicate with decombinator
-    #   '-dz', '--dontgzip', action='store_true', help='Stop the output FASTQ files automatically being compressed with gzip', required=False)
-    #   parser.add_argument( TODO: delete? duplicate with decombinator
-    #       '-dc', '--dontcount', action='store_true', help='Block the line count from being shown', required=False, default=False)
-    #   parser.add_argument( TODO: delete? duplicate with decombinator
-    #       '-ex', '--extension', type=str, help='Specify the file extension of the output DCR file. Default = \"freq\"', required=False, default="freq")
-    #   parser.add_argument( TODO: delete? duplicate with decombinator
-    #       '-N', '--allowNs', action='store_true', help='Used to allow VJ rearrangements containing ambiguous base calls (\'N\')', required=False)
-    #   parser.add_argument( TODO: delete? duplicate with decombinator
-    #       '-ln', '--lenthreshold', type=int, help='Acceptable threshold for inter-tag (V to J) sequence length. Default = 130', required=False, default=130)
     parser.add_argument(
         '-di', '--dontcheckinput', action='store_true', help='Override the inputfile sanity check', required=False)
     parser.add_argument(
@@ -95,36 +80,9 @@ def args():
         '-uh', '--UMIhistogram', action='store_true', help='Creates histogram of average UMI cluster sizes',\
         required=False, default=False)
 
-    # CDR3translator
-    # parser.add_argument('-in', '--infile', type=str, required=True,
-    #                     help='File containing 5 part Decombinator indexes, (with/without frequencies)')
-
-    # parser.add_argument('-c', '--chain', type=str, help='TCR chain (a/b/g/d)', required=False)
-
-    # parser.add_argument('-sp', '--species', type=str, required=False, default="human",
-    #                     help='Specify which species TCR repertoire the data consists of (human or mouse). '
-    #                             'Default = human')
-
-    # parser.add_argument('-tg', '--tags', type=str, required=False, default="extended",
-    #                     help='Specify which Decombinator tag set to use (extended or original). Default = extended')
-
-    # parser.add_argument('-s', '--suppresssummary', action='store_true', required=False,
-    #                     help='Suppress the production of summary data log')
-
+    # CDR3translator arguments
     parser.add_argument('-npf', '--nonproductivefilter', action='store_true', required=False,
                         help='Filter out non-productive reads from the output')
-
-    # parser.add_argument('-dz', '--dontgzip', action='store_true', required=False,
-    #                     help='Stop the output FASTQ files automatically being compressed with gzip')
-
-    # parser.add_argument('-dc', '--dontcount', action='store_true', required=False,
-    #                     help='Stop printing the running count')
-
-    # parser.add_argument('-tfdir', '--tagfastadir', type=str, required=False, default="Decombinator-Tags-FASTAs",
-    #                     help='Path to folder containing TCR FASTA and Decombinator tag files, for offline analysis.'
-    #                             'Default = \"Decombinator-Tags-FASTAs\".')
-    # parser.add_argument('-nbc', '--nobarcoding', action='store_true', required=False,
-                        # help='Option to run CD3translator without barcoding, i.e. so as to run on data produced by any protocol.')
  
     return vars(parser.parse_args())
 

@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     # Run pipline, ovewriting data after each function call to save memory
     data = decombinator(inputargs)
-    print("Decombinator complete..")
+    print("Decombinator complete...")
 
     data = collapsinator(data, inputargs)
     print("Collapsinator complete...")

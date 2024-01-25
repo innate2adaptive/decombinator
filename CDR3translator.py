@@ -31,7 +31,7 @@ import warnings
 import gzip
 import pandas as pd
 
-__version__ = '4.0.3'
+__version__ = '4.3.0'
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
 warnings.filterwarnings("ignore")
@@ -393,13 +393,13 @@ def cdr3translator(data: list, inputargs: dict) -> list:
         date = strftime("%Y_%m_%d")
 
         # Check for existing date-stamped file
-        summaryname = "Logs/" + date + "_" + filename_id + "_CDR3_Translation_Summary.csv"
+        summaryname = "Logs/" + date + "_" + "dcr_" + filename_id + f"_{chainnams[chain]}" + "_CDR3_Translation_Summary.csv"
         if not os.path.exists(summaryname):
             summaryfile = open(summaryname, "wt")
         else:
             # If one exists, start an incremental day stamp
             for i in range(2, 10000):
-                summaryname = "Logs/" + date + "_" + filename_id + \
+                summaryname = "Logs/" + date + "_" + "dcr_" + filename_id + f"_{chainnams[chain]}" + \
                               "_CDR3_Translation_Summary" + str(i) + ".csv"
                 if not os.path.exists(summaryname):
                     summaryfile = open(summaryname, "wt")

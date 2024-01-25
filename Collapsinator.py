@@ -63,7 +63,7 @@ import os, sys
 import networkx as nx
 from polyleven import levenshtein as polylev
 
-__version__ = '4.0.4'
+__version__ = '4.3.0'
     
 ########################################################################################################################
 # Functions
@@ -730,6 +730,8 @@ def collapsinator(data: list, inputargs: dict) -> list:
     #######################################
     
     # Write data to summary file
+    chain = inputargs["chain"]
+    chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
     if inputargs['suppresssummary'] == False:
       
       # Check for directory and make summary file
@@ -738,13 +740,13 @@ def collapsinator(data: list, inputargs: dict) -> list:
       date = strftime("%Y_%m_%d")
       
       # Check for existing date-stamped file
-      summaryname = "Logs/" + date + "_" + file_id + "_Collapsing_Summary.csv"
+      summaryname = "Logs/" + date + "_" + "dcr_" + file_id + f"_{chainnams[chain]}" + "_Collapsing_Summary.csv"
       if not os.path.exists(summaryname): 
         summaryfile = open(summaryname, "w")
       else:
         # If one exists, start an incremental day stamp
         for i in range(2,10000):
-          summaryname = "Logs/" + date + "_" + file_id + "_Collapsing_Summary" + str(i) + ".csv"
+          summaryname = "Logs/" + date + "_" + "dcr_" + file_id + f"_{chainnams[chain]}" + "_Collapsing_Summary" + str(i) + ".csv"
           if not os.path.exists(summaryname): 
             summaryfile = open(summaryname, "w")
             break

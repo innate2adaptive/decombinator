@@ -109,7 +109,7 @@ from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
 
-__version__ = '4.2.0'
+__version__ = '4.3.0'
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
@@ -774,7 +774,7 @@ def decombinator(inputargs: dict) -> list:
           break
 
     # Generate string to write to summary file 
-    summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] + "\nOutputFile," + "python variable" \
+    summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + samplenam + "\nOutputFile," + f"{samplenam}_{chainnams[chain]}" \
       + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\nInputArguments:,\n"
     for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'orientation', 'lenthreshold', 'bc_read', 'bclength']:
       summstr = summstr + s + "," + str(inputargs[s]) + "\n"
