@@ -751,9 +751,11 @@ def collapsinator(data: list, inputargs: dict) -> list:
             summaryfile = open(summaryname, "w")
             break
           
+      inout_name = "_".join(f"{file_id}".split('_')[:-1]) + f"_{chainnams[chain]}"
+      
       # Generate string to write to summary file
-      summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inputargs['fastq'] \
-        + "\nOutputFile," + counts['outfilenam'] + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") \
+      summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inout_name \
+        + "\nOutputFile," + inout_name + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") \
         + "\nTimeTaken(Seconds)," + str(round(counts['time_taken_total_s'],2)) + "\n\n"
 
       for s in ['extension', 'dontgzip', 'allowNs', 'dontcheckinput', 'barcodeduplication', 'minbcQ', 'bcQbelowmin', 'bcthreshold', \

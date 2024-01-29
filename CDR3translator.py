@@ -405,9 +405,11 @@ def cdr3translator(data: list, inputargs: dict) -> list:
                     summaryfile = open(summaryname, "wt")
                     break
 
+        inout_name = "_".join(f"{filename_id}".split('_')[:-1]) + f"_{chainnams[chain]}"
+        
         # Generate string to write to summary file
         summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," \
-                  + inputargs['fastq'] + "\nOutputFile," + "variable" \
+                  + inout_name + "\nOutputFile," + inout_name \
                   + "\nDateFinished," + date + "\nTimeFinished," \
                   + strftime("%H:%M:%S") + "\n\nInputArguments:,\n"
         for s in ['species', 'chain', 'tags', 'dontgzip']:

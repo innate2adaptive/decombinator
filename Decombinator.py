@@ -772,9 +772,11 @@ def decombinator(inputargs: dict) -> list:
         if not os.path.exists(summaryname): 
           summaryfile = open(summaryname, "wt")
           break
+    
+    inout_name = "_".join(f"{samplenam}".split("_")[:-1]) + f"_{chainnams[chain]}"
 
     # Generate string to write to summary file 
-    summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + samplenam + "\nOutputFile," + f"{samplenam}_{chainnams[chain]}" \
+    summstr = "Property,Value\nDirectory," + os.getcwd() + "\nInputFile," + inout_name + "\nOutputFile," + inout_name \
       + "\nDateFinished," + date + "\nTimeFinished," + strftime("%H:%M:%S") + "\nTimeTaken(Seconds)," + str(round(timetaken,2)) + "\n\nInputArguments:,\n"
     for s in ['species', 'chain','extension', 'tags', 'dontgzip', 'allowNs', 'orientation', 'lenthreshold', 'bc_read', 'bclength']:
       summstr = summstr + s + "," + str(inputargs[s]) + "\n"
