@@ -97,7 +97,30 @@ def sort_permissions(fl):
     if oct(os.stat(fl).st_mode)[4:] != '666':
         os.chmod(fl, 0o666)
 
-def write_out(data: pd.DataFrame, inputargs: dict):
+def write_out_intermediate(data: list, inputargs: dict, suffix: str):
+    chain = inputargs["chain"]
+    chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
+    filename_id = os.path.basename(inputargs['fastq']).split(".")[0]
+    outfilename = f"dcr_{filename_id}" + f"_{chainnams[chain]}" + suffix
+    with open(outfilename, 'w') as outfile:
+        for line in data:
+            outfile.write(", ".join(map(str, line)) + "\n")
+
+    if not inputargs['dontgzip']:
+        print("Compressing intermediate output file to", outfilename + ".gz")
+
+        with open(outfilename) as infile, gzip.open(outfilename + '.gz', 'wt') as outfile:
+            outfile.writelines(infile)
+        os.unlink(outfilename)
+
+        outfilenam = outfilename + ".gz"
+
+    else:
+        outfilenam = outfilename
+
+    sort_permissions(outfilenam)
+
+def write_out_translated(data: pd.DataFrame, inputargs: dict):
     suffix = ".tsv"
     chain = inputargs["chain"]
     chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
