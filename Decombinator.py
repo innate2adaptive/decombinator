@@ -30,9 +30,9 @@
 
 # The two required parameters are 
 # 1. -fq/--fastq which identify FASTQ reads produced by Demultiplexor.py (unzipped or gzipped).
-# 2 -br/--bc_read which determines whether teh barcode is obtained from the beginning of R2 as in the standard 
-# 5'RACE ligation protocol, using the M13-I8-6N-I8-6N or the older SP2-I8-6N-I8-6N oligonucleotide; or from teh beginning of R1 
-# as in teh new multiplex protocol. The lenght of seqeunce conttaining the barcode can also be determeind using -bl/--bc_length.
+# 2 -br/--bc_read which determines whether the barcode is obtained from the beginning of R2 as in the standard 
+# 5'RACE ligation protocol, using the M13-I8-6N-I8-6N or the older SP2-I8-6N-I8-6N oligonucleotide; or from the beginning of R1 
+# as in the new multiplex protocol. The lenght of sequence conttaining the barcode can also be determeind using -bl/--bc_length.
 # The default is 42; but for the multiplex, 22 is enough. 
 
 # The TCR chain locus to look for can be explicitly specified using the -c flag 
@@ -43,12 +43,12 @@
 
 # Other optional flags:
   
-  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
+  # -s/--supresssummary: Suppress the production of a summary file containing details of the run into a 'Logs' directory. 
       
   # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
     # Using this flag makes the script execute faster, but data will require more storage space. 
     
-  # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
+  # -dc/--dontcount: Suppress whether or not to show the running line count, every 100,000 reads. 
     # Helps in monitoring progress of large batches.
   
   # -dk/--dontcheck: Suppress the FASTQ sanity check. 
@@ -79,7 +79,7 @@
   # -nbc/--nobarcoding: Run Decombinator without any barcoding, i.e. use the whole read. 
     # Recommended when running on data not produced using the Innate2Adaptive lab's ligation-mediated amplification protocol
   
-  #-bl/--bclength : sets the length of seqeunce to be stored by Decombinator from R1 or R2 (as set by -bc_read) for further use by Collapsinator.
+  #-bl/--bclength : sets the length of sequence to be stored by Decombinator from R1 or R2 (as set by -bc_read) for further use by Collapsinator.
    
 
   ##################

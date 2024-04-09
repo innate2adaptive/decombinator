@@ -16,7 +16,7 @@
 ###### INPUT #####
 ##################
 
-# Requires the command line input of  3 or 4 file names, giving the two Illumina seqeunce reads, plus the one or two index reads.
+# Requires the command line input of  3 or 4 file names, giving the two Illumina sequence reads, plus the one or two index reads.
   # Files may be uncompressed, or gzipped (and be named accordingly, e.g. File.fastq.gz)
 # A additonal optional comma delimited file detailing sample index specifics is strongly recommended, allowing 
 #production of correctly named files
@@ -27,13 +27,13 @@
     
 # e.g. run: python Demultiplexor.py -r1 read1.fastq -r2 read2.fastq -i1 indexread1.fastq indexread2.fastq -ix indexes.ndx
 
-# NOTE V4.2 simply takes the two Illumina seqeunce reads, demultiplexes and outputs two reads per sample (annotated _R1, and _R2) 
+# NOTE V4.2 simply takes the two Illumina sequence reads, demultiplexes and outputs two reads per sample (annotated _R1, and _R2) 
 #plus two undetermined reads.  In contrast to earlier versions, note that Demultiplexor does not attach a barcode from 
 #read 2 to read 1. This is done direcly in Decombinator.
 
 # Other optional flags:
   
-  # -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
+  # -s/--supresssummary: Suppress the production of a summary file containing details of the run into a 'Logs' directory. 
   
   # -a/--outputall: Output the results of all possible index combinations currently used in protocol
     # e.g. Useful in finding potential cross-contaminating or incorrectly indexed samples
@@ -45,7 +45,7 @@
   # -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
     # Using this flag makes the script execute faster, but data will require more storage space. 
     
-  # -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. 
+  # -dc/--dontcount: Suppress whether or not to show the running line count, every 100,000 reads. 
     # Helps in monitoring progress of large batches. 
     
   # -fz/--fuzzylist: Output a list of FASTQ IDs of reads which are demultiplexed using fuzzy (i.e. non-exact) index matching, within the specified threshold.
