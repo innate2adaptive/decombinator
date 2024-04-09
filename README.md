@@ -69,7 +69,7 @@ We strongly recommend running the Decombinator pipeline within a virtual environ
     ```
 5. Activate your environment using:
     ```bash
-    source activate dcrpy3
+    conda activate dcrpy3
     ```
 6. Check which packages and package versions you have installed in your environment using:
     ```
