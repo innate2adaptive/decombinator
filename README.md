@@ -530,7 +530,7 @@ This repository includes scripts to automatically generate test data, randomly s
 You need to provide the demultiplexing script:
 
 * The location of the 3 or 4 read files
-* An index csv file giving sample names and index seqeunces 
+* An index csv file giving sample names and index sequences 
  * Sample names will be carried downstream, so use sensible identifiers 
  * Including the chain (e.g. 'alpha') will allow auto-detection in subsequent scripts (if *only one* chain is used per file)
  * Do not use space  or '.' characters

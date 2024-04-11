@@ -1,14 +1,14 @@
 from Decombinator import decombinator
 from Collapsinator import collapsinator
 from CDR3translator import cdr3translator
-from dcr_utilities import args, write_out_translated, write_out_intermediate
+from dcr_utilities import cli_args, write_out_translated, write_out_intermediate
 
 from datetime import datetime
 startTime = datetime.now()
 
 if __name__ == '__main__':
 
-    inputargs = args()
+    inputargs = cli_args()
 
     # Run pipline, ovewriting data after each function call to save memory
     data = decombinator(inputargs)

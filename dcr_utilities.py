@@ -3,7 +3,7 @@ import gzip
 import argparse
 import pandas as pd
 
-def args():
+def cli_args():
     """args(): Obtains command line arguments which dictate the script's behaviour"""
 
     # Help flag
@@ -85,6 +85,80 @@ def args():
                         help='Filter out non-productive reads from the output')
  
     return vars(parser.parse_args())
+
+def create_args_dict(
+    fastq: str,
+    chain: str,
+    bc_read: str,
+    suppresssummary: bool = False,
+    dontgzip: bool = False,
+    dontcheck: bool = False,
+    dontcount: bool = False,
+    extension: str = "n12",
+    prefix: str = "dcr_",
+    orientation: str = "reverse",
+    tags: str = "extended",
+    species: str = "human",
+    allowNs: bool = False,
+    lenthreshold: int = 130,
+    tagfastadir: str = "Decombinator-Tags-FASTAs",
+    nobarcoding: bool = False,
+    bclength: int = 42,
+    minbcQ: int = 20,
+    bcQbelowmin: int = 1,
+    avgQthreshold: int = 30,
+    percentlevdist: int = 10,
+    bcthreshold: int = 2,
+    dontcheckinput: bool = False,
+    barcodeduplication: bool = False,
+    positionalbarcodes: bool = False,
+    oligo: str = "m13",
+    writeclusters: bool = False,
+    UMIhistogram: bool = False,
+    nonproductivefilter: bool = False
+) -> dict:
+    
+    """
+    Creates a function argument dictionary to be used in Decombinator, 
+    Collapsinator, and CDR3translator.
+    """
+    
+    return {
+        "fastq": fastq,
+        "chain": chain,
+        "bc_read": bc_read,
+        "suppresssummary": suppresssummary,
+        "dontgzip": dontgzip,
+        "dontcheck": dontcheck,
+        "dontcount": dontcount,
+        "extension": extension,
+        "prefix": prefix,
+        "orientation": orientation,
+        "tags": tags,
+        "species": species,
+        "allowNs": allowNs,
+        "lenthreshold": lenthreshold,
+        "tagfastadir": tagfastadir,
+        "nobarcoding": nobarcoding,
+        "bclength": bclength,
+        "minbcQ": minbcQ,
+        "bcQbelowmin": bcQbelowmin,
+        "avgQthreshold": avgQthreshold,
+        "percentlevdist": percentlevdist,
+        "bcthreshold": bcthreshold,
+        "dontcheckinput": dontcheckinput,
+        "barcodeduplication": barcodeduplication,
+        "positionalbarcodes": positionalbarcodes,
+        "oligo": oligo,
+        "writeclusters": writeclusters,
+        "UMIhistogram": UMIhistogram,
+        "nonproductivefilter": nonproductivefilter
+    }
+
+# Example usage:
+args_dict = create_args_dict('-fq', 'your_fastq_file.fastq', '-br', 'R1')
+print(args_dict)
+
 
 def sort_permissions(fl):
     """
