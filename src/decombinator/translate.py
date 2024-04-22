@@ -387,19 +387,21 @@ def cdr3translator(data: list, inputargs: dict) -> list:
     # Write data to summary file
     if not inputargs['suppresssummary']:
 
+        logpath = inputargs["outpath"] + f"Logs{os.sep}"
+
         # Check for directory and make summary file
-        if not os.path.exists('Logs'):
-            os.makedirs('Logs')
+        if not os.path.exists(logpath):
+            os.makedirs(logpath)
         date = strftime("%Y_%m_%d")
 
         # Check for existing date-stamped file
-        summaryname = "Logs/" + date + "_" + "dcr_" + filename_id + f"_{chainnams[chain]}" + "_CDR3_Translation_Summary.csv"
+        summaryname = logpath + date + "_" + "dcr_" + filename_id + f"_{chainnams[chain]}" + "_CDR3_Translation_Summary.csv"
         if not os.path.exists(summaryname):
             summaryfile = open(summaryname, "wt")
         else:
             # If one exists, start an incremental day stamp
             for i in range(2, 10000):
-                summaryname = "Logs/" + date + "_" + "dcr_" + filename_id + f"_{chainnams[chain]}" + \
+                summaryname = logpath + date + "_" + "dcr_" + filename_id + f"_{chainnams[chain]}" + \
                               "_CDR3_Translation_Summary" + str(i) + ".csv"
                 if not os.path.exists(summaryname):
                     summaryfile = open(summaryname, "wt")

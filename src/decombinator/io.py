@@ -45,6 +45,8 @@ def cli_args():
         '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
     parser.add_argument(
         '-bl', '--bclength', type=int, help='Length of barcode sequence, if applicable. Default is set to 42 bp.', required=False, default=42)
+    parser.add_argument(
+        '-op', '--outpath', type=str, help='Path to output directory, writes to directory script was called in by default', required=False, default=False)
 
     # Collapsinator arguments
     parser.add_argument(
@@ -115,7 +117,8 @@ def create_args_dict(
     oligo: str = "m13",
     writeclusters: bool = False,
     UMIhistogram: bool = False,
-    nonproductivefilter: bool = False
+    nonproductivefilter: bool = False,
+    outpath: str = None,
 ) -> dict:
     
     """
@@ -152,13 +155,9 @@ def create_args_dict(
         "oligo": oligo,
         "writeclusters": writeclusters,
         "UMIhistogram": UMIhistogram,
-        "nonproductivefilter": nonproductivefilter
+        "nonproductivefilter": nonproductivefilter,
+        "outpath": outpath
     }
-
-# Example usage:
-args_dict = create_args_dict('-fq', 'your_fastq_file.fastq', '-br', 'R1')
-print(args_dict)
-
 
 def sort_permissions(fl):
     """
@@ -175,7 +174,8 @@ def write_out_intermediate(data: list, inputargs: dict, suffix: str):
     chain = inputargs["chain"]
     chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
     filename_id = os.path.basename(inputargs['fastq']).split(".")[0]
-    outfilename = f"dcr_{filename_id}" + f"_{chainnams[chain]}" + suffix
+    outfilename = inputargs["outpath"] + inputargs["prefix"] + \
+        f"{filename_id}" + f"_{chainnams[chain.lower()]}" + suffix
     with open(outfilename, 'w') as outfile:
         for line in data:
             outfile.write(", ".join(map(str, line)) + "\n")
@@ -199,7 +199,8 @@ def write_out_translated(data: pd.DataFrame, inputargs: dict):
     chain = inputargs["chain"]
     chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
     filename_id = os.path.basename(inputargs['fastq']).split(".")[0]
-    outfilename = f"dcr_{filename_id}" + f"_{chainnams[chain]}" + suffix
+    outfilename = inputargs["outpath"] + inputargs["prefix"] + \
+        f"{filename_id}" + f"_{chainnams[chain.lower()]}" + suffix
     data.to_csv(f"{outfilename}", sep="\t", index=False)
 
     if not inputargs['dontgzip']:

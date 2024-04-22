@@ -734,24 +734,28 @@ def collapsinator(data: list, inputargs: dict) -> list:
     chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
     if inputargs['suppresssummary'] == False:
       
+      logpath = inputargs["outpath"] + f"Logs{os.sep}"
+      file_id_split = file_id.split(os.sep)
+      sample_name = file_id_split[-1]
+
       # Check for directory and make summary file
-      if not os.path.exists('Logs'):
-        os.makedirs('Logs')
+      if not os.path.exists(logpath):
+        os.makedirs(logpath)
       date = strftime("%Y_%m_%d")
       
       # Check for existing date-stamped file
-      summaryname = "Logs/" + date + "_" + "dcr_" + file_id + f"_{chainnams[chain]}" + "_Collapsing_Summary.csv"
+      summaryname = logpath + date + "_" + "dcr_" + sample_name + f"_{chainnams[chain.lower()]}" + "_Collapsing_Summary.csv"
       if not os.path.exists(summaryname): 
         summaryfile = open(summaryname, "w")
       else:
         # If one exists, start an incremental day stamp
         for i in range(2,10000):
-          summaryname = "Logs/" + date + "_" + "dcr_" + file_id + f"_{chainnams[chain]}" + "_Collapsing_Summary" + str(i) + ".csv"
+          summaryname = logpath + date + "_" + "dcr_" + sample_name + f"_{chainnams[chain.lower()]}" + "_Collapsing_Summary" + str(i) + ".csv"
           if not os.path.exists(summaryname): 
             summaryfile = open(summaryname, "w")
             break
           
-      inout_name = "_".join(f"{file_id}".split('_')[:-1]) + f"_{chainnams[chain]}"
+      inout_name = "_".join(f"{file_id}".split('_')[:-1]) + f"_{chainnams[chain.lower()]}"
       
       # Generate string to write to summary file
       summstr = "Property,Value\nVersion," + str(__version__) + "\nDirectory," + os.getcwd() + "\nInputFile," + inout_name \

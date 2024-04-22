@@ -1,6 +1,8 @@
 from decombinator import pipeline, io
 import pytest
 import pathlib
+import os
+from Bio import BiopythonWarning
 
 @pytest.fixture
 def output_dir(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -21,21 +23,28 @@ def reference_file(resource_location: pathlib.Path) -> str:
         reference_content = f.read()
     return reference_content
 
-def test_pipeline_integration_race(
+@pytest.fixture(params=['a', 'b'])
+def chain_type(request):
+    return request.param
+
+# TODO: Edit decombinator to handle Biopython warnings
+@pytest.mark.filterwarnings("ignore::Bio.BiopythonWarning")
+def test_race_pipeline(
         output_dir: pathlib.Path,
-        resource_location: pathlib.Path
+        resource_location: pathlib.Path,
+        chain_type: str
     ) -> None:
 
-    # TODO use a fixture to perform this test for both A and B
     filename: str = "TINY_1.fq.gz"
     args = io.create_args_dict(
-        fastq=(
-        resource_location / filename
-        ).resolve().as_posix(),
-        chain="B",
+        fastq=str((
+            resource_location / filename
+            ).resolve()
+            )
+        ,
+        chain=chain_type,
         bc_read="R2",
         dontgzip=True,
-        prefix="output/dcr_",
+        outpath=f"{output_dir}{os.sep}",
     )
     pipeline.run(args)
-
