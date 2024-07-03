@@ -100,11 +100,16 @@ def check_dcr_file(infile):
       for i in range(5):
               
         # Check it's a comma-delimited file
-        if "," not in next(poss_dcr):
+        try:
+          nextline = next(poss_dcr)
+        except StopIteration:
+          print('Input Decombinator file sanity check warning: less than five lines in input file.')
+
+        if "," not in nextline:
           print('Input Decombinator file sanity check fail: seemingly not comma-delimited text file.')
           return False
         else:
-          fields = next(poss_dcr).rstrip().split(", ")
+          fields = nextline.rstrip().split(", ")
         
         # TODO: reimplement these checks as tests
         # Check lines contain correct number of fields
