@@ -1032,7 +1032,6 @@ def decombinator(inputargs: dict) -> list:
     if inputargs["suppresssummary"] == False:
 
         logpath = inputargs["outpath"] + f"Logs{os.sep}"
-        print(logpath)
 
         # Check for directory and make summary file
         if not os.path.exists(logpath):
