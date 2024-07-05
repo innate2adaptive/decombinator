@@ -4,53 +4,55 @@ import pathlib
 import os
 from Bio import BiopythonWarning
 
-@pytest.fixture
-def output_dir(tmp_path: pathlib.Path) -> pathlib.Path:
+
+@pytest.fixture(scope="session")
+def output_dir(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
     # Create a temporary output directory
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
+    output_dir = tmp_path_factory.mktemp("output")
     return output_dir
 
-@pytest.fixture
+
+@pytest.fixture(scope="session")
 def resource_location() -> pathlib.Path:
     return pathlib.Path("tests/resources")
 
-@pytest.fixture
-def reference_file(resource_location: pathlib.Path) -> str:
-    # Read reference file from resources folder
-    reference_file_path = resource_location / "reference_file.txt"
-    with open(reference_file_path, "r") as f:
-        reference_content = f.read()
-    return reference_content
 
-@pytest.fixture(params=['a', 'b'])
-def chain_type(request):
+@pytest.fixture(params=["a", "b"], scope="session")
+def chain_type(request: pytest.FixtureRequest) -> str:
     return request.param
 
-# TODO: Edit decombinator to handle Biopython warnings
-@pytest.mark.filterwarnings("ignore::Bio.BiopythonWarning")
-def test_race_pipeline(
-        output_dir: pathlib.Path,
-        resource_location: pathlib.Path,
-        chain_type: str
-    ) -> None:
 
+@pytest.fixture(scope="session")
+def chain_name() -> dict:
+    return {"a": "alpha", "b": "beta"}
+
+
+@pytest.fixture(scope="session")
+def race_pipeline(
+    output_dir: pathlib.Path, resource_location: pathlib.Path, chain_type: str
+) -> dict:
     filename: str = "TINY_1.fq.gz"
     args = io.create_args_dict(
-        fastq=str((
-            resource_location / filename
-            ).resolve()
-            )
-        ,
+        fastq=str((resource_location / filename).resolve()),
         chain=chain_type,
         bc_read="R2",
         dontgzip=True,
         outpath=f"{output_dir}{os.sep}",
     )
+    print(f"running with {chain_type} chain")
     pipeline.run(args)
 
-    # Load reference files
-    chain_name = {"a": "alpha", "b": "beta"}
+
+# @pytest.mark.filterwarnings("ignore::Bio.BiopythonWarning")
+def test_tsv_output(
+    race_pipeline: None,
+    output_dir: pathlib.Path,
+    resource_location: pathlib.Path,
+    chain_type: str,
+    chain_name: dict,
+) -> None:
+
+    # Load reference tsv
     reference_file = f"dcr_TINY_1_{chain_name[chain_type]}.tsv"
     reference_path = resource_location / reference_file
     with open(reference_path, "r") as f:
@@ -64,3 +66,114 @@ def test_race_pipeline(
 
     # Perform comparison
     assert output_data == reference_data, "Output does not match reference data"
+
+
+def test_log_output(
+    race_pipeline: None,
+    output_dir: pathlib.Path,
+    resource_location: pathlib.Path,
+    chain_type: str,
+    chain_name: dict,
+) -> None:
+
+    # Load reference logs
+    reference_log_paths = [file for file in resource_location.glob("*")]
+
+    reference_logs = [
+        file
+        for file in reference_log_paths
+        if (chain_name[chain_type] in file.name)
+    ]
+
+    # Load output logs
+    output_log_paths = [file for file in output_dir.glob("**/*.csv")]
+
+    output_logs = [
+        file
+        for file in output_log_paths
+        if (chain_name[chain_type] in file.name)
+    ]
+
+    # Perform comparison
+    comparison_start = {
+        "Decombinator_Summary.csv": 8,
+        "Collapsing_Summary.csv": 9,
+        "Translation_Summary.csv": 7,
+    }
+    for reference_log, output_log in zip(
+        sorted(reference_logs), sorted(output_logs)
+    ):
+
+        with open(reference_log, "r") as f:
+            comparison_label = "_".join(reference_log.name.split("_")[-2:])
+            print(comparison_label)
+            reference_log_lines = f.readlines()[
+                comparison_start[comparison_label]
+            ]
+
+        with open(output_log, "r") as f:
+            comparison_label = "_".join(output_log.name.split("_")[-2:])
+            print(comparison_label)
+            output_log_lines = f.readlines()[comparison_start[comparison_label]]
+
+        assert output_log_lines == reference_log_lines
+
+
+# # TODO: Edit decombinator to handle Biopython warnings
+# @pytest.mark.filterwarnings("ignore::Bio.BiopythonWarning")
+# def test_race_pipeline(
+#         output_dir: pathlib.Path,
+#         resource_location: pathlib.Path,
+#         chain_type: str
+#     ) -> None:
+#     """
+#     Integration test for pipeline.run()
+#     """
+
+#     filename: str = "TINY_1.fq.gz"
+#     args = io.create_args_dict(
+#         fastq=str((
+#             resource_location / filename
+#             ).resolve()
+#             )
+#         ,
+#         chain=chain_type,
+#         bc_read="R2",
+#         dontgzip=True,
+#         outpath=f"{output_dir}{os.sep}",
+#     )
+#     pipeline.run(args)
+
+#     # Load reference tsv
+#     chain_name = {"a": "alpha", "b": "beta"}
+#     reference_file = f"dcr_TINY_1_{chain_name[chain_type]}.tsv"
+#     reference_path = resource_location / reference_file
+#     with open(reference_path, "r") as f:
+#         reference_data = f.read()
+
+#     # Load output file generated by pipeline.run
+#     output_file = f"dcr_TINY_1_{chain_name[chain_type]}.tsv"
+#     output_path = output_dir / output_file
+#     with open(output_path, "r") as f:
+#         output_data = f.read()
+
+#     # Perform comparison
+#     assert output_data == reference_data, "Output does not match reference data"
+
+#     # Load reference logs
+#     reference_logs = [file for file in reference_path.glob('*.csv') if file.is_file() and (chain_name[chain_type] in file.name)]
+
+#     print("here!")
+
+#     # Load output logs
+#     output_logs = [file for file in output_path.glob('*.csv') if file.is_file() and (chain_name[chain_type] in file.name)]
+
+#     # Perform comparison
+#     for reference_log, output_log in zip(reference_logs, output_logs):
+#         print(reference_log, output_log)
+#         print(reference_log.read_text())
+#         print(output_log.read_text())
+#         assert output_log.read_text() == reference_log.read_text()
+
+
+# # TODO: Test FUME pipeline
