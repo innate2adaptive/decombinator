@@ -1,5 +1,3 @@
-from .io import cli_args
-from .pipeline import run
+from .pipeline import main
 
-input = cli_args()
-run(cli_args=input)
+main()

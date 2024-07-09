@@ -1,10 +1,33 @@
 [project]
 name = "decombinator"
-version = "2024.0.0a1"
-description = "Fast, error-correcting analysis of TCR repertoires"
+version = "5.0.0"
+description = "A fast and efficient tool for the analysis of T-cell receptor repertoire sequences produced by deep sequencing."
+readme = "README.md"
+license = {file = "LICENSE"}
+maintainers = [{name = "Matthew V. Cowley", email = "m.cowley@ucl.ac.uk"}]
+requires-python = ">=3.9"
+dependencies = [
+    "acora==2.4",
+    "biopython==1.84",
+    "iniconfig==2.0.0",
+    "Levenshtein==0.25.1",
+    "networkx==3.3",
+    "numpy==2.0.0",
+    "packaging==24.1",
+    "pandas==2.2.2",
+    "pluggy==1.5.0",
+    "polyleven==0.8",
+    "pytest==8.2.2",
+    "python-dateutil==2.9.0.post0",
+    "pytz==2024.1",
+    "rapidfuzz==3.9.4",
+    "regex==2024.5.15",
+    "six==1.16.0",
+    "tzdata==2024.1"
+]
 
 [build-system]
-requires = ["setuptools >= 61.0.0"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -14,3 +37,10 @@ where = ["src"]
 pythonpath = [
   "./src"
 ]
+
+[project.scripts]
+decombinator = "decombinator.pipeline:main"
+
+[project.urls]
+"Homepage" = "https://github.com/innate2adaptive/Decombinator"
+"Bug Tracker" = "https://github.com/innate2adaptive/Decombinator/issues"

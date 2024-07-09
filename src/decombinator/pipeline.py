@@ -5,6 +5,8 @@ from .io import write_out_intermediate, write_out_translated, cli_args
 from datetime import datetime
 from typing import Optional, Any
 
+__version__ = "5.0.0"
+
 
 def run(
     args: Optional[dict[str, Any]] = None,
@@ -34,8 +36,11 @@ def run(
     print(f"Pipeline complete in {datetime.now() - startTime}")
 
 
-# If called from the CLI
-if __name__ == "__main__":
-
+def main():
     input = cli_args()
     run(cli_args=input)
+
+
+# If called from the CLI
+if __name__ == "__main__":
+    main()
