@@ -273,7 +273,7 @@ def create_args_dict(
     dontcheckinput: bool = False,
     barcodeduplication: bool = False,
     positionalbarcodes: bool = False,
-    oligo: str = "m13",
+    oligo: str = "M13",
     writeclusters: bool = False,
     UMIhistogram: bool = False,
     nonproductivefilter: bool = False,

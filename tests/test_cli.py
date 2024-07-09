@@ -2,6 +2,7 @@ from decombinator import pipeline, io
 import pytest
 import pathlib
 import os
+import subprocess
 
 pytestmark = pytest.mark.usefixtures("resource_location", "chain_name")
 
@@ -23,16 +24,30 @@ def race_pipeline(
     output_dir: pathlib.Path, resource_location: pathlib.Path, chain_type: str
 ) -> dict:
     filename: str = "TINY_1.fq.gz"
-    args = io.create_args_dict(
-        fastq=str((resource_location / filename).resolve()),
-        chain=chain_type,
-        bc_read="R2",
-        dontgzip=True,
-        outpath=f"{output_dir}{os.sep}",
-        tagfastadir="tests/resources/Decombinator-Tags-FASTAs",
+    process = subprocess.run(
+        [
+            "./decombinator-runner.py",
+            "-fq",
+            str((resource_location / filename).resolve()),
+            "-br",
+            "R2",
+            "-bl",
+            "42",
+            "-ol",
+            "M13",
+            "-c",
+            chain_type,
+            "-op",
+            f"{output_dir}{os.sep}",
+            "-tfdir",
+            "tests/resources/Decombinator-Tags-FASTAs",
+            "-dz",
+        ]
     )
     print(f"running with {chain_type} chain")
-    pipeline.run(args)
+
+    print(process.stdout)
+    return None
 
 
 # @pytest.mark.filterwarnings("ignore::Bio.BiopythonWarning")
