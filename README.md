@@ -2,7 +2,7 @@
 ## v4.3.0
 
 ##### Innate2Adaptive lab @ University College London, 2020
-##### Written by James M. Heather, Tahel Ronel, Thomas Peacock, Niclas Thomas and Benny Chain, with help from Katharine Best, Theres Oakes and Mazlina Ismail.
+##### Written by (in alphabetical order) Benny Chain, James M. Heather, Katharine Best, Matthew V. Cowley, Mazlina Ismail, Niclas Thomas, Tahel Ronel, Theres Oakes, Thomas Peacock.
 
 ---
 
