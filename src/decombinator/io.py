@@ -2,6 +2,7 @@ import os
 import gzip
 import argparse
 import pandas as pd
+from importlib import metadata
 
 
 def cli_args():
@@ -9,9 +10,15 @@ def cli_args():
 
     # Help flag
     parser = argparse.ArgumentParser(
-        description="Decombinator v4.2.0: find rearranged TCR sequences in HTS data. Please go to https://innate2adaptive.github.io/Decombinator/ for more details."
+        description="A fast and efficient tool for the analysis of T-cell receptor repertoire sequences produced by deep sequencing. Please go to https://innate2adaptive.github.io/Decombinator/ for more details."
     )
     # Decombinator arguments
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=metadata.version("decombinator"),
+    )
     parser.add_argument(
         "-fq",
         "--fastq",
@@ -348,9 +355,10 @@ def write_out_intermediate(data: list, inputargs: dict, suffix: str):
     if not inputargs["dontgzip"]:
         print("Compressing intermediate output file to", outfilename + ".gz")
 
-        with open(outfilename) as infile, gzip.open(
-            outfilename + ".gz", "wt"
-        ) as outfile:
+        with (
+            open(outfilename) as infile,
+            gzip.open(outfilename + ".gz", "wt") as outfile,
+        ):
             outfile.writelines(infile)
         os.unlink(outfilename)
 
@@ -379,9 +387,10 @@ def write_out_translated(data: pd.DataFrame, inputargs: dict):
     if not inputargs["dontgzip"]:
         print("Compressing pipeline output file to", outfilename + ".gz")
 
-        with open(outfilename) as infile, gzip.open(
-            outfilename + ".gz", "wt"
-        ) as outfile:
+        with (
+            open(outfilename) as infile,
+            gzip.open(outfilename + ".gz", "wt") as outfile,
+        ):
             outfile.writelines(infile)
         os.unlink(outfilename)
 
