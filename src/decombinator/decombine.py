@@ -108,8 +108,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from acora import AcoraBuilder
 from time import time, strftime
-
-__version__ = "4.3.0"
+from importlib import metadata
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
@@ -118,7 +117,7 @@ __version__ = "4.3.0"
 
 def opener_check(inputargs):
     # Determine compression status (and thus opener required)
-    if inputargs["fastq"].endswith(".gz"):
+    if inputargs["infile"].endswith(".gz"):
         return gzip.open
     else:
         return open
@@ -569,7 +568,7 @@ def import_tcr_info(inputargs):
 
     # Detect whether chain specified in filename
     inner_filename_chains = [
-        x for x in chainnams.values() if x in inputargs["fastq"].lower()
+        x for x in chainnams.values() if x in inputargs["infile"].lower()
     ]
     if len(inner_filename_chains) == 1:
         counts["chain_detected"] = 1
@@ -850,16 +849,16 @@ def sort_permissions(fl):
 def decombinator(inputargs: dict) -> list:
     """Function wrapper for decombinator."""
 
-    print("Running Decombinator version", __version__)
+    print("Running Decombinator version", metadata.version("decombinator"))
 
     opener = opener_check(inputargs)
 
     # Brief FASTQ sanity check
     if inputargs["dontcheck"] == False:
-        if not fastq_check(inputargs["fastq"], opener) == True:
+        if not fastq_check(inputargs["infile"], opener) == True:
             print(
                 "FASTQ sanity check failed reading",
-                inputargs["fastq"],
+                inputargs["infile"],
                 "- please ensure that this file is a properly formatted FASTQ.",
             )
             sys.exit()
@@ -879,7 +878,7 @@ def decombinator(inputargs: dict) -> list:
     print("Decombining FASTQ data...")
 
     suffix = "." + inputargs["extension"]
-    samplenam = str(inputargs["fastq"].split(".")[0])
+    samplenam = str(inputargs["infile"].split(".")[0])
     if (
         os.sep in samplenam
     ):  # Cope with situation where specified FQ file is in a subdirectory
@@ -908,10 +907,12 @@ def decombinator(inputargs: dict) -> list:
     start_time = time()
     if inputargs["nobarcoding"] == False:
         if inputargs["bc_read"] == "R2":
-            fq1 = readfq(opener(inputargs["fastq"], "rt"))
-            fq2 = readfq(opener(inputargs["fastq"].replace("1.f", "2.f"), "rt"))
+            fq1 = readfq(opener(inputargs["infile"], "rt"))
+            fq2 = readfq(
+                opener(inputargs["infile"].replace("1.f", "2.f"), "rt")
+            )
         elif inputargs["bc_read"] == "R1":
-            fq1 = readfq(opener(inputargs["fastq"], "rt"))
+            fq1 = readfq(opener(inputargs["infile"], "rt"))
             fq2 = fq1
 
         fqs = (fq1, fq2)
@@ -1025,7 +1026,7 @@ def decombinator(inputargs: dict) -> list:
         chainnams[chain],
         "VJ rearrangements",
     )
-    print("Reading from", inputargs["fastq"] + ", writing to variable")
+    print("Reading from", inputargs["infile"] + ", writing to variable")
     print("Took", str(round(timetaken, 2)), "seconds")
 
     # Write data to summary file

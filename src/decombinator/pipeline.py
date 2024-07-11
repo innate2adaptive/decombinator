@@ -4,8 +4,7 @@ from .translate import cdr3translator
 from .io import write_out_intermediate, write_out_translated, cli_args
 from datetime import datetime
 from typing import Optional, Any
-
-__version__ = "5.0.0"
+from importlib import metadata
 
 
 def run(
@@ -25,11 +24,11 @@ def run(
     write_out_intermediate(data, input, ".n12")
     print("Decombinator complete...")
 
-    data = collapsinator(data, input)
+    data = collapsinator(data=data, inputargs=input)
     write_out_intermediate(data, input, ".freq")
     print("Collapsinator complete...")
 
-    data = cdr3translator(data, input)
+    data = cdr3translator(data=data, inputargs=input)
     print("CDR3translator complete...")
 
     write_out_translated(data, input)
@@ -38,7 +37,17 @@ def run(
 
 def main():
     input = cli_args()
-    run(cli_args=input)
+    if input["command"] == "decombine":
+        data = decombinator(input)
+        write_out_intermediate(data, input, ".n12")
+    elif input["command"] == "collapse":
+        data = collapsinator(inputargs=input)
+        write_out_intermediate(data, input, ".freq")
+    elif input["command"] == "translate":
+        data = cdr3translator(inputargs=input)
+        write_out_translated(data, input)
+    else:
+        run(cli_args=input)
 
 
 # If called from the CLI

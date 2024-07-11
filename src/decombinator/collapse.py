@@ -61,9 +61,8 @@ import copy
 import ast
 import os, sys
 import networkx as nx
+from importlib import metadata
 from polyleven import levenshtein as polylev
-
-__version__ = "4.3.0"
 
 ########################################################################################################################
 # Functions
@@ -85,7 +84,7 @@ def is_dna(poss_dna):
     return set(poss_dna.upper()).issubset({"A", "C", "G", "T", "N"})
 
 
-def check_dcr_file(infile):
+def check_dcr_file(infile, opener):
     """
     Perform sanity check on input Decombinator file
     Check first few lines to see whether they fit the correct criteria this script relies on
@@ -472,7 +471,12 @@ def are_barcodes_equivalent(bc1, bc2, threshold):
 
 
 def read_in_data(
-    data, inputargs, barcode_quality_parameters, lev_threshold, dont_count
+    data,
+    inputargs,
+    barcode_quality_parameters,
+    lev_threshold,
+    dont_count,
+    opener,
 ):
     ###########################################
     ############# READING DATA IN #############
@@ -480,11 +484,17 @@ def read_in_data(
 
     # Check whether file appears to contain suitable verbose Decombinator output for collapsing
     # TODO: reimplement this section as tests
-    # if inputargs['dontcheckinput'] == False:
-    #   if check_dcr_file(infile) != True:
-    #     print("Please check that file contains suitable Decombinator output for collapsing.")
-    #     print("Alternatively, disable the input file sanity check by changing the \'dontcheckinput\' flag, i.e. \'-di True\'")
-    #     sys.exit()
+    if inputargs["command"] == "collapse":
+        if not inputargs["dontcheckinput"]:
+            if not check_dcr_file(data, opener):
+                print(
+                    "Please check that file contains suitable Decombinator output for collapsing."
+                )
+                print(
+                    "Alternatively, disable the input file sanity check by changing the 'dontcheckinput' flag, i.e. '-di True'"
+                )
+                sys.exit()
+        data = opener(data, "rt")
 
     print("Reading data in...")
     t0 = time()
@@ -496,6 +506,8 @@ def read_in_data(
     l = 0
 
     for lcount, line in enumerate(data):
+        if inputargs["command"] == "collapse":
+            line = line.rstrip("\n").split(", ")
         if ratio < 0.01 and (time() - t0) > 3600:
             break
         if lcount % 5000 == 0 and lcount != 0 and not dont_count:
@@ -506,10 +518,8 @@ def read_in_data(
                 round(time() - t0, 2),
                 "seconds",
             )
-            # print(l)
             ratio = (len(barcode_lookup) - l) / len(barcode_lookup)
             l = len(barcode_lookup)
-            # print(len(barcode_lookup))
             print(round(ratio, 2))
 
         counts["readdata_input_dcrs"] += 1
@@ -526,13 +536,11 @@ def read_in_data(
             print(
                 "The flag for the -ol input must be one of M13, I8 or I8_single"
             )
-
         if not bc_locs:
             counts["readdata_fail_no_bclocs"] += 1
             continue
 
         barcode, barcode_qualstring = set_barcode(line, bc_locs)
-        # print(barcode)
         # L and S characters get quality scores of "?", representative of Q30 scores
 
         if not barcode_quality_check(
@@ -567,9 +575,6 @@ def read_in_data(
         # protoseq is the most common sequence present in the group, and dcretc are the input reads
 
         if barcode in barcode_lookup:
-            #          print(len(barcode_lookup[barcode][0]))
-            #          print("NEW")
-            # print(barcode_dcretc.values())
 
             for index in barcode_lookup[barcode]:
                 if are_seqs_equivalent(index[1], seq, lev_threshold):
@@ -783,11 +788,17 @@ def collapsinate(
     outpath,
     file_id,
     dont_count,
+    opener=None,
 ):
 
     # read in, structure, and quality check input data
     barcode_dcretc = read_in_data(
-        data, inputargs, barcode_quality_parameters, lev_threshold, dont_count
+        data,
+        inputargs,
+        barcode_quality_parameters,
+        lev_threshold,
+        dont_count,
+        opener,
     )
 
     # cluster similar UMIs
@@ -849,13 +860,18 @@ def collapsinate(
     return out_data, collapsed, average_cluster_size_counter
 
 
-def collapsinator(data: list, inputargs: dict) -> list:
+def collapsinator(inputargs: dict, data: list = None) -> list:
     """Function wrapper for Collapsinator"""
 
-    print("Running Collapsinator version", __version__)
+    print("Running Collapsinator version", metadata.version("decombinator"))
     if inputargs["extension"] == "n12":
         inputargs["extension"] = "freq"
     suffix = "." + inputargs["extension"]
+
+    if inputargs["infile"].endswith(".gz"):
+        opener = gzip.open
+    else:
+        opener = open
 
     global counts
     counts = coll.Counter()
@@ -874,9 +890,11 @@ def collapsinator(data: list, inputargs: dict) -> list:
     ## this is the number of barcode edits that are allowed to call two barcodes equivalent
     barcode_distance_threshold = inputargs["bcthreshold"]
 
+    if inputargs["command"] == "collapse":
+        data = inputargs["infile"]
     outpath = ""
 
-    file_id = inputargs["fastq"].split("/")[-1].split(".")[0]
+    file_id = inputargs["infile"].split("/")[-1].split(".")[0]
 
     ## this is a boolean for printing progress of the run to the terminal (False for printing, True for not printing; default = False)
     dont_count = inputargs["dontcount"]
@@ -892,6 +910,7 @@ def collapsinator(data: list, inputargs: dict) -> list:
         outpath,
         file_id,
         dont_count,
+        opener,
     )
 
     counts["end_time"] = time()
@@ -951,7 +970,7 @@ def collapsinator(data: list, inputargs: dict) -> list:
         # Generate string to write to summary file
         summstr = (
             "Property,Value\nVersion,"
-            + str(__version__)
+            + str(metadata.version("decombinator"))
             + "\nDirectory,"
             + os.getcwd()
             + "\nInputFile,"

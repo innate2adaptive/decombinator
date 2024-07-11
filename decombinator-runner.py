@@ -5,11 +5,8 @@
 """Convenience wrapper for running decombinator directly from source tree."""
 
 
-from src.decombinator.io import cli_args
-from src.decombinator.pipeline import run
+from src.decombinator.pipeline import main
 
 
 if __name__ == "__main__":
-
-    input = cli_args()
-    run(cli_args=input)
+    main()

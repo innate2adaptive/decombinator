@@ -24,7 +24,7 @@ def race_pipeline(
 ) -> dict:
     filename: str = "TINY_1.fq.gz"
     args = io.create_args_dict(
-        fastq=str((resource_location / filename).resolve()),
+        infile=str((resource_location / filename).resolve()),
         chain=chain_type,
         bc_read="R2",
         dontgzip=True,
