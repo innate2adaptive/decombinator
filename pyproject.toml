@@ -28,6 +28,31 @@ dependencies = [
   "six==1.16.0",
   "tzdata==2024.1"
 ]
+keywords = ["decombinator", "TCR", "TCRseq", "repertoire", "sequence", "analysis"]
+classifiers = [
+  # How mature is this project?
+  "Development Status :: 5 - Production/Stable",
+
+  # Indicate who your project is intended for
+  "Intended Audience :: Science/Research",
+  "Topic :: Software Development :: Build Tools",
+  "License :: OSI Approved :: MIT License",
+
+  # Specify the Python versions you support here.
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+# [project.optional-dependencies]
+# test = [
+#     "black==21.9b0",
+#     "pre-commit==2.15.0",
+#     "mypy==0.910",
+#     "pytest==6.2.5",
+#     "pytest-cov==3.0.0",
+# ]
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -47,3 +72,6 @@ decombinator = "decombinator.pipeline:main"
 [project.urls]
 "Homepage" = "https://github.com/innate2adaptive/Decombinator"
 "Bug Tracker" = "https://github.com/innate2adaptive/Decombinator/issues"
+# Homepage = "https://example.com"
+# Documentation = "https://readthedocs.org"
+# Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"

@@ -3,3 +3,4 @@ decombinator.egg-info
 .pytest_cache
 .decombinatorenv
 build/
+.vscode

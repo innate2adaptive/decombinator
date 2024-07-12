@@ -40,7 +40,10 @@ def handle_clash(
 
 def create_parser():
     parser = argparse.ArgumentParser(
-        description="Decombinator: A fast and efficient tool for the analysis of T-cell receptor repertoire sequences produced by deep sequencing."
+        description="Decombinator: A fast and efficient tool for the analysis"
+        " of T-cell receptor repertoire sequences produced by deep sequencing."
+        " Include a positional argument to run a specific command."
+        " Please see https://innate2adaptive.github.io/Decombinator/ for details."
     )
 
     subparsers = parser.add_subparsers(
