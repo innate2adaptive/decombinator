@@ -230,6 +230,13 @@ Tests can be then run via:
 pytest
 ```
 
+To run tests offline, the `Decombinator-Tags-FASTAs` git submodule must be initialised via:
+
+```shell
+git submodule init
+git submodule update
+```
+
 How to collaborate
 ------------------
 
