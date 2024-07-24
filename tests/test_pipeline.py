@@ -22,7 +22,7 @@ def output_dir(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
 def race_pipeline(
     output_dir: pathlib.Path, resource_location: pathlib.Path, chain_type: str
 ) -> dict:
-    filename: str = "TINY_1.fq.gz"
+    filename: str = "TINY_1.fq"
     args = io.create_args_dict(
         infile=str((resource_location / filename).resolve()),
         chain=chain_type,
