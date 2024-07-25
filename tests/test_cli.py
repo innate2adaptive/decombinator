@@ -23,7 +23,7 @@ def output_dir(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
 def race_pipeline(
     output_dir: pathlib.Path, resource_location: pathlib.Path, chain_type: str
 ) -> None:
-    filename: str = "TINY_1.fq.gz"
+    filename: str = "TINY_1.fq"
     process = subprocess.run(
         [
             "./decombinator-runner.py",

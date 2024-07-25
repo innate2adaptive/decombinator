@@ -43,13 +43,21 @@ def create_parser():
         description="Decombinator: A fast and efficient tool for the analysis"
         " of T-cell receptor repertoire sequences produced by deep sequencing."
         " Include a positional argument to run a specific command."
-        " Please see https://innate2adaptive.github.io/Decombinator/ for details."
+        " Please see https://github.com/innate2adaptive/Decombinator/ for details."
+    )
+
+    # Add version information
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=metadata.version("decombinator"),
     )
 
     subparsers = parser.add_subparsers(
         dest="command", help="Available commands"
     )
-    subparsers.required = True
+    subparsers.required = False
 
     # Create parser for the "pipeline" command
     pipeline_parser = subparsers.add_parser(

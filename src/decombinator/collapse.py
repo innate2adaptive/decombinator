@@ -583,21 +583,20 @@ def read_in_data(
                     barcode_dcretc[
                         barcode + "|" + str(index[0]) + "|" + index[1]
                     ].append(dcretc)
-                    protodcretc_list = barcode_dcretc[
-                        barcode + "|" + str(index[0]) + "|" + index[1]
+                    sequence_list = [
+                        read.split("|")[1]
+                        for read in barcode_dcretc[
+                            barcode + "|" + str(index[0]) + "|" + index[1]
+                        ]
                     ]
-                    seq_counter = coll.Counter(
-                        map(lambda x: x.split("|")[1], protodcretc_list)
-                    )
-                    protoseq = seq_counter.most_common(1)[0][
-                        0
-                    ]  # find most common sequence in group
+                    protoseq_count = sequence_list.count(index[1])
+                    decretc_count = sequence_list.count(seq)
 
-                    if not index[1] == protoseq:
+                    if decretc_count > protoseq_count:
                         # if there is a new protoseq, replace record with old protoseq
                         # with identical record with updated  protoseq
                         barcode_dcretc[
-                            barcode + "|" + str(index[0]) + "|" + protoseq
+                            barcode + "|" + str(index[0]) + "|" + seq
                         ] = barcode_dcretc[
                             barcode + "|" + str(index[0]) + "|" + index[1]
                         ]
@@ -605,7 +604,7 @@ def read_in_data(
                             barcode + "|" + str(index[0]) + "|" + index[1]
                         ]
 
-                        barcode_lookup[barcode][index[0]] = [index[0], protoseq]
+                        barcode_lookup[barcode][index[0]] = [index[0], seq]
 
                     group_assigned = True
                     # if assigned to a group, stop and move onto next read
@@ -711,10 +710,6 @@ def make_clusters_v2(
         protoseq2 = barcode_dcretc[i[1]][0].split("|")[2]
         if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
             G.add_edge(i[0], i[1])
-        else:
-            print(
-                "Warning: sequences not equivalent for merge_groups", i[0], i[1]
-            )
 
     # extracts subgraphs (clusters) from the full graph
     con_comp = nx.connected_components(G)
@@ -747,7 +742,7 @@ def cluster_UMIs(
     barcode_threshold: int,
     seq_threshold: int,
     dont_count: bool,
-):
+) -> coll.defaultdict[str, list[str]]:
     # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
     # (see read_in_data function for details)
     # This function merges groups that have both equivalent barcodes and equivalent protoseqs
@@ -783,117 +778,8 @@ def cluster_UMIs(
         merge_groups, barcode_dcretc_list, percent_seq_threshold
     )
 
-    # split UMI clusters if TCR sequence if edit distance is 10% of minimum sequence length
-    # umi_tcrs = {
-    #     cluster_name: [x.split("|")[1] for x in tcr_list]
-    #     for cluster_name, tcr_list in clusters_test.items()
-    #     if len(tcr_list) > 1
-    # }
-
-    # umi_tcr_bools = {
-    #     cluster_name: [
-    #         polylev(seq1, seq2)
-    #         > (len(min(seq1, seq2, key=len)) * percent_seq_threshold)
-    #         for i, seq1 in enumerate(tcr_list)
-    #         for j, seq2 in enumerate(tcr_list)
-    #         if i > j
-    #     ]
-    #     for cluster_name, tcr_list in umi_tcrs.items()
-    # }
-
-    # umi_tcr_bools = {cluster_name: [] for cluster_name in umi_tcrs.keys()}
-    # # get a list of bools for each list in umi_tcrs to determine if they should be split by if a sequence is less than the levenstein distance limit set to ANY other sequene
-    # for cluster_name, tcr_list in umi_tcrs.items():
-    #     for tcr_index, tcr in enumerate(tcr_list):
-    #         tcr_bools = [
-    #             are_seqs_equivalent(tcr, seq, percent_seq_threshold)
-    #             for seq_index, seq in enumerate(tcr_list)
-    #             if tcr_index != seq_index
-    #         ]
-    #         assert len(tcr_bools) == len(tcr_list) - 1
-    #         if any(tcr_bools):
-    #             umi_tcr_bools[cluster_name].append(True)
-    #         else:
-    #             umi_tcr_bools[cluster_name].append(False)
-
-    # for cluster_name, bools in umi_tcr_bools.items():
-    #     if any(bools):
-    #         print("  Splitting", cluster_name)
-    #         umi = cluster_name.split("|")[0]
-    #         new_clusters = [
-    #             i
-    #             for i in itertools.compress(
-    #                 clusters_test[cluster_name], [not x for x in bools]
-    #             )
-    #         ]
-    #         umi_count = [
-    #             str(x.split("|")[0]) for x in clusters_test.keys()
-    #         ].count(umi)
-    #         for cluster_index, new_cluster in enumerate(new_clusters):
-    #             split_new_cluster = new_cluster.split("|")
-    #             new_cluster_name = "|".join(
-    #                 [
-    #                     umi,
-    #                     str(umi_count + cluster_index),
-    #                     split_new_cluster[1],
-    #                 ]
-    #             )
-    #             clusters_test[new_cluster_name] = new_cluster
-    #         clusters_test[cluster_name] = [
-    #             i
-    #             for i in itertools.compress(
-    #                 clusters_test[cluster_name], [x for x in bools]
-    #             )
-    #         ]
-    #     else:
-    #         continue
-
     t1 = time()
     print("  ", round(t1 - t0, 10), "seconds")
-
-    # t0 = time()
-    # merge_groups = []
-
-    # # these two for loops are the most expensive part of Collapsinator, and take a long time to run
-    # # for large input data. It is recommended to limit as many calculatons as possible in this step
-    # for i, b1 in enumerate(umi_protoseq_tuple):
-
-    #     # keeps track of progress of clustering
-    #     if i % 5000 == 0 and not dont_count:
-    #         print(
-    #             "   Clustered",
-    #             i,
-    #             "/",
-    #             num_initial_groups,
-    #             "...",
-    #             round(time() - t0, 2),
-    #             "seconds",
-    #         )
-
-    #     # use offset to compute only comparisons in the triangular matrix (rather than full matrix)
-    #     for j, b2 in enumerate(umi_protoseq_tuple[i + 1 :]):
-
-    #         if are_barcodes_equivalent(b1[0], b2[0], barcode_threshold):
-
-    #             if are_seqs_equivalent(b1[1], b2[1], percent_seq_threshold):
-
-    #                 print(i, j, b1[0], b2[0], b1[1], b2[1])
-
-    #                 # keeps track of which groups of barcodes/sequences should be merged
-    #                 merge_groups.append((i, i + j + 1))
-
-    #             else:
-    #                 print("  SPLIT!", i, j, b1[0], b2[0], b1[1], b2[1])
-
-    # clusters = make_clusters(merge_groups, barcode_dcretc_list)
-
-    # t1 = time()
-    # print("  ", round(t1 - t0, 10), "seconds")
-    # print("Did it work?" + str(clusters_test == clusters))
-    # print(clusters)
-    # print("========================================================")
-    # print(clusters_test)
-    # assert clusters_test == clusters
 
     print(
         "  ",
