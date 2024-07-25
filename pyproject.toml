@@ -34,7 +34,7 @@ dependencies = [
     "rapidfuzz==3.9.4",
     "regex==2024.5.15",
     "scikit-learn==1.5.1",
-    "scipy==1.14.0",
+    "scipy==1.13.1",
     "seaborn==0.13.2",
     "six==1.16.0",
     "texttable==1.7.0",
