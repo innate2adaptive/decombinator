@@ -747,37 +747,49 @@ def cluster_UMIs(
     # }
 
     umi_tcr_bools = {cluster_name: [] for cluster_name in umi_tcrs.keys()}
-    print(umi_tcr_bools)
     # get a list of bools for each list in umi_tcrs to determine if they should be split by if a sequence is less than the levenstein distance limit set to ANY other sequene
     for cluster_name, tcr_list in umi_tcrs.items():
-        print(tcr_list)
-        for tcr in tcr_list:
-            print(len(tcr) * percent_seq_threshold)
-            tcr_bools = [polylev(tcr, seq) for seq in tcr_list if tcr != seq]
-            print(tcr_bools)
+        for tcr_index, tcr in enumerate(tcr_list):
             tcr_bools = [
-                polylev(tcr, seq) > len(tcr) * percent_seq_threshold
-                for seq in tcr_list
-                if tcr != seq
+                are_seqs_equivalent(tcr, seq, percent_seq_threshold)
+                for seq_index, seq in enumerate(tcr_list)
+                if tcr_index != seq_index
             ]
+            assert len(tcr_bools) == len(tcr_list) - 1
             if any(tcr_bools):
-                umi_tcr_bools[cluster_name].append(False)
-            else:
                 umi_tcr_bools[cluster_name].append(True)
+            else:
+                umi_tcr_bools[cluster_name].append(False)
 
-    print(umi_tcr_bools)
     for cluster_name, bools in umi_tcr_bools.items():
         if any(bools):
             print("  Splitting", cluster_name)
-            print(bools)
-            print(clusters_test[cluster_name])
-            clusters_test[cluster_name] = [
+            umi = cluster_name.split("|")[0]
+            new_clusters = [
                 i
                 for i in itertools.compress(
                     clusters_test[cluster_name], [not x for x in bools]
                 )
             ]
-            print(clusters_test[cluster_name])
+            umi_count = [
+                str(x.split("|")[0]) for x in clusters_test.keys()
+            ].count(umi)
+            for cluster_index, new_cluster in enumerate(new_clusters):
+                split_new_cluster = new_cluster.split("|")
+                new_cluster_name = "|".join(
+                    [
+                        umi,
+                        str(umi_count + cluster_index),
+                        split_new_cluster[1],
+                    ]
+                )
+                clusters_test[new_cluster_name] = new_cluster
+            clusters_test[cluster_name] = [
+                i
+                for i in itertools.compress(
+                    clusters_test[cluster_name], [x for x in bools]
+                )
+            ]
         else:
             continue
 
@@ -810,14 +822,22 @@ def cluster_UMIs(
 
                 if are_seqs_equivalent(b1[1], b2[1], percent_seq_threshold):
 
+                    print(i, j, b1[0], b2[0], b1[1], b2[1])
+
                     # keeps track of which groups of barcodes/sequences should be merged
                     merge_groups.append((i, i + j + 1))
+
+                else:
+                    print("  SPLIT!", i, j, b1[0], b2[0], b1[1], b2[1])
 
     clusters = make_clusters(merge_groups, barcode_dcretc_list)
 
     t1 = time()
     print("  ", round(t1 - t0, 10), "seconds")
     print("Did it work?" + str(clusters_test == clusters))
+    print(clusters)
+    print("========================================================")
+    print(clusters_test)
     assert clusters_test == clusters
 
     print(
