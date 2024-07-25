@@ -688,6 +688,59 @@ def make_clusters(
     return clusters
 
 
+def make_clusters_v2(
+    merge_groups: list[tuple[int]],
+    barcode_dcretc: list[tuple[str, list[str]]],
+    percent_seq_threshold: float,
+) -> coll.defaultdict[str, list[str]]:
+    # Considers clusters as an undirected graph composed of disconnected subgraphs.
+    # The nodes of the graph are the initial groups of barcode/protosequences. Edges between nodes
+    # describe which inital groups form clusters and should be merged.
+    # We form a graph of only those initial groups that feature in merge_groups (i.e. that should be
+    # merged with one or more other initial groups). The remaining groups that do not need merging are
+    # added to clusters after graph analysis at the end of this function.
+
+    # initialise empty collection
+    clusters = coll.defaultdict(list)
+
+    # initialise empty graph
+    G = nx.Graph()
+    # add the inital groups from merge_groups to the graph as nodes with edges connected them
+    for i in merge_groups:
+        protoseq1 = barcode_dcretc[i[0]][0].split("|")[2]
+        protoseq2 = barcode_dcretc[i[1]][0].split("|")[2]
+        if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
+            G.add_edge(i[0], i[1])
+        else:
+            print(
+                "Warning: sequences not equivalent for merge_groups", i[0], i[1]
+            )
+
+    # extracts subgraphs (clusters) from the full graph
+    con_comp = nx.connected_components(G)
+
+    for subgraph in con_comp:
+        # get full barcode barcode information of the first node in the subgraph from barcode_dcretc
+        # this will be serve as the dictionary key for the cluster
+        base_node_barcode = barcode_dcretc[list(subgraph)[0]][0]
+
+        # get the full sequence information of each node in the subgraph from barcode_dcretc and
+        # add them to cluster collection with a cluster representative barcode (base_node_barcode)
+        for k in list(subgraph):
+            clusters[base_node_barcode] += barcode_dcretc[k][1]
+
+    # add remaining barcode/protoseqs that do not need merging to the clusters
+    for i, bdcretc in enumerate(barcode_dcretc):
+        # if already accounted for in the merged_groups then skip over
+        if i in G.nodes:
+            continue
+        else:
+            base_node_barcode = bdcretc[0]
+            clusters[base_node_barcode] = bdcretc[1]
+
+    return clusters
+
+
 def cluster_UMIs(
     barcode_dcretc: coll.defaultdict[str, list[str]],
     inputargs: dict[str, str | bool | int],
@@ -726,14 +779,16 @@ def cluster_UMIs(
     matches = prsnn.symdel(umi_list, max_edits=barcode_threshold)
     pairs = {frozenset(x[:-1]) for x in matches}
     merge_groups = [tuple(pair) for pair in pairs]
-    clusters_test = make_clusters(merge_groups, barcode_dcretc_list)
+    clusters = make_clusters_v2(
+        merge_groups, barcode_dcretc_list, percent_seq_threshold
+    )
 
     # split UMI clusters if TCR sequence if edit distance is 10% of minimum sequence length
-    umi_tcrs = {
-        cluster_name: [x.split("|")[1] for x in tcr_list]
-        for cluster_name, tcr_list in clusters_test.items()
-        if len(tcr_list) > 1
-    }
+    # umi_tcrs = {
+    #     cluster_name: [x.split("|")[1] for x in tcr_list]
+    #     for cluster_name, tcr_list in clusters_test.items()
+    #     if len(tcr_list) > 1
+    # }
 
     # umi_tcr_bools = {
     #     cluster_name: [
@@ -746,99 +801,99 @@ def cluster_UMIs(
     #     for cluster_name, tcr_list in umi_tcrs.items()
     # }
 
-    umi_tcr_bools = {cluster_name: [] for cluster_name in umi_tcrs.keys()}
-    # get a list of bools for each list in umi_tcrs to determine if they should be split by if a sequence is less than the levenstein distance limit set to ANY other sequene
-    for cluster_name, tcr_list in umi_tcrs.items():
-        for tcr_index, tcr in enumerate(tcr_list):
-            tcr_bools = [
-                are_seqs_equivalent(tcr, seq, percent_seq_threshold)
-                for seq_index, seq in enumerate(tcr_list)
-                if tcr_index != seq_index
-            ]
-            assert len(tcr_bools) == len(tcr_list) - 1
-            if any(tcr_bools):
-                umi_tcr_bools[cluster_name].append(True)
-            else:
-                umi_tcr_bools[cluster_name].append(False)
+    # umi_tcr_bools = {cluster_name: [] for cluster_name in umi_tcrs.keys()}
+    # # get a list of bools for each list in umi_tcrs to determine if they should be split by if a sequence is less than the levenstein distance limit set to ANY other sequene
+    # for cluster_name, tcr_list in umi_tcrs.items():
+    #     for tcr_index, tcr in enumerate(tcr_list):
+    #         tcr_bools = [
+    #             are_seqs_equivalent(tcr, seq, percent_seq_threshold)
+    #             for seq_index, seq in enumerate(tcr_list)
+    #             if tcr_index != seq_index
+    #         ]
+    #         assert len(tcr_bools) == len(tcr_list) - 1
+    #         if any(tcr_bools):
+    #             umi_tcr_bools[cluster_name].append(True)
+    #         else:
+    #             umi_tcr_bools[cluster_name].append(False)
 
-    for cluster_name, bools in umi_tcr_bools.items():
-        if any(bools):
-            print("  Splitting", cluster_name)
-            umi = cluster_name.split("|")[0]
-            new_clusters = [
-                i
-                for i in itertools.compress(
-                    clusters_test[cluster_name], [not x for x in bools]
-                )
-            ]
-            umi_count = [
-                str(x.split("|")[0]) for x in clusters_test.keys()
-            ].count(umi)
-            for cluster_index, new_cluster in enumerate(new_clusters):
-                split_new_cluster = new_cluster.split("|")
-                new_cluster_name = "|".join(
-                    [
-                        umi,
-                        str(umi_count + cluster_index),
-                        split_new_cluster[1],
-                    ]
-                )
-                clusters_test[new_cluster_name] = new_cluster
-            clusters_test[cluster_name] = [
-                i
-                for i in itertools.compress(
-                    clusters_test[cluster_name], [x for x in bools]
-                )
-            ]
-        else:
-            continue
-
-    t1 = time()
-    print("  ", round(t1 - t0, 10), "seconds")
-
-    t0 = time()
-    merge_groups = []
-
-    # these two for loops are the most expensive part of Collapsinator, and take a long time to run
-    # for large input data. It is recommended to limit as many calculatons as possible in this step
-    for i, b1 in enumerate(umi_protoseq_tuple):
-
-        # keeps track of progress of clustering
-        if i % 5000 == 0 and not dont_count:
-            print(
-                "   Clustered",
-                i,
-                "/",
-                num_initial_groups,
-                "...",
-                round(time() - t0, 2),
-                "seconds",
-            )
-
-        # use offset to compute only comparisons in the triangular matrix (rather than full matrix)
-        for j, b2 in enumerate(umi_protoseq_tuple[i + 1 :]):
-
-            if are_barcodes_equivalent(b1[0], b2[0], barcode_threshold):
-
-                if are_seqs_equivalent(b1[1], b2[1], percent_seq_threshold):
-
-                    print(i, j, b1[0], b2[0], b1[1], b2[1])
-
-                    # keeps track of which groups of barcodes/sequences should be merged
-                    merge_groups.append((i, i + j + 1))
-
-                else:
-                    print("  SPLIT!", i, j, b1[0], b2[0], b1[1], b2[1])
-
-    clusters = make_clusters(merge_groups, barcode_dcretc_list)
+    # for cluster_name, bools in umi_tcr_bools.items():
+    #     if any(bools):
+    #         print("  Splitting", cluster_name)
+    #         umi = cluster_name.split("|")[0]
+    #         new_clusters = [
+    #             i
+    #             for i in itertools.compress(
+    #                 clusters_test[cluster_name], [not x for x in bools]
+    #             )
+    #         ]
+    #         umi_count = [
+    #             str(x.split("|")[0]) for x in clusters_test.keys()
+    #         ].count(umi)
+    #         for cluster_index, new_cluster in enumerate(new_clusters):
+    #             split_new_cluster = new_cluster.split("|")
+    #             new_cluster_name = "|".join(
+    #                 [
+    #                     umi,
+    #                     str(umi_count + cluster_index),
+    #                     split_new_cluster[1],
+    #                 ]
+    #             )
+    #             clusters_test[new_cluster_name] = new_cluster
+    #         clusters_test[cluster_name] = [
+    #             i
+    #             for i in itertools.compress(
+    #                 clusters_test[cluster_name], [x for x in bools]
+    #             )
+    #         ]
+    #     else:
+    #         continue
 
     t1 = time()
     print("  ", round(t1 - t0, 10), "seconds")
-    print("Did it work?" + str(clusters_test == clusters))
-    print(clusters)
-    print("========================================================")
-    print(clusters_test)
-    assert clusters_test == clusters
+
+    # t0 = time()
+    # merge_groups = []
+
+    # # these two for loops are the most expensive part of Collapsinator, and take a long time to run
+    # # for large input data. It is recommended to limit as many calculatons as possible in this step
+    # for i, b1 in enumerate(umi_protoseq_tuple):
+
+    #     # keeps track of progress of clustering
+    #     if i % 5000 == 0 and not dont_count:
+    #         print(
+    #             "   Clustered",
+    #             i,
+    #             "/",
+    #             num_initial_groups,
+    #             "...",
+    #             round(time() - t0, 2),
+    #             "seconds",
+    #         )
+
+    #     # use offset to compute only comparisons in the triangular matrix (rather than full matrix)
+    #     for j, b2 in enumerate(umi_protoseq_tuple[i + 1 :]):
+
+    #         if are_barcodes_equivalent(b1[0], b2[0], barcode_threshold):
+
+    #             if are_seqs_equivalent(b1[1], b2[1], percent_seq_threshold):
+
+    #                 print(i, j, b1[0], b2[0], b1[1], b2[1])
+
+    #                 # keeps track of which groups of barcodes/sequences should be merged
+    #                 merge_groups.append((i, i + j + 1))
+
+    #             else:
+    #                 print("  SPLIT!", i, j, b1[0], b2[0], b1[1], b2[1])
+
+    # clusters = make_clusters(merge_groups, barcode_dcretc_list)
+
+    # t1 = time()
+    # print("  ", round(t1 - t0, 10), "seconds")
+    # print("Did it work?" + str(clusters_test == clusters))
+    # print(clusters)
+    # print("========================================================")
+    # print(clusters_test)
+    # assert clusters_test == clusters
 
     print(
         "  ",
