@@ -644,50 +644,6 @@ def read_in_data(
 
 
 def make_clusters(
-    merge_groups: list[tuple[int]], barcode_dcretc: list[tuple[str, list[str]]]
-) -> coll.defaultdict[str, list[str]]:
-    # Considers clusters as an undirected graph composed of disconnected subgraphs.
-    # The nodes of the graph are the initial groups of barcode/protosequences. Edges between nodes
-    # describe which inital groups form clusters and should be merged.
-    # We form a graph of only those initial groups that feature in merge_groups (i.e. that should be
-    # merged with one or more other initial groups). The remaining groups that do not need merging are
-    # added to clusters after graph analysis at the end of this function.
-
-    # initialise empty collection
-    clusters = coll.defaultdict(list)
-
-    # initialise empty graph
-    G = nx.Graph()
-    # add the inital groups from merge_groups to the graph as nodes with edges connected them
-    for i in merge_groups:
-        G.add_edge(i[0], i[1])
-
-    # extracts subgraphs (clusters) from the full graph
-    con_comp = nx.connected_components(G)
-
-    for subgraph in con_comp:
-        # get full barcode barcode information of the first node in the subgraph from barcode_dcretc
-        # this will be serve as the dictionary key for the cluster
-        base_node_barcode = barcode_dcretc[list(subgraph)[0]][0]
-
-        # get the full sequence information of each node in the subgraph from barcode_dcretc and
-        # add them to cluster collection with a cluster representative barcode (base_node_barcode)
-        for k in list(subgraph):
-            clusters[base_node_barcode] += barcode_dcretc[k][1]
-
-    # add remaining barcode/protoseqs that do not need merging to the clusters
-    for i, bdcretc in enumerate(barcode_dcretc):
-        # if already accounted for in the merged_groups then skip over
-        if i in G.nodes:
-            continue
-        else:
-            base_node_barcode = bdcretc[0]
-            clusters[base_node_barcode] = bdcretc[1]
-
-    return clusters
-
-
-def make_clusters_v2(
     merge_groups: list[tuple[int]],
     barcode_dcretc: list[tuple[str, list[str]]],
     percent_seq_threshold: float,
@@ -774,7 +730,7 @@ def cluster_UMIs(
     matches = prsnn.symdel(umi_list, max_edits=barcode_threshold)
     pairs = {frozenset(x[:-1]) for x in matches}
     merge_groups = [tuple(pair) for pair in pairs]
-    clusters = make_clusters_v2(
+    clusters = make_clusters(
         merge_groups, barcode_dcretc_list, percent_seq_threshold
     )
 
