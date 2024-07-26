@@ -50,21 +50,19 @@
 
 #######################################################################################################################################################"""
 
-from __future__ import division
-import collections as coll
-import random
-from time import time, strftime
-import argparse
-import gzip
-import regex
-import copy
 import ast
-import os, sys
-import networkx as nx
+import collections as coll
+import gzip
 from importlib import metadata
-from polyleven import levenshtein as polylev
+import os
+import time
+import typing
+import sys
+
+import networkx as nx
+import polyleven
 import pyrepseq.nn as prsnn
-import itertools
+import regex
 
 ########################################################################################################################
 # Functions
@@ -465,11 +463,11 @@ def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
     # Definition of equivalent:
     #   levenshtein distance as a percentage of the shorter of the two seqs is <= threshold
     threshold = len(min(seq1, seq2, key=len)) * lev_percent_threshold
-    return polylev(seq1, seq2) <= threshold
+    return polyleven.levenshtein(seq1, seq2) <= threshold
 
 
 def are_barcodes_equivalent(bc1, bc2, threshold):
-    return polylev(bc1, bc2) <= threshold
+    return polyleven.levenshtein(bc1, bc2) <= threshold
 
 
 def read_in_data(
@@ -499,7 +497,7 @@ def read_in_data(
         data = opener(data, "rt")
 
     print("Reading data in...")
-    t0 = time()
+    t0 = time.time()
     barcode_dcretc = coll.defaultdict(list)
     barcode_lookup = coll.defaultdict(list)
 
@@ -628,7 +626,7 @@ def read_in_data(
     counts["number_input_unique_dcrs"] = len(input_dcr_counts.keys())
     counts["number_input_total_dcrs"] = sum(input_dcr_counts.values())
 
-    t1 = time()
+    t1 = time.time()
     print("   Read in total of", lcount + 1, "lines")
     print(
         "  ",
@@ -694,7 +692,7 @@ def make_clusters(
 
 def cluster_UMIs(
     barcode_dcretc: coll.defaultdict[str, list[str]],
-    inputargs: dict[str, str | bool | int],
+    inputargs: dict[str, typing.Union[str, bool, int]],
     barcode_threshold: int,
     seq_threshold: int,
     dont_count: bool,
@@ -709,7 +707,7 @@ def cluster_UMIs(
     percent_seq_threshold = seq_threshold / 100.0
 
     print("Clustering barcodes groups...")
-    t0 = time()
+    t0 = time.time()
 
     # get number of initial groups
     num_initial_groups = len(barcode_dcretc)
@@ -724,7 +722,7 @@ def cluster_UMIs(
         (x[0].split("|")[0], x[0].split("|")[2]) for x in barcode_dcretc_list
     ]
 
-    t0 = time()
+    t0 = time.time()
     # cluster similar UMIs
     umi_list = [x[0] for x in umi_protoseq_tuple]
     matches = prsnn.symdel(umi_list, max_edits=barcode_threshold)
@@ -734,7 +732,7 @@ def cluster_UMIs(
         merge_groups, barcode_dcretc_list, percent_seq_threshold
     )
 
-    t1 = time()
+    t1 = time.time()
     print("  ", round(t1 - t0, 10), "seconds")
 
     print(
@@ -805,7 +803,7 @@ def collapsinate(
 
     # collapse (count) UMIs in each cluster and print to output file
     print("Collapsing clusters...")
-    t0 = time()
+    t0 = time.time()
 
     collapsed = coll.Counter()
     cluster_sizes = coll.defaultdict(list)
@@ -822,7 +820,7 @@ def collapsinate(
     counts["number_output_unique_dcrs"] = len(collapsed)
     counts["number_output_total_dcrs"] = sum(collapsed.values())
 
-    t1 = time()
+    t1 = time.time()
     print("  ", round(t1 - t0, 2), "seconds")
 
     print("Writing to variable...")
@@ -868,7 +866,7 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
 
     global counts
     counts = coll.Counter()
-    counts["start_time"] = time()
+    counts["start_time"] = time.time()
 
     ## this is [min_barcode_nt_quality, max_bc_nts_with_min_quality, min_avg_bc_quality]
     barcode_quality_parameters = [
@@ -906,7 +904,7 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
         opener,
     )
 
-    counts["end_time"] = time()
+    counts["end_time"] = time.time()
     counts["time_taken_total_s"] = counts["end_time"] - counts["start_time"]
 
     #######################################
@@ -923,7 +921,7 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
         # Check for directory and make summary file
         if not os.path.exists(logpath):
             os.makedirs(logpath)
-        date = strftime("%Y_%m_%d")
+        date = time.strftime("%Y_%m_%d")
 
         # Check for existing date-stamped file
         summaryname = (
@@ -973,7 +971,7 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
             + "\nDateFinished,"
             + date
             + "\nTimeFinished,"
-            + strftime("%H:%M:%S")
+            + time.strftime("%H:%M:%S")
             + "\nTimeTaken(Seconds),"
             + str(round(counts["time_taken_total_s"], 2))
             + "\n\n"
