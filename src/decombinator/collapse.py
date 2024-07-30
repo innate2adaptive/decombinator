@@ -508,14 +508,14 @@ def read_in_data(
     for lcount, line in enumerate(data):
         if inputargs["command"] == "collapse":
             line = line.rstrip("\n").split(", ")
-        if ratio < 0.01 and (time() - t0) > 3600:
+        if ratio < 0.01 and (time.time() - t0) > 3600:
             break
         if lcount % 5000 == 0 and lcount != 0 and not dont_count:
             print(
                 "   Read in",
                 lcount,
                 "lines... ",
-                round(time() - t0, 2),
+                round(time.time() - t0, 2),
                 "seconds",
             )
             ratio = (len(barcode_lookup) - l) / len(barcode_lookup)
@@ -581,20 +581,21 @@ def read_in_data(
                     barcode_dcretc[
                         barcode + "|" + str(index[0]) + "|" + index[1]
                     ].append(dcretc)
-                    sequence_list = [
-                        read.split("|")[1]
-                        for read in barcode_dcretc[
-                            barcode + "|" + str(index[0]) + "|" + index[1]
-                        ]
+                    protodcretc_list = barcode_dcretc[
+                        barcode + "|" + str(index[0]) + "|" + index[1]
                     ]
-                    protoseq_count = sequence_list.count(index[1])
-                    decretc_count = sequence_list.count(seq)
+                    seq_counter = coll.Counter(
+                        map(lambda x: x.split("|")[1], protodcretc_list)
+                    )
+                    protoseq = seq_counter.most_common(1)[0][
+                        0
+                    ]  # find most common sequence in group
 
-                    if decretc_count > protoseq_count:
+                    if not index[1] == protoseq:
                         # if there is a new protoseq, replace record with old protoseq
                         # with identical record with updated  protoseq
                         barcode_dcretc[
-                            barcode + "|" + str(index[0]) + "|" + seq
+                            barcode + "|" + str(index[0]) + "|" + protoseq
                         ] = barcode_dcretc[
                             barcode + "|" + str(index[0]) + "|" + index[1]
                         ]
@@ -602,11 +603,11 @@ def read_in_data(
                             barcode + "|" + str(index[0]) + "|" + index[1]
                         ]
 
-                        barcode_lookup[barcode][index[0]] = [index[0], seq]
+                        barcode_lookup[barcode][index[0]] = [index[0], protoseq]
 
-                    group_assigned = True
-                    # if assigned to a group, stop and move onto next read
-                    break
+                group_assigned = True
+                # if assigned to a group, stop and move onto next read
+                break
 
             if not group_assigned:
                 # if no appropriate group found, create new group with correctly incremented index
@@ -655,6 +656,7 @@ def make_clusters(
 
     # initialise empty collection
     clusters = coll.defaultdict(list)
+    n_merged_UMIs = 0
 
     # initialise empty graph
     G = nx.Graph()
@@ -664,6 +666,9 @@ def make_clusters(
         protoseq2 = barcode_dcretc[i[1]][0].split("|")[2]
         if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
             G.add_edge(i[0], i[1])
+            n_merged_UMIs += 1
+
+    print("    ", n_merged_UMIs, "merged UMIs")
 
     # extracts subgraphs (clusters) from the full graph
     con_comp = nx.connected_components(G)
@@ -725,15 +730,25 @@ def cluster_UMIs(
     t0 = time.time()
     # cluster similar UMIs
     umi_list = [x[0] for x in umi_protoseq_tuple]
-    matches = prsnn.symdel(umi_list, max_edits=barcode_threshold)
+    print("Clustering UMIs...")
+    print("  ", len(umi_list), "unique UMIs")
+    matches = prsnn.symdel(
+        umi_list, max_edits=barcode_threshold, progress=not dont_count
+    )
     pairs = {frozenset(x[:-1]) for x in matches}
-    merge_groups = [tuple(pair) for pair in pairs]
+    # merge_groups = [tuple(pair) for pair in pairs]
+    merge_groups = [sorted(x) for x in pairs]
+    merge_groups.sort()
+    print(
+        "  ",
+        len(merge_groups),
+        "UMIs within edit distance of",
+        barcode_threshold,
+    )
+    print("  ", "comparing TCR sequences of similar UMIs...")
     clusters = make_clusters(
         merge_groups, barcode_dcretc_list, percent_seq_threshold
     )
-
-    t1 = time.time()
-    print("  ", round(t1 - t0, 10), "seconds")
 
     print(
         "  ",
@@ -742,6 +757,8 @@ def cluster_UMIs(
         len(clusters),
         "clusters",
     )
+    t1 = time.time()
+    print("  ", round(t1 - t0, 10), "seconds")
 
     # dump clusters to separate files if desired
     if inputargs["writeclusters"]:
