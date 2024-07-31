@@ -21,17 +21,20 @@ def run(
         input = cli_args
     # Run pipline, ovewriting data after each function call to save memory
     data = decombinator(input)
-    write_out_intermediate(data, input, ".n12")
+    if not input["dontsave"]:
+        write_out_intermediate(data, input, ".n12")
     print("Decombinator complete...")
 
     data = collapsinator(data=data, inputargs=input)
-    write_out_intermediate(data, input, ".freq")
+    if not input["dontsave"]:
+        write_out_intermediate(data, input, ".freq")
     print("Collapsinator complete...")
 
     data = cdr3translator(data=data, inputargs=input)
     print("CDR3translator complete...")
 
-    write_out_translated(data, input)
+    if not input["dontsave"]:
+        write_out_translated(data, input)
     print(f"Pipeline complete in {datetime.now() - startTime}")
 
 

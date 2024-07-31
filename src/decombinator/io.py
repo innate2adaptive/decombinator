@@ -132,6 +132,12 @@ def add_common_arguments(parser: argparse.ArgumentParser):
         default="dcr_",
         help='Specify the prefix of the output DCR file. Default = "dcr_"',
     )
+    parser.add_argument(
+        "-ds",
+        "--dontsave",
+        action="store_true",
+        help="Don't save output files. For use when writing scripts which use the pipeline.",
+    )
 
 
 def add_decombine_arguments(parser: argparse.ArgumentParser):
@@ -407,6 +413,7 @@ def create_args_dict(
     UMIhistogram: bool = False,
     nonproductivefilter: bool = False,
     outpath: str = None,
+    dontsave: bool = False,
     command: str = None,
 ) -> dict:
     """
@@ -445,6 +452,7 @@ def create_args_dict(
         "UMIhistogram": UMIhistogram,
         "nonproductivefilter": nonproductivefilter,
         "outpath": outpath,
+        "dontsave": dontsave,
         "command": command,
     }
 
