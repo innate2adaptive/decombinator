@@ -662,9 +662,12 @@ def make_clusters(
     G = nx.Graph()
     # add the inital groups from merge_groups to the graph as nodes with edges connected them
     for i in merge_groups:
-        protoseq1 = barcode_dcretc[i[0]][0].split("|")[2]
-        protoseq2 = barcode_dcretc[i[1]][0].split("|")[2]
-        if are_seqs_equivalent(protoseq1, protoseq2, percent_seq_threshold):
+        protoseqs = [
+            barcode_dcretc[i[j]][0].split("|")[2] for j in range(len(i))
+        ]
+        if are_seqs_equivalent(
+            protoseqs[0], protoseqs[1], percent_seq_threshold
+        ):
             G.add_edge(i[0], i[1])
             n_merged_UMIs += 1
 
