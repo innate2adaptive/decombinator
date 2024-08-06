@@ -733,6 +733,9 @@ def cluster_UMIs(
     t0 = time.time()
     # cluster similar UMIs
     umi_list = [x[0] for x in umi_protoseq_tuple]
+    if len(umi_list) == 0:
+        raise ValueError("No UMIs to cluster, check .n12 file for errors")
+
     print("Clustering UMIs...")
     print("  ", len(umi_list), "unique UMIs")
     matches = prsnn.symdel(
