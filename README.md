@@ -3,13 +3,13 @@
 DECOMBINATOR
 ============
 
-<!-- [![Latest release](https://img.shields.io/pypi/v/sceptr)](https://pypi.org/p/sceptr) -->
+<!-- [![Latest release](https://img.shields.io/pypi/v/XXXX)](https://pypi.org/p/XXXX) -->
 <!-- ![Tests](https://github.com/innate2adaptive/Decombinator/refactor/.github/workflows/package-build-test.yml/badge.svg) -->
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://raw.githubusercontent.com/innate2adaptive/Decombinator/master/LICENCE)
 [![Code style](https://img.shields.io/badge/formatted%20with-black-black)](https://github.com/psf/black)
-<!-- [![Python versions](https://img.shields.io/pypi/pyversions/pytest-docker)](https://pypi.org/project/pytest-docker/) -->
+<!-- [![Python versions](https://img.shields.io/pypi/pyversions/XXXX)](https://pypi.org/project/XXXX/) -->
 <!-- Docs -->
-<!-- ### Check out the [documentation page](https://sceptr.readthedocs.io). -->
+<!-- ### Check out the [documentation page](https://XXXX.readthedocs.io). -->
 
 </div>
 
@@ -54,6 +54,8 @@ The current version of Decombinator has tag sets for the analysis of alpha/beta 
 
 Basic Usage
 -----------
+
+### `pipeline`
 
 Decombinator can be run in 4 different modes depending on your use case. Firstly, `pipeline` mode can be used via:
 
@@ -102,9 +104,11 @@ decombinator pipeline -in XXXX.fq -c b -br R2 -bl 42 -ol M13
 </details>
 
 In this mode, all three main components of the pipeline are applied to the data sequentially: `decombine`, `collapse`, and `translate`.
-For full detail of each of these components please read the [documentation](tbd).
+For the full details of each of these components please see the respective section below.
 
-If instead, you wish to run just one component of the pipeline, these are all directly accessible via their respective sub-parser:
+If instead, you wish to run just one component of the pipeline, these are all directly accessible via their respective sub-parser.
+
+### `decombine`
 
 ```shell
 decombinator decombine -in XXXX.fq -c b -br R2 -bl 42
@@ -136,6 +140,47 @@ decombinator decombine -in XXXX.fq -c b -br R2 -bl 42
 | `-bl BCLENGTH`, `--bclength BCLENGTH` | Length of barcode sequence, if applicable. Default is set to 42 bp.                                                                                          |
 
 </details>
+
+<details>
+  <summary><code>decombine</code> details</summary>
+
+This function performs the key computation of the pipeline, as it searches through demultiplexed reads for rearranged TCR sequences. It looks for short 'tag' sequences (using Aho-Corasick string matching): the presence of a tag uniquely identifies a particular V or J gene. If it finds both a V and a J tag (and the read passes various filters), it assigns the read as recombined, and outputs a five-part Decombinator index (or 'DCR'), which uniquely represents a given TCR rearrangement, plus some addtional UMI related information.
+
+All DCR-containing output files are comma-delimited, with the fields of that five-part classifier containing, in order:
+* The V index (which V gene was used)
+* The J index
+* Number of V deletions (relative to germline)
+* Number of J deletions
+* Insert sequence (the nucleotide sequence between the end of deleted V and J)
+
+The V and J indices are arbitrary numbers based on the order of the tag sequences in the relevant tag file (using Python indexing, which starts at 0 rather than 1). Also, note that the number of V and J deletions just represents how many bases have been removed from the end of that particular germline gene (as given in the germline FASTA files in the additional file repo); it is entirely possible that more bases were deleted, and just that the same bases have been re-added.
+Additionally, there are low frequencies of (predominantly alpha chain) recombinations where there is no detectable insertion, and where the nucleotides at the junction between the germline V and J genes could have derived from either. In such circumstances, the nucleotides will arbitrarily be deemed to have derived from the V gene, and thus count towards deletions from the J, however it is impossible to know which gene originally contributed these residues.
+
+Various additional fields may follow the five-part classifier, but the DCR will always occupy the first five positions. An example identifier, from a human alpha chain file, might look like this:
+
+```bash
+1, 22, 9, 0, CTCTA
+```
+
+Which corresponds to a rearrangement between TRAV1-2 (V index **1**, with **9** nucleotides deleted) and TRAJ33 (J index **22**, with **0** deletions), with an insert sequence (i.e. non-templated additions to the V and/or the J gene) of '**CTCTA**'. For beta chains, the insert sequence will contain any residual TRBD nucleotides, although as these genes are very short, homologous, and typically highly 'nibbled', they are often impossible to differentiate.
+
+Produces a list of lists with the following entries:
+  1. V index
+  2. J index
+  3. Number of V deletions
+  4. Number of J deletions
+  5. insert
+  6. ID
+  7. TCR sequence
+  8. TCR quality
+  9. barcode sequence
+  10. barcode quality
+
+**  NB The TCR sequence given here is the 'inter-tag' region, i.e. the sequence between the start of the found V tag and the end of the found J tag.
+
+</details>
+
+### `collapse`
 
 ```shell
 decombinator collapse -in XXXX.n12 -c b -ol M13
@@ -172,6 +217,46 @@ decombinator collapse -in XXXX.n12 -c b -ol M13
 
 </details>
 
+<details>
+  <summary><code>collapse</code> details</summary>
+
+Takes the output files of Decombinator (run using the barcoding option) and performs collapsing and error correction. This version is a modified version of KB's script collapsinator_20141126.py (That was itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644))*
+**  Version 4.0.2 includes improved clustering routines measuring the similarity in both barcode and TCR sequence of TCR repertoire data
+  
+**  NOTE - from version 4.2 this optionally looks for barcode 6NI86N at the beginning of the read; instead of M13_6N_I8_6N_I8
+  (i.e. only one spacer).
+  This makes it compatible with the multiplex protocol in which the barcode is incorporated in the RT step and is found at the beginning of R1. ** From version V4.2  there is a required additional command line parameter -ol (see below for allowed inputs)
+The barcode sequence is contained in one of the additional fields output by `decombine`, which contains the first 42 bases of R2 (if `-br R2 -bl 42` specified). As Illumina sequencing is particularly error-prone in the reverse read, and that reads can be phased (i.e. they do not always begin with the next nucleotide that follows the sequencing primer) our protocol uses known spacer sequences to border the random barcode bases, so that we can identify the actual random bases. The hexameric barcode locations (N6) are determined in reference to the two spacer sequences like so:
+
+```
+I8 (spacer) – N6 – I8 – N6 – 2 base overflow (n)
+GTCGTGATNNNNNNGTCGTGATNNNNNNnn
+```
+
+The collapsing script uses the spacer sequences to identify the exact position of the barcode sequences.
+
+`collapse` performs the following procedures:
+* Scrolls through each line of the input object containing DCR, barcode and sequence data.
+* Removes TCR reads with forbidden errors, e.g. ambiguous base calls (with user input parameters provided to modify strictness).
+* Groups input reads by barcode. Reads with identical barcodes and equivalent inter-tag sequences are grouped together. Equivalence is defined as the Levenshtein distance between two sequences being lower than a given threshold, weighted by the lengths of the compared sequences. Reads with identical barcodes but non-equivalent sequences are grouped separately.
+* Each group is assigned the most common inter-tag sequence/DCR combination as the 'true' TCR, as errors are likely to occur during later PCR cycles, and thus will most often be minority variants (see [Bolotin *et al.*, 2012](http://dx.doi.org/10.1002/eji.201242517)).
+
+After this initial grouping, the script estimates the true cDNA frequency. UMIs that are both similar and are associated with a similar TCR are likely to be amplified from the same original DNA molecule and to differ only due to PCR or sequencing error. Consequently, groups with similar barcodes and sequences are then clustered via the following procedure:
+* The barcode of each group is compared to the barcode of every other group.
+* The expected distribution of distances between UMIs can be modelled as a binomial distribution. Experimentation with simulated datasets found the best threshold for allowing two barcodes to be considered equivalent is when they have a Levenshtein distance of less than 3; a value of 2 is set by default. This can be modified through the user input parameter ```-bc```.
+* Groups with barcodes that meet this threshold criteria have their inter-tag sequences compared. Those with equivalent sequences are clustered together. Sequence equivalence is here taken to mean that the two sequences have a Levenshtein distance less than or equal to 10% of the length of the shorter of the two sequences. This percentage can be modified through the user input parameter ```-lv```.
+* Upon this merging of groups, the most common inter-tag sequence of the cluster is reassessed and taken as the 'true' TCR. 
+
+Finally, the clusters are collapsed to give the abundance of each TCR in the biological sample.
+* A TCR abundance count is calculated for each TCR by counting the number of clusters that have the same sequence but different barcodes (thus representing the same rearrangement originating from multiple input DNA molecules).
+* An average UMI count is calculated for each TCR by summing the number of members in each cluster associated with the TCR sequence and dividing by the number of those clusters. This gives a measure that can be used to estimate the robustness of the data for that particular sequence.
+
+Collapsinator outputs 7 fields: the 5-part DCR identifier, the corrected abundance of that TCR in the sample, and the average UMI count for that TCR
+
+</details>
+
+### `translate`
+
 ```shell
 decombinator translate -in XXXX.freq -c b -ol M13
 ```
@@ -196,6 +281,75 @@ decombinator translate -in XXXX.freq -c b -ol M13
 | `-nbc`, `--nobarcoding`              | Option to run CD3translator without barcoding, i.e. so as to run on data produced by any protocol.                                                             |
 
 
+</details>
+
+<details>
+  <summary><code>translate</code> details</summary>
+
+This step outputs `.tsv` files in the form of:
+
+| Field | Description | 
+|:---:|---|
+| sequence_id | A unique identifier for a given rearrangement |
+| v_call | V gene used (or multiple, if they cannot be distinguished, comma delimited) |
+| d_call | Blank required field (mostly cannot be assigned for TCRb, and rarely useful even then) |
+| j_call | J gene used |
+| junction_aa | CDR3 junction amino acid sequence |
+| duplicate_count | Rearrangement abundance, from Collapsinator |
+| sequence | Inferred full-length variable domain nucleotide sequence |
+| junction | CDR3 junction nucleotide sequence |
+| decombinator_id | Five-field Decombinator identifier |
+| rev_comp | Whether rearrangements are reverse complemented (T/F) - this is never the case post-Decombining |
+| productive | Whether rearrangement is potentially productive (T/F) |
+| sequence_aa | Inferred full-length variable domain amino acid sequence |
+| cdr1_aa | Amino acid sequence of CDR1 of the used V gene |
+| cdr2_aa | Amino acid sequence of CDR2 of the used V gene |
+| vj_in_frame | Whether or not the rearrangement is in frame (T/F) |
+| stop_codon | Whether or not the rearrangement contains a stop codon (T/F) |
+| conserved_c | Whether or not the rearrangement contains a detectable conserved cysteine (T/F) |
+| conserved_f | Whether or not the rearrangement contains a detectable conserved phenylalanine or equivalent (T/F) |
+| legacy_v_call | What older versions of Decombinator (i.e. <= v3) referred to this V gene as: e.g. 'TRBV12-3,TRBV12-4' in v4 was previously referred to just as 'TRBV12-4' | 
+| legacy_j_call | What older versions of Decombinator (<= 3) referred to this J gene as | 
+| v_alleles | List of V gene alleles covered by this rearrangment's tag | 
+| j_alleles | List of J gene alleles covered by this rearrangment's tag | 
+| v_gene_functionality | [IMGT predicted functionality](http://www.imgt.org/IMGTScientificChart/SequenceDescription/IMGTfunctionality.html#P1-2) of V gene (or genes) used in this rearrangement (F/ORF/P, comma delimited) | 
+| j_gene_functionality | [IMGT predicted functionality](http://www.imgt.org/IMGTScientificChart/SequenceDescription/IMGTfunctionality.html#P1-2) of J gene (or genes) used in this rearrangement (F/ORF/P, comma delimited) | 
+| sequence_alignment | Format required field - left blank |
+| germline_alignment | Format required field - left blank |
+| v_cigar | Format required field - left blank |
+| d_cigar | Format required field - left blank |
+| j_cigar | Format required field - left blank |
+| av_UMI_cluster_size | The average UMI count for this particular sequence |
+
+You can also use the 'nonproductivefilter' flag  (`-npf`) to suppress the output of non-productive rearrangements. 
+
+As the hypervariable region and the primary site of antigenic contact, the CDR3 is almost certainly going to be the region of most interest for many analyses. By convention, the [CDR3 junction is defined as](http://dx.doi.org/10.1016/S0145-305X(02)00039-3) running from the position of the second conserved cysteine encoded in the 3' of the V gene to the phenylalanine in the conserved 'FGXG' motif in the J gene. However, some genes use non-canonical residues/motifs, and the position of these motifs varies.
+
+In looking for CDR3s, we also find 'non-productive' reads, i.e. those that don't appear to be able to make productive, working TCRs. This is determined based on the presence of stop codons, being out of frame, or lacking appropriate CDR3 motifs. 
+
+The process occurs like so:
+
+```
+# Starting with a Decombinator index
+43, 5, 1, 7, AGGCAGGGATC
+
+# Used to construct whole nucleotide sequences, using the germline FASTAs as references
+GATACTGGAGTCTCCCAGAACCCCAGACACAAGATCACAAAGAGGGGACAGAATGTAACTTTCAGGTGTGATCCAATTTCTGAACACAACCGCCTTTATTGGTACCGACAGACCCTGGGGCAGGGCCCAGAGTTTCTGACTTACTTCCAGAATGAAGCTCAACTAGAAAAATCAAGGCTGCTCAGTGATCGGTTCTCTGCAGAGAGGCCTAAGGGATCTTTCTCCACCTTGGAGATCCAGCGCACAGAGCAGGGGGACTCGGCCATGTATCTCTGTGCCAGCAGCTTAGAGGCAGGGATCAATTCACCCCTCCACTTTGGGAATGGGACCAGGCTCACTGTGACAG
+
+# This is then translated into protein sequence
+DTGVSQNPRHKITKRGQNVTFRCDPISEHNRLYWYRQTLGQGPEFLTYFQNEAQLEKSRLLSDRFSAERPKGSFSTLEIQRTEQGDSAMYLCASSLEAGINSPLHFGNGTRLTVT
+
+# The CDR3 sequence is then extracted based on the conserved C and FGXG motifs (as stored in the .translate supplementary files)
+CASSLEAGINSPLHF
+```
+
+In order to do so, a third kind of supplementary data file is used, .translate files, which provide the additional information required for CDR3 extraction for each gene type (a/b/g/d, V/J). They are stored in the [TCR tag repository](https://github.com/innate2adaptive/Decombinator-Tags-FASTAs) and meet the same naming conventions as the tag and FASTA files and consist of four comma-delimited fields, detailing:
+* Gene name
+* Conserved motif position (whether C or FGXG)
+* Conserved motif sequence (to account for the non-canonical)
+* IMGT-defined gene functionality (F/ORF/P)
+
+  
 </details>
 
 Advanced Usage
