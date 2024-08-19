@@ -741,19 +741,18 @@ def cluster_UMIs(
     matches = prsnn.symdel(
         umi_list, max_edits=barcode_threshold, progress=not dont_count
     )
-    pairs = {frozenset(x[:-1]) for x in matches}
-    # merge_groups = [tuple(pair) for pair in pairs]
-    merge_groups = [sorted(x) for x in pairs]
-    merge_groups.sort()
+    matches = {frozenset(x[:-1]) for x in matches}
+    matches = [sorted(x) for x in matches]
+    matches.sort()
     print(
         "  ",
-        len(merge_groups),
+        len(matches),
         "UMIs within edit distance of",
         barcode_threshold,
     )
     print("  ", "comparing TCR sequences of similar UMIs...")
     clusters = make_clusters(
-        merge_groups, barcode_dcretc_list, percent_seq_threshold
+        matches, barcode_dcretc_list, percent_seq_threshold
     )
 
     print(
