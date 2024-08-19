@@ -17,8 +17,6 @@ and crucially giving TCR gene name output in the raw format (in addition to the 
 """
 
 from __future__ import division
-from Bio.Seq import Seq
-from Bio import SeqIO
 from time import strftime
 import argparse
 import string
@@ -34,7 +32,12 @@ from importlib import metadata
 
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
-warnings.filterwarnings("ignore")
+from Bio import BiopythonWarning
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", BiopythonWarning)
+    from Bio.Seq import Seq
+    from Bio import SeqIO
 
 # TODO Potentially add a flag to combine convergent recombinations into a single row?
 
@@ -302,9 +305,7 @@ def get_cdr3(dcr, headers, inputargs):
     out_data["sequence"] = "".join([v_used, ins_nt, j_used])
 
     # 2. Translate
-    modulo3 = len(out_data["sequence"]) % 3
-    translate_seq = out_data["sequence"][: -1 * modulo3]
-    out_data["sequence_aa"] = str(Seq(translate_seq).translate())
+    out_data["sequence_aa"] = str(Seq(out_data["sequence"]).translate())
 
     # 3. Check whether whole rearrangement is in frame
     if (len(out_data["sequence"]) - 1) % 3 == 0:

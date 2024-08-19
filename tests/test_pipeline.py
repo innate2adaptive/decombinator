@@ -1,3 +1,4 @@
+from Bio import BiopythonWarning
 from decombinator import pipeline, io
 import pytest
 import pathlib
@@ -35,7 +36,7 @@ def race_pipeline(
     pipeline.run(args)
 
 
-# @pytest.mark.filterwarnings("ignore::Bio.BiopythonWarning")
+@pytest.mark.filterwarnings("ignore::Bio.BiopythonWarning")
 def test_tsv_output(
     race_pipeline: None,
     output_dir: pathlib.Path,
