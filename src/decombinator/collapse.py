@@ -57,12 +57,14 @@ from importlib import metadata
 import os
 import time
 import typing
+from scipy import sparse
 import sys
 
 import networkx as nx
 import polyleven
 import pyrepseq.nn as prsnn
 import regex
+import scipy.sparse
 
 ########################################################################################################################
 # Functions
@@ -643,7 +645,7 @@ def read_in_data(
 
 
 def make_clusters(
-    merge_groups: list[tuple[int]],
+    merge_groups: sparse.coo_matrix,
     barcode_dcretc: list[tuple[str, list[str]]],
     percent_seq_threshold: float,
 ) -> coll.defaultdict[str, list[str]]:
@@ -660,15 +662,16 @@ def make_clusters(
 
     # initialise empty graph
     G = nx.Graph()
-    # add the inital groups from merge_groups to the graph as nodes with edges connected them
-    for i in merge_groups:
+
+    for i, j in zip(merge_groups.row, merge_groups.col):
         protoseqs = [
-            barcode_dcretc[i[j]][0].split("|")[2] for j in range(len(i))
+            barcode_dcretc[i][0].split("|")[2],
+            barcode_dcretc[j][0].split("|")[2],
         ]
         if are_seqs_equivalent(
             protoseqs[0], protoseqs[1], percent_seq_threshold
         ):
-            G.add_edge(i[0], i[1])
+            G.add_edge(i, j)
             n_merged_UMIs += 1
 
     print("    ", n_merged_UMIs, "merged UMIs")
@@ -739,14 +742,16 @@ def cluster_UMIs(
     print("Clustering UMIs...")
     print("  ", len(umi_list), "unique UMIs")
     matches = prsnn.symdel(
-        umi_list, max_edits=barcode_threshold, progress=not dont_count
+        umi_list,
+        max_edits=barcode_threshold,
+        progress=not dont_count,
+        output_type="coo_matrix",
     )
-    matches = {frozenset(x[:-1]) for x in matches}
-    matches = [sorted(x) for x in matches]
-    matches.sort()
+    matches = sparse.triu(matches)  # Remove duplicates
+    matches.sum_duplicates()  # Efficient method to sort made safe by triu
     print(
         "  ",
-        len(matches),
+        matches.getnnz(),
         "UMIs within edit distance of",
         barcode_threshold,
     )
