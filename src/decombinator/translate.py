@@ -32,12 +32,10 @@ from importlib import metadata
 
 
 # Supress Biopython translation warning when translating sequences where length % 3 != 0
+# TODO: Handle translation explicitly
 from Bio import BiopythonWarning
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", BiopythonWarning)
-    from Bio.Seq import Seq
-    from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio import SeqIO
 
 # TODO Potentially add a flag to combine convergent recombinations into a single row?
 
@@ -305,7 +303,9 @@ def get_cdr3(dcr, headers, inputargs):
     out_data["sequence"] = "".join([v_used, ins_nt, j_used])
 
     # 2. Translate
-    out_data["sequence_aa"] = str(Seq(out_data["sequence"]).translate())
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", BiopythonWarning)
+        out_data["sequence_aa"] = str(Seq(out_data["sequence"]).translate())
 
     # 3. Check whether whole rearrangement is in frame
     if (len(out_data["sequence"]) - 1) % 3 == 0:
