@@ -38,7 +38,7 @@ decombinator pipeline -in XXXX.fq -c b -br R2 -bl 42 -ol M13
 Installation
 ------------
 
-To install decombinator and all required packages:
+To install decombinator and all required packages, create a fresh virtual environment and run:
 
 ```shell
 pip install decombinator
