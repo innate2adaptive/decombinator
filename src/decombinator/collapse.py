@@ -644,10 +644,60 @@ def read_in_data(
     return barcode_dcretc
 
 
+def create_clustering_objs(
+    barcode_dcretc: dict[str, list[str]]
+) -> tuple[int, list[tuple[str, str]], list[tuple[str, str]]]:
+
+    # get number of initial groups
+    num_initial_groups = len(barcode_dcretc)
+
+    # convert barcode_dcretc collection to list format
+    barcode_dcretc_list = []
+    for _, (j, k) in enumerate(barcode_dcretc.items()):
+        barcode_dcretc_list.append((j, k))
+
+    umi_protoseq_tuple = [
+        (x[0].split("|")[0], x[0].split("|")[2]) for x in barcode_dcretc_list
+    ]
+
+    return num_initial_groups, barcode_dcretc_list, umi_protoseq_tuple
+
+
+def make_merge_groups(
+    umi_protoseq_tuple: list[tuple[str, str]],
+    barcode_threshold: int,
+    dont_count: bool,
+) -> sparse.coo_matrix:
+    # cluster similar UMIs
+    umi_list = [x[0] for x in umi_protoseq_tuple]
+    if len(umi_list) == 0:
+        raise ValueError("No UMIs to cluster, check .n12 file for errors")
+
+    print("Clustering UMIs...")
+    print("  ", len(umi_list), "unique UMIs")
+    matches = prsnn.symdel(
+        umi_list,
+        max_edits=barcode_threshold,
+        progress=not dont_count,
+        output_type="coo_matrix",
+    )
+    matches = sparse.triu(matches)  # Remove duplicates
+    matches.sum_duplicates()  # Efficient method to sort made safe by triu
+
+    print(
+        "  ",
+        matches.getnnz(),
+        "UMIs within edit distance of",
+        barcode_threshold,
+    )
+
+    return matches
+
+
 def make_clusters(
     merge_groups: sparse.coo_matrix,
     barcode_dcretc: list[tuple[str, list[str]]],
-    percent_seq_threshold: float,
+    seq_threshold: int,
 ) -> coll.defaultdict[str, list[str]]:
     # Considers clusters as an undirected graph composed of disconnected subgraphs.
     # The nodes of the graph are the initial groups of barcode/protosequences. Edges between nodes
@@ -662,6 +712,8 @@ def make_clusters(
 
     # initialise empty graph
     G = nx.Graph()
+
+    percent_seq_threshold = seq_threshold / 100.0
 
     for i, j in zip(merge_groups.row, merge_groups.col):
         protoseqs = [
@@ -701,82 +753,6 @@ def make_clusters(
     return clusters
 
 
-def cluster_UMIs(
-    barcode_dcretc: coll.defaultdict[str, list[str]],
-    inputargs: dict[str, typing.Union[str, bool, int]],
-    barcode_threshold: int,
-    seq_threshold: int,
-    dont_count: bool,
-) -> coll.defaultdict[str, list[str]]:
-    # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
-    # (see read_in_data function for details)
-    # This function merges groups that have both equivalent barcodes and equivalent protoseqs
-    # output data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
-    # Output format is same as input format, but after clustering. The protoseq is recalculated when new
-    # dcretcs are added to a cluster
-
-    percent_seq_threshold = seq_threshold / 100.0
-
-    print("Clustering barcodes groups...")
-    t0 = time.time()
-
-    # get number of initial groups
-    num_initial_groups = len(barcode_dcretc)
-
-    # convert barcode_dcretc collection to list format
-    barcode_dcretc_list = []
-    for i, (j, k) in enumerate(barcode_dcretc.items()):
-        barcode_dcretc_list.append((j, k))
-
-    # get only barcodes and corresponding protoseqs for use in pairwise comparison loops below
-    umi_protoseq_tuple = [
-        (x[0].split("|")[0], x[0].split("|")[2]) for x in barcode_dcretc_list
-    ]
-
-    t0 = time.time()
-    # cluster similar UMIs
-    umi_list = [x[0] for x in umi_protoseq_tuple]
-    if len(umi_list) == 0:
-        raise ValueError("No UMIs to cluster, check .n12 file for errors")
-
-    print("Clustering UMIs...")
-    print("  ", len(umi_list), "unique UMIs")
-    matches = prsnn.symdel(
-        umi_list,
-        max_edits=barcode_threshold,
-        progress=not dont_count,
-        output_type="coo_matrix",
-    )
-    matches = sparse.triu(matches)  # Remove duplicates
-    matches.sum_duplicates()  # Efficient method to sort made safe by triu
-    print(
-        "  ",
-        matches.getnnz(),
-        "UMIs within edit distance of",
-        barcode_threshold,
-    )
-    print("  ", "comparing TCR sequences of similar UMIs...")
-    clusters = make_clusters(
-        matches, barcode_dcretc_list, percent_seq_threshold
-    )
-
-    print(
-        "  ",
-        num_initial_groups,
-        "groups merged into",
-        len(clusters),
-        "clusters",
-    )
-    t1 = time.time()
-    print("  ", round(t1 - t0, 10), "seconds")
-
-    # dump clusters to separate files if desired
-    if inputargs["writeclusters"]:
-        write_clusters(clusters)
-
-    return clusters
-
-
 def write_clusters(clusters):
     # create directory to store cluster data without overwriting exiting directories
     dirname = "clusters"
@@ -795,6 +771,52 @@ def write_clusters(clusters):
             for j in clusters[k]:
                 print(j, file=ofile)
     return 1
+
+
+def cluster_UMIs(
+    barcode_dcretc: coll.defaultdict[str, list[str]],
+    inputargs: dict[str, typing.Union[str, bool, int]],
+    barcode_threshold: int,
+    seq_threshold: int,
+    dont_count: bool,
+) -> coll.defaultdict[str, list[str]]:
+    # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
+    # (see read_in_data function for details)
+    # This function merges groups that have both equivalent barcodes and equivalent protoseqs
+    # output data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
+    # Output format is same as input format, but after clustering. The protoseq is recalculated when new
+    # dcretcs are added to a cluster
+
+    print("Clustering barcode groups...")
+    t0 = time.time()
+
+    num_initial_groups, barcode_dcretc_list, umi_protoseq_tuple = (
+        create_clustering_objs(barcode_dcretc)
+    )
+
+    t0 = time.time()
+    matches = make_merge_groups(
+        umi_protoseq_tuple, barcode_threshold, dont_count
+    )
+
+    print("  ", "comparing TCR sequences of similar UMIs...")
+    clusters = make_clusters(matches, barcode_dcretc_list, seq_threshold)
+
+    print(
+        "  ",
+        num_initial_groups,
+        "groups merged into",
+        len(clusters),
+        "clusters",
+    )
+    t1 = time.time()
+    print("  ", round(t1 - t0, 10), "seconds")
+
+    # dump clusters to separate files if desired
+    if inputargs["writeclusters"]:
+        write_clusters(clusters)
+
+    return clusters
 
 
 def collapsinate(
