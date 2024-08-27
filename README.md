@@ -38,7 +38,7 @@ decombinator pipeline -in XXXX.fq -c b -br R2 -bl 42 -ol M13
 To install `decombinator` and all required packages, first download `decombinator` using:
 
 ```shell
-git clone https://github.com/innate2adaptive/Decombinator-Tools.git
+git clone https://github.com/innate2adaptive/Decombinator.git
 ```
 
 Then, navigate into the `decombinator` directory, create a fresh virtual environment, and run:
