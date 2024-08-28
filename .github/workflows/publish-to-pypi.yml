@@ -2,11 +2,8 @@ name: publish-to-pypi-and-test-pypi
 
 on:
   push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+    tags:
+      - v*
 
 jobs:
   build:
@@ -105,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
 
     environment:
-      name: pypi
+      name: test-pypi
       url: https://test.pypi.org/p/decombinator
 
     permissions:
