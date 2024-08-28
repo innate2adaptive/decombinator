@@ -512,7 +512,7 @@ def read_in_data(
             line = line.rstrip("\n").split(", ")
         if ratio < 0.01 and (time.time() - t0) > 3600:
             break
-        if lcount % 5000 == 0 and lcount != 0 and not dont_count:
+        if lcount % 50000 == 0 and lcount != 0 and not dont_count:
             print(
                 "   Read in",
                 lcount,
