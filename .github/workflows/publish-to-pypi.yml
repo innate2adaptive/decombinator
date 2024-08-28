@@ -1,13 +1,16 @@
-name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
+name: publish-to-pypi-and-test-pypi
 
 on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
-    name: Build distribution 📦
+    name: build-dist 📦
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +35,7 @@ jobs:
 
   publish-to-pypi:
     name: >-
-      Publish Python 🐍 distribution 📦 to PyPI
+      publish-to-pypi 📢
     if: ${{startsWith(github.ref, 'refs/tags/') && !endsWith(github.ref, '.dev*')}}  # only publish to PyPI on tag pushes
     needs:
     - build
@@ -44,18 +47,17 @@ jobs:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
     steps:
-    - name: Download all the dists
+    - name: download-dists
       uses: actions/download-artifact@v3
       with:
         name: python-package-distributions
         path: dist/
-    - name: Publish distribution 📦 to PyPI
+    - name: publish-dist-to-pypi 
       uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
     name: >-
-      Sign the Python 🐍 distribution 📦 with Sigstore
-      and upload them to GitHub Release
+      signed-github-release ✍️
     needs:
     - publish-to-pypi
     runs-on: ubuntu-latest
@@ -65,12 +67,12 @@ jobs:
       id-token: write  # IMPORTANT: mandatory for sigstore
 
     steps:
-    - name: Download all the dists
+    - name: download-dists
       uses: actions/download-artifact@v3
       with:
         name: python-package-distributions
         path: dist/
-    - name: Sign the dists with Sigstore
+    - name: sign-with-sigstore
       uses: sigstore/gh-action-sigstore-python@v2.1.1
       with:
         inputs: >-
@@ -96,26 +98,26 @@ jobs:
         --repo '${{ github.repository }}'
 
   publish-to-testpypi:
-    name: Publish Python 🐍 distribution 📦 to TestPyPI
+    name: publish-to-testpypi 🔨
     if: ${{startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '.dev*')}}  # only publish to test-PyPI on dev tag pushes
     needs:
     - build
     runs-on: ubuntu-latest
 
     environment:
-      name: testpypi
+      name: pypi
       url: https://test.pypi.org/p/decombinator
 
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
     steps:
-    - name: Download all the dists
+    - name: download-dists
       uses: actions/download-artifact@v3
       with:
         name: python-package-distributions
         path: dist/
-    - name: Publish distribution 📦 to TestPyPI
+    - name: publish-dist-to-testpypi
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/

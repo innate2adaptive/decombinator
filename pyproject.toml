@@ -1,6 +1,6 @@
 [project]
 name = "decombinator"
-version = "5.0.0"
+version = "5.0.0.dev0"
 description = "A fast and efficient tool for the analysis of T-cell receptor repertoire sequences produced by deep sequencing."
 readme = "README.md"
 license = {file = "LICENSE"}
