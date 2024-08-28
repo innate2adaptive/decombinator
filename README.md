@@ -1,15 +1,9 @@
-
-<!-- [![Latest release](https://img.shields.io/pypi/v/XXXX)](https://pypi.org/p/XXXX) -->
-<!-- ![Tests](https://github.com/innate2adaptive/`decombinator`/refactor/.github/workflows/package-build-test.yml/badge.svg) -->
-<!-- [![Python versions](https://img.shields.io/pypi/pyversions/XXXX)](https://pypi.org/project/XXXX/) -->
-<!-- Docs -->
-<!-- ### Check out the [documentation page](https://XXXX.readthedocs.io). -->
-
 # `decombinator`
 
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://raw.githubusercontent.com/innate2adaptive/Decombinator/master/LICENCE)
-<!-- [![Code style](https://img.shields.io/badge/formatter-black-black)](https://github.com/psf/black) -->
-
+<!-- [![Latest release](https://img.shields.io/pypi/v/decombinator)](https://pypi.org/p/decombinator) -->
+<!-- [![Python versions](https://img.shields.io/pypi/pyversions/decombinator)](https://pypi.org/project/decombinator/) -->
+<!-- ![Tests](https://github.com/innate2adaptive/decombinator/.github/workflows/package-build-test.yml/badge.svg) -->
 
 **Innate2Adaptive lab @ University College London, 2024**
 
