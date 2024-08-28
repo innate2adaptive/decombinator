@@ -29,19 +29,13 @@ decombinator pipeline -in XXXX.fq -c b -br R2 -bl 42 -ol M13
 
 ## Installation
 
-To install `decombinator` and all required packages, first download `decombinator` using:
+To install `decombinator` and all required packages, simply create a fresh virtual environment, activate it, and run:
 
 ```shell
-git clone https://github.com/innate2adaptive/Decombinator.git
+pip install decombinator
 ```
 
-Then, navigate into the `decombinator` directory, create a fresh virtual environment, and run:
-
-```shell
-pip install .
-```
-
-`decombinator` also requires a number of additional files, which contain information regarding the V and J gene sequences, their tags, and the locations and motifs which define their CDR3 regions. By default `decombinator` downloads these files from [the git repository where they are maintained](https://github.com/innate2adaptive/Decombinator-Tags-FASTAs), which obviously requires a working internet connection. In order to run `decombinator` offline, these files must be downloaded to a local location, and either stored within the directory where you wish to run `decombinator` or specified using the appropriate command line flag (`-tfdir`). These additional files can also be downloaded via `git clone`:
+`decombinator` also requires a number of additional files, which contain information regarding the V and J gene sequences, their tags, and the locations and motifs which define their CDR3 regions. By default `decombinator` downloads these files from [the git repository where they are maintained](https://github.com/innate2adaptive/Decombinator-Tags-FASTAs), which requires a working internet connection. In order to run `decombinator` offline, these files must be downloaded to a local location, and either stored within the directory where you wish to run `decombinator` or specified using the appropriate command line flag (`-tfdir`). These additional files can also be downloaded via `git clone`:
 
 ```bash
 git clone https://github.com/innate2adaptive/Decombinator-Tags-FASTAs.git
