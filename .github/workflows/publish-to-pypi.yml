@@ -33,7 +33,7 @@ jobs:
   publish-to-pypi:
     name: >-
       publish-to-pypi 📢
-    if: ${{startsWith(github.ref, 'refs/tags/') && !endsWith(github.ref, '*.dev*')}}  # only publish to PyPI on tag pushes
+    if: ${{startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '.dev')}}  # only publish to PyPI on tag pushes
     needs:
     - build
     runs-on: ubuntu-latest
@@ -96,7 +96,7 @@ jobs:
 
   publish-to-testpypi:
     name: publish-to-testpypi 🔨
-    if: ${{startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '*.dev*')}}  # only publish to test-PyPI on dev tag pushes
+    if: ${{startsWith(github.ref, 'refs/tags/') && contains(github.ref, '.dev')}}  # only publish to test-PyPI on dev tag pushes
     needs:
     - build
     runs-on: ubuntu-latest
