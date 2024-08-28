@@ -19,7 +19,7 @@ dependencies = [
     "kiwisolver==1.4.5",
     "Levenshtein==0.25.1",
     "logomaker==0.8",
-    "matplotlib==3.9.1",
+    "matplotlib==3.9.2",
     "networkx==3.2.1",
     "numpy==2.0.0",
     "packaging==24.1",
