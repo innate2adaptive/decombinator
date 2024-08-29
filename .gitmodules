@@ -1,0 +1,3 @@
+[submodule "tests/resources/Decombinator-Tags-FASTAs"]
+	path = tests/resources/Decombinator-Tags-FASTAs
+	url = https://github.com/innate2adaptive/Decombinator-Tags-FASTAs.git
