@@ -153,7 +153,7 @@ def add_decombine_arguments(parser: argparse.ArgumentParser):
         "--bc_read",
         type=str,
         required=True,
-        help="Which read has bar code (R1,R2)",
+        help="Which read has bar code (R1,R2). If used, ensure read selected is present in the same directory as the file specified by -in.",
     )
     parser.add_argument(
         "-dk", "--dontcheck", action="store_true", help="Skip the FASTQ check"

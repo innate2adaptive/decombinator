@@ -66,7 +66,7 @@ decombinator pipeline -in XXXX.fq -c b -br R2 -bl 42 -ol M13
 | `-c CHAIN`, `--chain CHAIN`          | TCR chain (a/b/g/d)                                                                                                                                           |
 | `-pf PREFIX`, `--prefix PREFIX`      | Specify the prefix of the output DCR file. Default = "dcr_"                                                                                                    |
 | `-in INFILE`, `--infile INFILE`      | Correctly demultiplexed/processed FASTQ file containing TCR reads                                                                                              |
-| `-br BC_READ`, `--bc_read BC_READ`   | Which read has bar code (R1,R2)                                                                                                                                |
+| `-br BC_READ`, `--bc_read BC_READ`   | Which read has bar code (R1,R2). If used, ensure read selected is present in the same directory as the file specified by -in.                                                                                                                                |
 | `-dk`, `--dontcheck`                 | Skip the FASTQ check                                                                                                                                           |
 | `-ex EXTENSION`, `--extension EXTENSION` | Specify the file extension of the output DCR file. Default = "n12"                                                                                         |
 | `-or ORIENTATION`, `--orientation ORIENTATION` | Specify the orientation to search in (forward/reverse/both). Default = reverse                                                                  |
@@ -117,7 +117,7 @@ decombinator decombine -in XXXX.fq -c b -br R2 -bl 42
 | `-c CHAIN`, `--chain CHAIN`          | TCR chain (a/b/g/d)                                                                                                                                           |
 | `-pf PREFIX`, `--prefix PREFIX`      | Specify the prefix of the output DCR file. Default = "dcr_"                                                                                                    |
 | `-in INFILE`, `--infile INFILE`      | Correctly demultiplexed/processed FASTQ file containing TCR reads                                                                                              |
-| `-br BC_READ`, `--bc_read BC_READ`   | Which read has bar code (R1,R2)                                                                                                                                |
+| `-br BC_READ`, `--bc_read BC_READ`   | Which read has bar code (R1,R2). If used, ensure read selected is present in the same directory as the file specified by -in.                                                                                                                                |
 | `-dk`, `--dontcheck`                 | Skip the FASTQ check                                                                                                                                           |
 | `-ex EXTENSION`, `--extension EXTENSION` | Specify the file extension of the output DCR file. Default = "n12"                                                                                         |
 | `-or ORIENTATION`, `--orientation ORIENTATION` | Specify the orientation to search in (forward/reverse/both). Default = reverse                                                                  |
