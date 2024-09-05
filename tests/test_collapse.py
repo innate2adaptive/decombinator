@@ -101,7 +101,6 @@ class TestGetBarcodePositions:
         ]
 
     def test_nebio(self, counter):
-        nebts = "TACGGG"
         bcseq = "CGGGCTTGGTATCGGCCGATCTACGGG"
         inputargs = {
             "oligo": "nebio",

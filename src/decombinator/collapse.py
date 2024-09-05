@@ -391,6 +391,7 @@ def get_barcode_positions(
 
     # sequences with no first spacer are removed from analysis
     if not len(spacers) == 1:
+        counts["getbarcode_fail_nospacerfound"] += 1
         return None
 
     # sets second spacer based on specified oligo (unless single oligo)
