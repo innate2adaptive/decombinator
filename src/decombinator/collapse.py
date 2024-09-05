@@ -472,6 +472,103 @@ def are_barcodes_equivalent(bc1, bc2, threshold):
     return polyleven.levenshtein(bc1, bc2) <= threshold
 
 
+def get_barcode_positions(bcseq, inputargs, counts):
+    """
+    Given a barcode-region sequence, outputs the sequence of the do-docamer barcode.
+    This barcode (theoretically) consists of the concatentation of the two random hexamer sequences contained in the ligation oligo.
+    However errors in sequences and ligation oligo production can mean that the random nucleotides are not always at the expected position.
+    This function uses the known sequence of the spacers (which bound each of the two N6s to their 5') to deduce the random sequences.
+    Returns a list of four numbers, giving the start and stop positions of N1 and N2 respectively.
+    """
+    if str.lower(inputargs["oligo"]) not in ["i8", "i8_single", "m13"]:
+        raise ValueError(
+            "The flag for the -ol input must be one of M13, I8 or I8_single"
+        )
+
+    if (
+        "N" in bcseq and inputargs["allowNs"] == False
+    ):  # ambiguous base-call check
+        counts["getbarcode_fail_N"] += 1
+        return
+
+    # gets spacer sequences of specified oligo
+    oligo = getOligo(inputargs["oligo"])
+
+    # sets first spacer based on specified oligo
+    spacers = findFirstSpacer(oligo, bcseq)
+
+    # sequences with no first spacer are removed from analysis
+    if not len(spacers) == 1:
+        return None
+
+    # sets second spacer based on specified oligo (unless single oligo)
+
+    if not str.lower(inputargs["oligo"]) == "i8_single":
+        spacers += findSecondSpacer(oligo, bcseq)
+        # sequences which do not have two spacers are logged then removed from analysis
+        if not len(spacers) == 2:
+            counts["getbarcode_fail_not2spacersfound"] += 1
+            return None
+    spacer_positions = getSpacerPositions(bcseq, spacers)
+
+    if inputargs["oligo"] == "neb":
+        pass
+    else:
+        if str.lower(inputargs["oligo"]) == "i8_single":
+            # set expected barcode length
+            bclength = 6
+            # start and end of barcode positions are set
+            b1start = 0
+            b1end = spacer_positions[0]
+            b2start = spacer_positions[0] + len(spacers[0])
+
+            b2end = b2start + bclength
+            b1len = b1end - b1start
+
+            # filtering and logging
+            if spacers == [oligo["spcr1"]]:
+                counts["getbarcode_pass_exactmatch"] += 1
+            else:
+                counts["getbarcode_pass_regexmatch"] += 1
+
+            if b1len == bclength and spacers != [oligo["spcr1"]]:
+                counts["getbarcode_pass_fuzzymatch_rightlen"] += 1
+            elif b1len in [4, 5] and spacers != [oligo["spcr1"]]:
+                counts["getbarcode_pass_fuzzymatch_short"] += 1
+            elif b1len >= 7 and spacers != [oligo["spcr1"]]:
+                counts["getbarcode_pass_fuzzymatch_long"] += 1
+            elif b1len == bclength:
+                counts["getbarcode_pass_other"] += 1
+            if (
+                filterShortandLongBarcodes(b1len, b2end, bcseq, counts)
+                == "fail"
+            ):
+                return None
+            return [b1start, b1end, b2start, b2end]
+
+        else:
+            # set expected barcode length
+            bclength = 6
+            # start and end of barcode positions are set
+            b1start = spacer_positions[0] + len(spacers[0])
+            b1end = spacer_positions[1]
+            b2start = spacer_positions[1] + len(spacers[1])
+            b2end = b2start + bclength
+            b1len = b1end - b1start
+
+            # filtering and logging
+
+            if (
+                filterShortandLongBarcodes(b1len, b2end, bcseq, counts)
+                == "fail"
+            ):
+                return None
+            logExactOrRegexMatch(spacers, oligo, counts)
+            logFuzzyMatching(b1len, bclength, spacers, oligo, counts)
+
+            return [b1start, b1end, b2start, b2end]
+
+
 def read_in_data(
     data,
     inputargs,
@@ -526,18 +623,7 @@ def read_in_data(
 
         counts["readdata_input_dcrs"] += 1
 
-        if str.lower(inputargs["oligo"]) == "i8_single":
-            bc_locs = get_barcode_positions2(
-                line[8], inputargs, counts
-            )  # barcode locations
-        elif str.lower(inputargs["oligo"]) == "i8":
-            bc_locs = get_barcode_positions(line[8], inputargs, counts)
-        elif str.lower(inputargs["oligo"]) == "m13":
-            bc_locs = get_barcode_positions(line[8], inputargs, counts)
-        else:
-            print(
-                "The flag for the -ol input must be one of M13, I8 or I8_single"
-            )
+        bc_locs = get_barcode_positions(line[8], inputargs, counts)
         if not bc_locs:
             counts["readdata_fail_no_bclocs"] += 1
             continue
