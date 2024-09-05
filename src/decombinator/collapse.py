@@ -173,13 +173,7 @@ def getOligo(oligo_name):
     oligos["m13"] = {"spcr1": "GTCGTGACTGGGAAAACCCTGG", "spcr2": "GTCGTGAT"}
     oligos["i8"] = {"spcr1": "GTCGTGAT", "spcr2": "GTCGTGAT"}
     oligos["i8_single"] = {"spcr1": "ATCACGAC"}
-    oligos["nebio"] = {
-        "spcr1": "TACGGG",
-        "spcr2": "ATACGGG",
-        "spcr3": "TCTACGGG",
-        "spcr4": "CGATACGGG",
-        "spcr5": "GATCTACGGG",
-    }
+    oligos["nebio"] = {"spcr1": "TACGGG"}
 
     if oligo_name.lower() not in oligos:
         print(
@@ -241,33 +235,41 @@ def getSpacerPositions(bcseq, spacers):
     return positions
 
 
-def filterShortandLongBarcodes(b1len, b2end, bcseq, counts):
+def filterShortandLongBarcodes(
+    b1len: int, b2end: int, bcseq: str, counts: dict
+) -> bool:
     if b1len <= 3:
         counts["getbarcode_fail_n1tooshort"] += 1
-        return "fail"
+        return False
     elif b1len >= 9:
         counts["getbarcode_fail_n1toolong"] += 1
-        return "fail"
+        return False
     elif b2end > len(bcseq):
         counts["getbarcode_fail_n2pastend"] += 1
-        return "fail"
+        return False
     else:
-        return "pass"
+        return True
 
 
-def logExactOrRegexMatch(spacers, oligo, counts):
-    if spacers == [oligo["spcr1"], oligo["spcr2"]]:
+def logExactOrRegexMatch(spacers: list[str], oligo: dict[str], counts: dict):
+    if spacers == list(oligo.values()):
         counts["getbarcode_pass_exactmatch"] += 1
     else:
         counts["getbarcode_pass_regexmatch"] += 1
 
 
-def logFuzzyMatching(b1len, bclength, spacers, oligo, counts):
-    if b1len == bclength and spacers != [oligo["spcr1"], oligo["spcr2"]]:
+def logFuzzyMatching(
+    b1len: int,
+    bclength: int,
+    spacers: list[str],
+    oligo: dict[str],
+    counts: dict,
+) -> None:
+    if b1len == bclength and spacers != list(oligo.values()):
         counts["getbarcode_pass_fuzzymatch_rightlen"] += 1
-    elif b1len in [4, 5] and spacers != [oligo["spcr1"], oligo["spcr2"]]:
+    elif b1len in [4, 5] and spacers != list(oligo.values()):
         counts["getbarcode_pass_fuzzymatch_short"] += 1
-    elif b1len >= 7 and spacers != [oligo["spcr1"], oligo["spcr2"]]:
+    elif b1len >= 7 and spacers != list(oligo.values()):
         counts["getbarcode_pass_fuzzymatch_long"] += 1
     elif b1len == bclength:
         counts["getbarcode_pass_other"] += 1
@@ -407,6 +409,13 @@ def get_barcode_positions(
         # start and end of barcode positions are set
         b1start = 0
         b1end = bclength
+
+        b1len = b1end - b1start
+
+        # filtering and logging
+        logExactOrRegexMatch(spacers, oligo, counts)
+        logFuzzyMatching(b1len, bclength, spacers, oligo, counts)
+
         return [b1start, b1end]
 
     else:
@@ -422,24 +431,11 @@ def get_barcode_positions(
             b1len = b1end - b1start
 
             # filtering and logging
-            if spacers == [oligo["spcr1"]]:
-                counts["getbarcode_pass_exactmatch"] += 1
-            else:
-                counts["getbarcode_pass_regexmatch"] += 1
-
-            if b1len == bclength and spacers != [oligo["spcr1"]]:
-                counts["getbarcode_pass_fuzzymatch_rightlen"] += 1
-            elif b1len in [4, 5] and spacers != [oligo["spcr1"]]:
-                counts["getbarcode_pass_fuzzymatch_short"] += 1
-            elif b1len >= 7 and spacers != [oligo["spcr1"]]:
-                counts["getbarcode_pass_fuzzymatch_long"] += 1
-            elif b1len == bclength:
-                counts["getbarcode_pass_other"] += 1
-            if (
-                filterShortandLongBarcodes(b1len, b2end, bcseq, counts)
-                == "fail"
-            ):
+            if not filterShortandLongBarcodes(b1len, b2end, bcseq, counts):
                 return None
+            logExactOrRegexMatch(spacers, oligo, counts)
+            logFuzzyMatching(b1len, bclength, spacers, oligo, counts)
+
             return [b1start, b1end, b2start, b2end]
 
         else:
@@ -453,11 +449,7 @@ def get_barcode_positions(
             b1len = b1end - b1start
 
             # filtering and logging
-
-            if (
-                filterShortandLongBarcodes(b1len, b2end, bcseq, counts)
-                == "fail"
-            ):
+            if not filterShortandLongBarcodes(b1len, b2end, bcseq, counts):
                 return None
             logExactOrRegexMatch(spacers, oligo, counts)
             logFuzzyMatching(b1len, bclength, spacers, oligo, counts)
@@ -548,6 +540,8 @@ def read_in_data(
         dcretc = "|".join([str(dcr), seq, seq_qualstring, seq_id])
 
         group_assigned = False
+
+        print(counts)
 
         # Assign reads to groups based on their barcode data. Reads with identical barcodes are grouped together
         # so long as they have equivalent TCR sequences. Reads with identical barcodes but non-equivalent TCR
