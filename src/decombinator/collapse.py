@@ -489,6 +489,11 @@ def read_in_data(
                 sys.exit()
         data = opener(data, "rt")
 
+    if not data:
+        raise TypeError(
+            "No reads found in input file. Check .n12 and log files for errors."
+        )
+
     print("Reading data in...")
     t0 = time.time()
     barcode_dcretc = coll.defaultdict(list)
