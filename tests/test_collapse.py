@@ -116,6 +116,45 @@ class TestGetBarcodePositions:
 
 class TestFindFirstSpacer:
 
+    def test_m13(self):
+        oligo = {
+            "spcr1": "GTCGTGACTGGGAAAACCCTGG",
+        }
+        seq = "GTCGTGACTGGGAAAACCCTGGTTTCCGGTCGTGATAAAGTG"
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
+
+    def test_i8(self):
+        oligo = {
+            "spcr1": "GTCGTGAT",
+        }
+        seq = "GTCGTGATTTTCCGGTCGTGATAAAGTG"
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
+
+    def test_i8_single(self):
+        oligo = {
+            "spcr1": "ATCACGAC",
+        }
+        seq = "GAAGCTATCACGACATCACTAC"
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
+
     def test_nebio(self):
         oligo = {
             "spcr1": "TACGGG",
