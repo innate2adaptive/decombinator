@@ -208,12 +208,10 @@ def spacerSearch(subseq, seq):
     return foundseq
 
 
-def findFirstSpacer(oligo, seq):
-
-    allowance = 10
+def findFirstSpacer(oligo, seq, oligo_start, oligo_end):
     spacer = []
     spcr1 = oligo["spcr1"]
-    spacer += spacerSearch(spcr1, seq[0 : len(spcr1) + allowance])
+    spacer += spacerSearch(spcr1, seq[oligo_start:oligo_end])
     return spacer
 
 
@@ -387,7 +385,14 @@ def get_barcode_positions(
     oligo = getOligo(inputargs["oligo"])
 
     # sets first spacer based on specified oligo
-    spacers = findFirstSpacer(oligo, bcseq)
+    if str.lower(inputargs["oligo"]) == "nebio":
+        oligo_start = 18
+        oligo_end = oligo_start + 10
+    else:
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+    spacers = findFirstSpacer(oligo, bcseq, oligo_start, oligo_end)
 
     # sequences with no first spacer are removed from analysis
     if not len(spacers) == 1:
@@ -541,8 +546,6 @@ def read_in_data(
         dcretc = "|".join([str(dcr), seq, seq_qualstring, seq_id])
 
         group_assigned = False
-
-        print(counts)
 
         # Assign reads to groups based on their barcode data. Reads with identical barcodes are grouped together
         # so long as they have equivalent TCR sequences. Reads with identical barcodes but non-equivalent TCR
