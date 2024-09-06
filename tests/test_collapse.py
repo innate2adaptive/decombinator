@@ -112,3 +112,18 @@ class TestGetBarcodePositions:
             0,
             18,
         ]
+
+
+class TestFindFirstSpacer:
+
+    def test_nebio(self):
+        oligo = {
+            "spcr1": "TACGGG",
+        }
+        seq = "CGGGCTTGGTATCGGCCGATCTACGGG"
+        oligo_start = 18
+        oligo_end = oligo_start + 10
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
