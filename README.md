@@ -85,7 +85,7 @@ decombinator pipeline -in XXXX.fq -c b -br R2 -bl 42 -ol M13
 | `-di`, `--dontcheckinput`            | Override the input file sanity check                                                                                                                           |
 | `-bd`, `--barcodeduplication`        | Optionally output a file containing the final list of clustered barcodes, and their frequencies                                                                |
 | `-pb`, `--positionalbarcodes`        | Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible. |
-| `-ol OLIGO`, `--oligo OLIGO`         | Choose experimental oligo for correct identification of spacers ["M13", "I8","I8_single] (default: M13)                                                         |
+| `-ol OLIGO`, `--oligo OLIGO`         | Choose experimental oligo for correct identification of spacers ["M13", "I8", "I8_single", "NEBIO"] (default: M13)                                                         |
 | `-wc`, `--writeclusters`             | Write cluster data to separate cluster files                                                                                                                   |
 | `-uh`, `--UMIhistogram`              | Creates histogram of average UMI cluster sizes                                                                                                                 |
 | `-npf`, `--nonproductivefilter`      | Filter out non-productive reads from the output                                                                                                                |
@@ -200,7 +200,7 @@ decombinator collapse -in XXXX.n12 -c b -ol M13
 | `-di`, `--dontcheckinput`            | Override the input file sanity check                                                                                                                           |
 | `-bd`, `--barcodeduplication`        | Optionally output a file containing the final list of clustered barcodes, and their frequencies                                                                |
 | `-pb`, `--positionalbarcodes`        | Instead of inferring random barcode sequences from their context relative to spacer sequences, just take the sequence at the default positions. Useful to salvage runs when R2 quality is terrible. |
-| `-ol OLIGO`, `--oligo OLIGO`         | Choose experimental oligo for correct identification of spacers ["M13", "I8","I8_single] (default: M13)                                                         |
+| `-ol OLIGO`, `--oligo OLIGO`         | Choose experimental oligo for correct identification of spacers ["M13", "I8", "I8_single", "NEBIO"] (default: M13)                                                         |
 | `-wc`, `--writeclusters`             | Write cluster data to separate cluster files                                                                                                                   |
 | `-uh`, `--UMIhistogram`              | Creates histogram of average UMI cluster sizes                                                                                                                 |
 
