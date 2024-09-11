@@ -46,3 +46,123 @@ class TestClusterUMIs:
             "GGGG|0|GGGG": ["GGGG"],
             "AAAA|1|GGGG": ["GGGG"],
         }
+
+
+class TestGetBarcodePositions:
+
+    @pytest.fixture
+    def counter(self):
+        return coll.Counter()
+
+    def test_m13(self, counter):
+        m13 = "GTCGTGACTGGGAAAACCCTGG"
+        i8 = "GTCGTGAT"
+        bcseq = "GTCGTGACTGGGAAAACCCTGGTTTCCGGTCGTGATAAAGTG"
+        inputargs = {
+            "oligo": "m13",
+            "allowNs": False,
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            len(m13),
+            len(m13) + 6,
+            len(m13) + 6 + len(i8),
+            len(m13) + 6 + len(i8) + 6,
+        ]
+
+    def test_i8(self, counter):
+        i8 = "GTCGTGAT"
+        bcseq = "GTCGTGATTTTCCGGTCGTGATAAAGTG"
+        inputargs = {
+            "oligo": "i8",
+            "allowNs": False,
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            len(i8),
+            len(i8) + 6,
+            len(i8) + 6 + len(i8),
+            len(i8) + 6 + len(i8) + 6,
+        ]
+
+    def test_i8_single(self, counter):
+        i8 = "ATCACGAC"
+        bcseq = "GAAGCTATCACGACATCACTAC"
+        inputargs = {
+            "oligo": "i8_single",
+            "allowNs": False,
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            0,
+            6,
+            6 + len(i8),
+            6 + len(i8) + 6,
+        ]
+
+    def test_nebio(self, counter):
+        bcseq = "CGGGCTTGGTATCGGCCGATCTACGGG"
+        inputargs = {
+            "oligo": "nebio",
+            "allowNs": False,
+            "bclength": 18,
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            0,
+            18,
+        ]
+
+
+class TestFindFirstSpacer:
+
+    def test_m13(self):
+        oligo = {
+            "spcr1": "GTCGTGACTGGGAAAACCCTGG",
+        }
+        seq = "GTCGTGACTGGGAAAACCCTGGTTTCCGGTCGTGATAAAGTG"
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
+
+    def test_i8(self):
+        oligo = {
+            "spcr1": "GTCGTGAT",
+        }
+        seq = "GTCGTGATTTTCCGGTCGTGATAAAGTG"
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
+
+    def test_i8_single(self):
+        oligo = {
+            "spcr1": "ATCACGAC",
+        }
+        seq = "GAAGCTATCACGACATCACTAC"
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
+
+    def test_nebio(self):
+        oligo = {
+            "spcr1": "TACGGG",
+        }
+        seq = "CGGGCTTGGTATCGGCCGATCTACGGG"
+        oligo_start = 18
+        oligo_end = oligo_start + 10
+
+        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
+            oligo["spcr1"]
+        ]
