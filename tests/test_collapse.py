@@ -1,6 +1,8 @@
-from decombinator import collapse
 import collections as coll
+
 import pytest
+
+from decombinator import collapse
 
 
 class TestClusterUMIs:
@@ -125,9 +127,9 @@ class TestFindFirstSpacer:
         allowance = 10
         oligo_end = allowance + len(oligo["spcr1"])
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
 
     def test_i8(self):
         oligo = {
@@ -138,9 +140,9 @@ class TestFindFirstSpacer:
         allowance = 10
         oligo_end = allowance + len(oligo["spcr1"])
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
 
     def test_i8_single(self):
         oligo = {
@@ -151,9 +153,9 @@ class TestFindFirstSpacer:
         allowance = 10
         oligo_end = allowance + len(oligo["spcr1"])
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
 
     def test_nebio(self):
         oligo = {
@@ -163,11 +165,27 @@ class TestFindFirstSpacer:
         oligo_start = 18
         oligo_end = oligo_start + 10
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
+
 
 class TestReadInData:
+    
+    collapse.counts = coll.Counter()
 
-    def test_no_dcr(self):
-        pass
+    @pytest.fixture
+    def blank_input(self):
+        return [""]
+
+    @pytest.fixture
+    def args(self):
+        return {"command": "pipeline"}
+
+    def test_no_dcr(self, blank_input, args):
+        with pytest.raises(TypeError):
+            collapse.read_in_data(blank_input, args, None, None, None, None)
+
+    def test_no_dcr_wrong(self, blank_input, args):
+        with pytest.raises(UnboundLocalError):
+            collapse.read_in_data(blank_input, args, None, None, None, None)
