@@ -166,3 +166,8 @@ class TestFindFirstSpacer:
         assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
             oligo["spcr1"]
         ]
+
+class TestReadInData:
+
+    def test_no_dcr(self):
+        pass
