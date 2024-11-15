@@ -1,6 +1,7 @@
 import collections as coll
 
 from pyrepseq.util import subprocess
+import pathlib
 import pytest
 
 from decombinator import collapse
@@ -187,23 +188,23 @@ class TestReadInData:
         with pytest.raises(ValueError):
             collapse.read_in_data(blank_input, pipe_args, None, None, None, None)
 
-# class TestCheckDcrFile:
-#
-#     @pytest.fixture(scope="class")
-#     def output_dir(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
-#         # Create a temporary output directory
-#         output_dir = tmp_path_factory.mktemp("output")
-#         return output_dir
-#
-#     @pytest.fixture
-#     def empty_file(output_dir):
-#         name = "empty.n12"
-#         filepath = output_dir / name
-#         output = ""
-#         with filepath.open("w", encoding ="utf-8") as f:
-#             f.write(output)
-#
-#
-#     def test_empty_n12(self, empty_f):
-#         with pytest.raises(StopIteration):
-#             collapse.check_dcr_file(empty_f, open)
+class TestCheckDcrFile:
+
+    @pytest.fixture(scope="class")
+    def output_dir(self, tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
+        # Create a temporary output directory
+        output_dir = tmp_path_factory.mktemp("output")
+        return output_dir
+
+    @pytest.fixture
+    def empty_file(self, output_dir):
+        name = "empty.n12"
+        filepath = output_dir / name
+        output = ""
+        with filepath.open("w", encoding ="utf-8") as f:
+            f.write(output)
+
+
+    def test_empty_n12(self, empty_file):
+        with pytest.raises(StopIteration):
+            collapse.check_dcr_file(empty_file, open)
