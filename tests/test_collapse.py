@@ -1,7 +1,6 @@
 import collections as coll
-
-from pyrepseq.util import subprocess
 import pathlib
+
 import pytest
 
 from decombinator import collapse
@@ -173,7 +172,7 @@ class TestFindFirstSpacer:
 
 
 class TestReadInData:
-    
+
     collapse.counts = coll.Counter()
 
     @pytest.fixture
@@ -186,12 +185,17 @@ class TestReadInData:
 
     def test_no_dcr(self, blank_input, pipe_args):
         with pytest.raises(ValueError):
-            collapse.read_in_data(blank_input, pipe_args, None, None, None, None)
+            collapse.read_in_data(
+                blank_input, pipe_args, None, None, None, None
+            )
+
 
 class TestCheckDcrFile:
 
     @pytest.fixture(scope="class")
-    def output_dir(self, tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
+    def output_dir(
+        self, tmp_path_factory: pytest.TempPathFactory
+    ) -> pathlib.Path:
         output_dir = tmp_path_factory.mktemp("output")
         return output_dir
 
@@ -205,8 +209,5 @@ class TestCheckDcrFile:
         empty_filepath.write_text(output)
 
     def test_empty_n12(self, empty_file, empty_filepath: pathlib.Path) -> None:
-        print(empty_filepath)
-        with empty_filepath.open() as f:
-            print(f.readline())
         with pytest.raises(ValueError):
             collapse.check_dcr_file(empty_filepath, open)
