@@ -95,9 +95,9 @@ def check_dcr_file(infile, opener):
     if os.path.isfile(infile) == False:
         print("Cannot find file, please double-check path.")
         return False
+    print(os.path.getsize(infile))
     if os.path.getsize(infile) == 0:
-        print("Input file appears to be empty; please double-check path.")
-        return False
+        raise ValueError("Input file appears to be empty; please double-check path.")
 
     # Check first few lines
     with opener(infile, "rt") as poss_dcr:
@@ -107,8 +107,8 @@ def check_dcr_file(infile, opener):
             try:
                 nextline = next(poss_dcr)
             except StopIteration:
-                print(
-                    "Input Decombinator file sanity check warning: less than five lines in input file."
+                raise StopIteration(
+                    f"Input Decombinator file sanity check warning: {i} line(s) in input file."
                 )
 
             if "," not in nextline:
@@ -490,7 +490,7 @@ def read_in_data(
         data = opener(data, "rt")
 
     if not data:
-        raise TypeError(
+        raise ValueError(
             "No reads found in input file. Check .n12 and log files for errors."
         )
 

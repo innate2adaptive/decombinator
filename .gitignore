@@ -4,3 +4,4 @@ decombinator.egg-info
 .decombinatorenv
 build/
 .vscode
+.venv

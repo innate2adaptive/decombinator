@@ -1,6 +1,9 @@
-from decombinator import collapse
 import collections as coll
+import pathlib
+
 import pytest
+
+from decombinator import collapse
 
 
 class TestClusterUMIs:
@@ -125,9 +128,9 @@ class TestFindFirstSpacer:
         allowance = 10
         oligo_end = allowance + len(oligo["spcr1"])
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
 
     def test_i8(self):
         oligo = {
@@ -138,9 +141,9 @@ class TestFindFirstSpacer:
         allowance = 10
         oligo_end = allowance + len(oligo["spcr1"])
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
 
     def test_i8_single(self):
         oligo = {
@@ -151,9 +154,9 @@ class TestFindFirstSpacer:
         allowance = 10
         oligo_end = allowance + len(oligo["spcr1"])
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
 
     def test_nebio(self):
         oligo = {
@@ -163,6 +166,48 @@ class TestFindFirstSpacer:
         oligo_start = 18
         oligo_end = oligo_start + 10
 
-        assert collapse.findFirstSpacer(oligo, seq, oligo_start, oligo_end) == [
-            oligo["spcr1"]
-        ]
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
+
+
+class TestReadInData:
+
+    collapse.counts = coll.Counter()
+
+    @pytest.fixture
+    def blank_input(self):
+        return []
+
+    @pytest.fixture
+    def pipe_args(self):
+        return {"command": "pipeline"}
+
+    def test_no_dcr(self, blank_input, pipe_args):
+        with pytest.raises(ValueError):
+            collapse.read_in_data(
+                blank_input, pipe_args, None, None, None, None
+            )
+
+
+class TestCheckDcrFile:
+
+    @pytest.fixture(scope="class")
+    def output_dir(
+        self, tmp_path_factory: pytest.TempPathFactory
+    ) -> pathlib.Path:
+        output_dir = tmp_path_factory.mktemp("output")
+        return output_dir
+
+    @pytest.fixture
+    def empty_filepath(self, output_dir: pathlib.Path) -> pathlib.Path:
+        return output_dir / "empty.n12"
+
+    @pytest.fixture
+    def empty_file(self, empty_filepath: pathlib.Path) -> None:
+        output = ""
+        empty_filepath.write_text(output)
+
+    def test_empty_n12(self, empty_file, empty_filepath: pathlib.Path) -> None:
+        with pytest.raises(ValueError):
+            collapse.check_dcr_file(empty_filepath, open)
