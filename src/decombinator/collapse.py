@@ -97,8 +97,7 @@ def check_dcr_file(infile, opener):
         return False
     print(os.path.getsize(infile))
     if os.path.getsize(infile) == 0:
-        print("Input file appears to be empty; please double-check path.")
-        return False
+        raise ValueError("Input file appears to be empty; please double-check path.")
 
     # Check first few lines
     with opener(infile, "rt") as poss_dcr:
