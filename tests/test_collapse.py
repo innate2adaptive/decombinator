@@ -192,19 +192,21 @@ class TestCheckDcrFile:
 
     @pytest.fixture(scope="class")
     def output_dir(self, tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
-        # Create a temporary output directory
         output_dir = tmp_path_factory.mktemp("output")
         return output_dir
 
     @pytest.fixture
-    def empty_file(self, output_dir):
-        name = "empty.n12"
-        filepath = output_dir / name
+    def empty_filepath(self, output_dir: pathlib.Path) -> pathlib.Path:
+        return output_dir / "empty.n12"
+
+    @pytest.fixture
+    def empty_file(self, empty_filepath: pathlib.Path) -> None:
         output = ""
-        with filepath.open("w", encoding ="utf-8") as f:
-            f.write(output)
+        empty_filepath.write_text(output)
 
-
-    def test_empty_n12(self, empty_file):
-        with pytest.raises(StopIteration):
-            collapse.check_dcr_file(empty_file, open)
+    def test_empty_n12(self, empty_file, empty_filepath: pathlib.Path) -> None:
+        print(empty_filepath)
+        with empty_filepath.open() as f:
+            print(f.readline())
+        with pytest.raises(ValueError):
+            collapse.check_dcr_file(empty_filepath, open)
