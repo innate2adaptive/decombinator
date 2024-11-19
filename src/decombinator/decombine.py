@@ -94,21 +94,23 @@
 #### PACKAGES ####
 ##################
 from __future__ import division
-import sys
-import os
-import itertools
-from typing import Any
-import urllib
-import string
-import collections as coll
+
 import argparse
+import collections as coll
 import gzip
+import itertools
+import os
+import string
+import sys
+import urllib
+from importlib import metadata
+from time import strftime, time
+from typing import Any
+
 import Levenshtein as lev
+from acora import AcoraBuilder
 from Bio import SeqIO
 from Bio.Seq import Seq
-from acora import AcoraBuilder
-from time import time, strftime
-from importlib import metadata
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
@@ -134,14 +136,14 @@ def fastq_check(inputargs, opener, samplenam, summaryname):
             # Log of empty file required for pipeline
             if inputargs["suppresssummary"] == False:
                 inout_name = (
-                    "_".join(f"{samplenam}".split("_")[:-1]) + f"_{chainnams[chain]}"
+                    "_".join(f"{samplenam}".split("_")[:-1])
+                    + f"_{chainnams[chain]}"
                 )
                 summstr = (
-                    "OutputFile," + inout_name
-                    + "\nNumberReadsInput," + "0"
+                    "OutputFile," + inout_name + "\nNumberReadsInput," + "0"
                 )
             if not os.path.exists(summaryname):
-                        summaryfile = open(summaryname, "wt")
+                summaryfile = open(summaryname, "wt")
             else:
                 # If one exists, start an incremental day stamp
                 for i in range(2, 10000):
@@ -347,7 +349,9 @@ def vanalysis(read):
                                 hold_v2[i][1]
                                 - v_half_split : hold_v2[i][1]
                                 - v_half_split
-                                + len(v_seqs[half2_v_seqs.index(hold_v2[i][0])])
+                                + len(
+                                    v_seqs[half2_v_seqs.index(hold_v2[i][0])]
+                                )
                             ]
                         ):
                             if (
@@ -448,7 +452,11 @@ def janalysis(read, end_of_v):
                                 + j_half_split
                             )
                             start_j_j_dels = get_j_deletions(
-                                read, j_match, temp_start_j, j_regions, end_of_v
+                                read,
+                                j_match,
+                                temp_start_j,
+                                j_regions,
+                                end_of_v,
                             )
                             if start_j_j_dels:
                                 return (
@@ -475,7 +483,9 @@ def janalysis(read, end_of_v):
                                 hold_j2[i][1]
                                 - j_half_split : hold_j2[i][1]
                                 - j_half_split
-                                + len(j_seqs[half2_j_seqs.index(hold_j2[i][0])])
+                                + len(
+                                    j_seqs[half2_j_seqs.index(hold_j2[i][0])]
+                                )
                             ]
                         ):
                             if (
@@ -920,7 +930,7 @@ def decombinator(inputargs: dict) -> list:
     print("Decombining FASTQ data...")
 
     suffix = "." + inputargs["extension"]
-    
+
     # If chain had not been autodetected, write it out into output file
     if counts["chain_detected"] == 1:
         name_results = inputargs["prefix"] + samplenam
@@ -1077,8 +1087,8 @@ def decombinator(inputargs: dict) -> list:
                 )
                 if not os.path.exists(summaryname):
                     summaryfile = open(summaryname, "wt")
-                    break       
-        
+                    break
+
         inout_name = (
             "_".join(f"{samplenam}".split("_")[:-1]) + f"_{chainnams[chain]}"
         )
