@@ -55,6 +55,7 @@ class TestEmptyFq:
     def expected_log(self) -> str:
         return "OutputFile," + "empty_alpha" + "\nNumberReadsInput," + "0\n"
 
+    @pytest.fixture
     def test_empty_log(
         self, output_dir: pathlib.Path, test_empty_fq: None, expected_log: str
     ) -> None:
@@ -63,6 +64,31 @@ class TestEmptyFq:
             output_dir
             / "Logs"
             / f"{date}_alpha_empty_merge_Decombinator_Summary.csv"
+        )
+        with logfile.open() as log:
+            assert log.read() == expected_log
+
+    @pytest.fixture
+    def test_empty_fq_repeat(
+        self, pipe_args: dict[str, Any], test_empty_log: None
+    ) -> None:
+        with pytest.raises(ValueError):
+            decombine.decombinator(pipe_args)
+
+    # TODO: Test this logic independently. Due to logging design in Decombinator
+    # at present this must be tested in the empty fq case specifically
+    def test_2nd_log(
+        self,
+        output_dir: pathlib.Path,
+        test_empty_fq: None,
+        expected_log: str,
+        test_empty_fq_repeat: None,
+    ) -> None:
+        date = time.strftime("%Y_%m_%d")
+        logfile = (
+            output_dir
+            / "Logs"
+            / f"{date}_alpha_empty_merge_Decombinator_Summary2.csv"
         )
         with logfile.open() as log:
             assert log.read() == expected_log
