@@ -93,7 +93,6 @@
 ##################
 #### PACKAGES ####
 ##################
-# print("TEST1")
 from __future__ import division
 import sys
 import os
@@ -235,9 +234,6 @@ def readfq(fp):
             for l in fp:  # search for the start of the next record
                 if l[0] in ">@":  # fasta/q header line
                     last = l[:-1]  # save this line
-                    # i = i + 1
-                    # if i % 100000 == 0:
-                    # print(i)
                     break
         if not last:
             break
@@ -253,7 +249,6 @@ def readfq(fp):
                 break
         else:  # this is a fastq record
             seq, leng, seqs = "".join(seqs), 0, []
-            # print(seq)
             for l in fp:  # read the quality
                 seqs.append(l[:-1])
                 leng += len(l) - 1
@@ -961,7 +956,6 @@ def decombinator(inputargs: dict) -> list:
         zipfqs = zip(fq1, fq2)
 
         for records in zipfqs:
-            # print(records)
             record1, record2 = records
             if inputargs["bc_read"] == "R2":
                 readid = record1[0]
@@ -976,7 +970,6 @@ def decombinator(inputargs: dict) -> list:
                 vdjqual = record1[2][bclength:]
                 bc = record1[1][0:bclength]
                 bcQ = record1[2][0:bclength]
-                # print(bc)
 
             if inputargs["nobarcoding"] == False:
                 if (
@@ -985,7 +978,6 @@ def decombinator(inputargs: dict) -> list:
                     counts["dcrfilter_barcodeN"] += 1
 
             counts["read_count"] += 1
-            # print(counts['read_count'])
             if (
                 counts["read_count"] % 100000 == 0
                 and inputargs["dontcount"] == False
@@ -1007,7 +999,6 @@ def decombinator(inputargs: dict) -> list:
                     frame = "forward"
 
             if recom:
-                # print("TEST1")
                 counts["vj_count"] += 1
 
                 if frame == "reverse":
