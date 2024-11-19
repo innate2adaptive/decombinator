@@ -1,6 +1,10 @@
-import pytest
 import pathlib
+from typing import Any
+
+import pytest
+
 from decombinator import decombine
+
 
 class TestEmptyFq:
 
@@ -21,14 +25,28 @@ class TestEmptyFq:
         empty_filepath.write_text(output)
 
     @pytest.fixture
-    def pipe_args(self, empty_filepath):
+    def pipe_args(
+        self, output_dir: pathlib.Path, empty_filepath: pathlib.Path
+    ) -> dict[str, Any]:
         return {
             "command": "pipeline",
             "infile": str(empty_filepath.resolve()),
-            "dontcheck": False
+            "dontcheck": False,
+            "chain": "a",
+            "outpath": str(output_dir.resolve()),
         }
 
-    def test_empty_n12(self, empty_file, empty_filepath: pathlib.Path, pipe_args) -> None:
+    @pytest.fixture
+    def test_empty_fq(
+        self, empty_file: None, pipe_args: dict[str, Any]
+    ) -> None:
         with pytest.raises(ValueError):
             decombine.decombinator(pipe_args)
- 
+
+    def test_empty_log(
+        self, output_dir: pathlib.Path, test_empty_fq: None
+    ) -> None:
+        logfile = output_dir / "Logs" / "empty_Decombinator_Summary.csv"
+        with logfile.open() as log:
+            inputs = log.readline(21)
+            assert inputs == "NumberReadsInput,0"
