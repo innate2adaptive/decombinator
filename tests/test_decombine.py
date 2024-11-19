@@ -1,4 +1,5 @@
 import pathlib
+import time
 from typing import Any
 
 import pytest
@@ -7,6 +8,9 @@ from decombinator import decombine
 
 
 class TestEmptyFq:
+    """
+    Testing that empty FASTQ is handled gracefully with logging.
+    """
 
     @pytest.fixture(scope="class")
     def output_dir(
@@ -17,7 +21,7 @@ class TestEmptyFq:
 
     @pytest.fixture
     def empty_filepath(self, output_dir: pathlib.Path) -> pathlib.Path:
-        return output_dir / "empty.fq"
+        return output_dir / "empty_merge.fq"
 
     @pytest.fixture
     def empty_file(self, empty_filepath: pathlib.Path) -> None:
@@ -33,7 +37,11 @@ class TestEmptyFq:
             "infile": str(empty_filepath.resolve()),
             "dontcheck": False,
             "chain": "a",
-            "outpath": str(output_dir.resolve()),
+            "outpath": str(output_dir.resolve()) + "/",
+            "suppresssummary": False,
+            "tags": "extended",
+            "species": "human",
+            "tagfastadir": "tests/resources/Decombinator-Tags-FASTAs",
         }
 
     @pytest.fixture
@@ -43,10 +51,18 @@ class TestEmptyFq:
         with pytest.raises(ValueError):
             decombine.decombinator(pipe_args)
 
+    @pytest.fixture
+    def expected_log(self) -> str:
+        return "OutputFile," + "empty_alpha" + "\nNumberReadsInput," + "0\n"
+
     def test_empty_log(
-        self, output_dir: pathlib.Path, test_empty_fq: None
+        self, output_dir: pathlib.Path, test_empty_fq: None, expected_log: str
     ) -> None:
-        logfile = output_dir / "Logs" / "empty_Decombinator_Summary.csv"
+        date = time.strftime("%Y_%m_%d")
+        logfile = (
+            output_dir
+            / "Logs"
+            / f"{date}_alpha_empty_merge_Decombinator_Summary.csv"
+        )
         with logfile.open() as log:
-            inputs = log.readline(21)
-            assert inputs == "NumberReadsInput,0"
+            assert log.read() == expected_log
