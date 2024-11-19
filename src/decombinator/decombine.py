@@ -93,22 +93,22 @@
 ##################
 #### PACKAGES ####
 ##################
-# print("TEST1")
 from __future__ import division
-import sys
-import os
-import itertools
-import urllib
-import string
+
 import collections as coll
-import argparse
 import gzip
+import itertools
+import os
+import string
+import sys
+import urllib
+from importlib import metadata
+from time import strftime, time
+
 import Levenshtein as lev
+from acora import AcoraBuilder
 from Bio import SeqIO
 from Bio.Seq import Seq
-from acora import AcoraBuilder
-from time import time, strftime
-from importlib import metadata
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
@@ -123,20 +123,46 @@ def opener_check(inputargs):
         return open
 
 
-def fastq_check(infile, opener):
+def fastq_check(inputargs, opener, samplenam, summaryname, logpath):
     """fastq_check(file): Performs a rudimentary sanity check to see whether a file is indeed a FASTQ file"""
 
     success = True
 
-    # if infile.endswith('.gz'):
-    with opener(infile, "rt") as possfq:
-        try:
-            read = [i for i in itertools.islice(possfq, 0, 4)]
-        except:
-            print(
+    with opener(inputargs["infile"], "r") as possfq:
+        # islice used to very quickly check files
+        if sum(1 for _ in itertools.islice(possfq, 4)) < 4:
+            # Log of empty file required for pipeline
+            if inputargs["suppresssummary"] == False:
+                inout_name = (
+                    "_".join(f"{samplenam}".split("_")[:-1])
+                    + f"_{chainnams[chain]}"
+                )
+                summstr = (
+                    "OutputFile," + inout_name + "\nNumberReadsInput," + "0"
+                )
+            if not os.path.exists(summaryname):
+                summaryfile = open(summaryname, "wt")
+            else:
+                # If one exists, start an incremental day stamp
+                date = strftime("%Y_%m_%d")
+                for i in range(2, 10000):
+                    summaryname = logpath + date + "_"
+                    if inputargs["chain"]:
+                        summaryname += chainnams[chain] + "_"
+                    summaryname += (
+                        samplenam + "_Decombinator_Summary" + str(i) + ".csv"
+                    )
+                    if not os.path.exists(summaryname):
+                        summaryfile = open(summaryname, "wt")
+                        break
+            print(summstr, file=summaryfile)
+            summaryfile.close()
+            sort_permissions(summaryname)
+            raise ValueError(
                 "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
             )
-            sys.exit()
+        else:
+            read = [i for i in itertools.islice(possfq, 0, 4)]
 
     # @ check
     if not read[0][0] == "@":
@@ -209,9 +235,6 @@ def readfq(fp):
             for l in fp:  # search for the start of the next record
                 if l[0] in ">@":  # fasta/q header line
                     last = l[:-1]  # save this line
-                    # i = i + 1
-                    # if i % 100000 == 0:
-                    # print(i)
                     break
         if not last:
             break
@@ -227,7 +250,6 @@ def readfq(fp):
                 break
         else:  # this is a fastq record
             seq, leng, seqs = "".join(seqs), 0, []
-            # print(seq)
             for l in fp:  # read the quality
                 seqs.append(l[:-1])
                 leng += len(l) - 1
@@ -326,7 +348,9 @@ def vanalysis(read):
                                 hold_v2[i][1]
                                 - v_half_split : hold_v2[i][1]
                                 - v_half_split
-                                + len(v_seqs[half2_v_seqs.index(hold_v2[i][0])])
+                                + len(
+                                    v_seqs[half2_v_seqs.index(hold_v2[i][0])]
+                                )
                             ]
                         ):
                             if (
@@ -427,7 +451,11 @@ def janalysis(read, end_of_v):
                                 + j_half_split
                             )
                             start_j_j_dels = get_j_deletions(
-                                read, j_match, temp_start_j, j_regions, end_of_v
+                                read,
+                                j_match,
+                                temp_start_j,
+                                j_regions,
+                                end_of_v,
                             )
                             if start_j_j_dels:
                                 return (
@@ -454,7 +482,9 @@ def janalysis(read, end_of_v):
                                 hold_j2[i][1]
                                 - j_half_split : hold_j2[i][1]
                                 - j_half_split
-                                + len(j_seqs[half2_j_seqs.index(hold_j2[i][0])])
+                                + len(
+                                    j_seqs[half2_j_seqs.index(hold_j2[i][0])]
+                                )
                             ]
                         ):
                             if (
@@ -853,18 +883,42 @@ def decombinator(inputargs: dict) -> list:
 
     opener = opener_check(inputargs)
 
+    # Get TCR gene information
+    import_tcr_info(inputargs)
+    samplenam = str(inputargs["infile"].split(".")[0])
+
+    if (
+        os.sep in samplenam
+    ):  # Cope with situation where specified FQ file is in a subdirectory
+        samplenam = samplenam.split(os.sep)[-1]
+
+    if inputargs["suppresssummary"] == False:
+
+        logpath = inputargs["outpath"] + f"Logs{os.sep}"
+
+        # Check for directory and make summary file
+        if not os.path.exists(logpath):
+            os.makedirs(logpath)
+        date = strftime("%Y_%m_%d")
+
+        # Check for existing date-stamped file
+        summaryname = logpath + date + "_"
+        if inputargs["chain"]:
+            summaryname += chainnams[chain] + "_"
+        summaryname += samplenam + "_Decombinator_Summary.csv"
+
     # Brief FASTQ sanity check
     if inputargs["dontcheck"] == False:
-        if not fastq_check(inputargs["infile"], opener) == True:
+        if (
+            not fastq_check(inputargs, opener, samplenam, summaryname, logpath)
+            == True
+        ):
             print(
                 "FASTQ sanity check failed reading",
                 inputargs["infile"],
                 "- please ensure that this file is a properly formatted FASTQ.",
             )
             sys.exit()
-
-    # Get TCR gene information
-    import_tcr_info(inputargs)
 
     # Get Barcode length
     bclength = inputargs["bclength"]
@@ -878,11 +932,6 @@ def decombinator(inputargs: dict) -> list:
     print("Decombining FASTQ data...")
 
     suffix = "." + inputargs["extension"]
-    samplenam = str(inputargs["infile"].split(".")[0])
-    if (
-        os.sep in samplenam
-    ):  # Cope with situation where specified FQ file is in a subdirectory
-        samplenam = samplenam.split(os.sep)[-1]
 
     # If chain had not been autodetected, write it out into output file
     if counts["chain_detected"] == 1:
@@ -919,7 +968,6 @@ def decombinator(inputargs: dict) -> list:
         zipfqs = zip(fq1, fq2)
 
         for records in zipfqs:
-            # print(records)
             record1, record2 = records
             if inputargs["bc_read"] == "R2":
                 readid = record1[0]
@@ -934,7 +982,6 @@ def decombinator(inputargs: dict) -> list:
                 vdjqual = record1[2][bclength:]
                 bc = record1[1][0:bclength]
                 bcQ = record1[2][0:bclength]
-                # print(bc)
 
             if inputargs["nobarcoding"] == False:
                 if (
@@ -943,7 +990,6 @@ def decombinator(inputargs: dict) -> list:
                     counts["dcrfilter_barcodeN"] += 1
 
             counts["read_count"] += 1
-            # print(counts['read_count'])
             if (
                 counts["read_count"] % 100000 == 0
                 and inputargs["dontcount"] == False
@@ -965,7 +1011,6 @@ def decombinator(inputargs: dict) -> list:
                     frame = "forward"
 
             if recom:
-                # print("TEST1")
                 counts["vj_count"] += 1
 
                 if frame == "reverse":
@@ -1031,19 +1076,6 @@ def decombinator(inputargs: dict) -> list:
 
     # Write data to summary file
     if inputargs["suppresssummary"] == False:
-
-        logpath = inputargs["outpath"] + f"Logs{os.sep}"
-
-        # Check for directory and make summary file
-        if not os.path.exists(logpath):
-            os.makedirs(logpath)
-        date = strftime("%Y_%m_%d")
-
-        # Check for existing date-stamped file
-        summaryname = logpath + date + "_"
-        if inputargs["chain"]:
-            summaryname += chainnams[chain] + "_"
-        summaryname += samplenam + "_Decombinator_Summary.csv"
         if not os.path.exists(summaryname):
             summaryfile = open(summaryname, "wt")
         else:
