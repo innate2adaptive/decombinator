@@ -98,6 +98,7 @@ from __future__ import division
 import sys
 import os
 import itertools
+from typing import Any
 import urllib
 import string
 import collections as coll
@@ -123,13 +124,40 @@ def opener_check(inputargs):
         return open
 
 
-def fastq_check(infile, opener):
+def fastq_check(inputargs, opener, samplenam, summaryname):
     """fastq_check(file): Performs a rudimentary sanity check to see whether a file is indeed a FASTQ file"""
 
     success = True
 
-    with opener(infile, "r") as possfq:
+    with opener(inputargs["infile"], "r") as possfq:
+        # islice used to very quickly check files
         if sum(1 for _ in itertools.islice(possfq, 4)) < 4:
+            # Log of empty file required for pipeline
+            if inputargs["suppresssummary"] == False:
+                inout_name = (
+                    "_".join(f"{samplenam}".split("_")[:-1]) + f"_{chainnams[chain]}"
+                )
+                summstr = (
+                    "OutputFile," + inout_name
+                    + "\nNumberReadsInput," + "0"
+                )
+            if not os.path.exists(summaryname):
+                        summaryfile = open(summaryname, "wt")
+            else:
+                # If one exists, start an incremental day stamp
+                for i in range(2, 10000):
+                    summaryname = logpath + date + "_"
+                    if inputargs["chain"]:
+                        summaryname += chainnams[chain] + "_"
+                    summaryname += (
+                        samplenam + "_Decombinator_Summary" + str(i) + ".csv"
+                    )
+                    if not os.path.exists(summaryname):
+                        summaryfile = open(summaryname, "wt")
+                        break
+            print(summstr, file=summaryfile)
+            summaryfile.close()
+            sort_permissions(summaryname)
             raise ValueError(
                 "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
             )
@@ -851,18 +879,39 @@ def decombinator(inputargs: dict) -> list:
 
     opener = opener_check(inputargs)
 
+    # Get TCR gene information
+    import_tcr_info(inputargs)
+    samplenam = str(inputargs["infile"].split(".")[0])
+
+    if (
+        os.sep in samplenam
+    ):  # Cope with situation where specified FQ file is in a subdirectory
+        samplenam = samplenam.split(os.sep)[-1]
+
+    if inputargs["suppresssummary"] == False:
+
+        logpath = inputargs["outpath"] + f"Logs{os.sep}"
+
+        # Check for directory and make summary file
+        if not os.path.exists(logpath):
+            os.makedirs(logpath)
+        date = strftime("%Y_%m_%d")
+
+        # Check for existing date-stamped file
+        summaryname = logpath + date + "_"
+        if inputargs["chain"]:
+            summaryname += chainnams[chain] + "_"
+        summaryname += samplenam + "_Decombinator_Summary.csv"
+
     # Brief FASTQ sanity check
     if inputargs["dontcheck"] == False:
-        if not fastq_check(inputargs["infile"], opener) == True:
+        if not fastq_check(inputargs, opener, samplenam, summaryname) == True:
             print(
                 "FASTQ sanity check failed reading",
                 inputargs["infile"],
                 "- please ensure that this file is a properly formatted FASTQ.",
             )
             sys.exit()
-
-    # Get TCR gene information
-    import_tcr_info(inputargs)
 
     # Get Barcode length
     bclength = inputargs["bclength"]
@@ -876,12 +925,7 @@ def decombinator(inputargs: dict) -> list:
     print("Decombining FASTQ data...")
 
     suffix = "." + inputargs["extension"]
-    samplenam = str(inputargs["infile"].split(".")[0])
-    if (
-        os.sep in samplenam
-    ):  # Cope with situation where specified FQ file is in a subdirectory
-        samplenam = samplenam.split(os.sep)[-1]
-
+    
     # If chain had not been autodetected, write it out into output file
     if counts["chain_detected"] == 1:
         name_results = inputargs["prefix"] + samplenam
@@ -1029,19 +1073,6 @@ def decombinator(inputargs: dict) -> list:
 
     # Write data to summary file
     if inputargs["suppresssummary"] == False:
-
-        logpath = inputargs["outpath"] + f"Logs{os.sep}"
-
-        # Check for directory and make summary file
-        if not os.path.exists(logpath):
-            os.makedirs(logpath)
-        date = strftime("%Y_%m_%d")
-
-        # Check for existing date-stamped file
-        summaryname = logpath + date + "_"
-        if inputargs["chain"]:
-            summaryname += chainnams[chain] + "_"
-        summaryname += samplenam + "_Decombinator_Summary.csv"
         if not os.path.exists(summaryname):
             summaryfile = open(summaryname, "wt")
         else:
@@ -1055,8 +1086,8 @@ def decombinator(inputargs: dict) -> list:
                 )
                 if not os.path.exists(summaryname):
                     summaryfile = open(summaryname, "wt")
-                    break
-
+                    break       
+        
         inout_name = (
             "_".join(f"{samplenam}".split("_")[:-1]) + f"_{chainnams[chain]}"
         )
