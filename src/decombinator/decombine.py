@@ -95,7 +95,6 @@
 ##################
 from __future__ import division
 
-import argparse
 import collections as coll
 import gzip
 import itertools
@@ -105,7 +104,6 @@ import sys
 import urllib
 from importlib import metadata
 from time import strftime, time
-from typing import Any
 
 import Levenshtein as lev
 from acora import AcoraBuilder
