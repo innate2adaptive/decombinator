@@ -123,7 +123,7 @@ def opener_check(inputargs):
         return open
 
 
-def fastq_check(inputargs, opener, samplenam, summaryname):
+def fastq_check(inputargs, opener, samplenam, summaryname, logpath):
     """fastq_check(file): Performs a rudimentary sanity check to see whether a file is indeed a FASTQ file"""
 
     success = True
@@ -144,6 +144,7 @@ def fastq_check(inputargs, opener, samplenam, summaryname):
                 summaryfile = open(summaryname, "wt")
             else:
                 # If one exists, start an incremental day stamp
+                date = strftime("%Y_%m_%d")
                 for i in range(2, 10000):
                     summaryname = logpath + date + "_"
                     if inputargs["chain"]:
@@ -908,7 +909,10 @@ def decombinator(inputargs: dict) -> list:
 
     # Brief FASTQ sanity check
     if inputargs["dontcheck"] == False:
-        if not fastq_check(inputargs, opener, samplenam, summaryname) == True:
+        if (
+            not fastq_check(inputargs, opener, samplenam, summaryname, logpath)
+            == True
+        ):
             print(
                 "FASTQ sanity check failed reading",
                 inputargs["infile"],
