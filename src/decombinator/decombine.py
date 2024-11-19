@@ -128,15 +128,13 @@ def fastq_check(infile, opener):
 
     success = True
 
-    # if infile.endswith('.gz'):
-    with opener(infile, "rt") as possfq:
-        try:
-            read = [i for i in itertools.islice(possfq, 0, 4)]
-        except:
-            print(
+    with opener(infile, "r") as possfq:
+        if sum(1 for _ in itertools.islice(possfq, 4)) < 4:
+            raise ValueError(
                 "There are fewer than four lines in this file, and thus it is not a valid FASTQ file. Please check input and try again."
             )
-            sys.exit()
+        else:
+            read = [i for i in itertools.islice(possfq, 0, 4)]
 
     # @ check
     if not read[0][0] == "@":
