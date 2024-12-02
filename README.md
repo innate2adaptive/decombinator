@@ -1,3 +1,5 @@
+![Decombinator Logo](./assets/decombinator-logo.png)
+
 # `decombinator`
 
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://raw.githubusercontent.com/innate2adaptive/Decombinator/master/LICENCE)
