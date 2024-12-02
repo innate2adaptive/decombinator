@@ -1,4 +1,4 @@
-![Decombinator Logo](./decombinator-logo.png)
+![Decombinator Logo](./assets/decombinator-logo.png)
 
 # `decombinator`
 
