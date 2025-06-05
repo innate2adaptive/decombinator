@@ -350,7 +350,7 @@ The `decombinator` pipeline is often run over many GB of data over many hours. U
 
 **Using the UCL CS HPC is recommended for Innate2Adaptive group members.**
 
-See the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools/tree/master/jobs/v4.3_cs_cluster_scripts) repository for scripts and walkthrough for group members.
+See the [Decombinator-Tools](https://github.com/innate2adaptive/Decombinator-Tools/tree/master/jobs/cshpc) repository for scripts and walkthrough for group members.
 
 To setup a similar environment for your own group, install `decombinator` into an environment, download `Decombinator-Tags-FASTAs` to an accessible location, and adapt the scripts in the above repository to be compatible with your HPC service's job engine and directory structure.
 
