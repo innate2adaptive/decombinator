@@ -281,7 +281,7 @@ def set_barcode(
     fields: list[str], bc_locs: list[int], inputargs: dict
 ) -> tuple[str, str]:
     # account for N1 barcode being greater or shorter than 6 nt (due to manufacturing errors)
-    if str.lower(inputargs["oligo"]) == "nebio":
+    if str.lower(inputargs["oligo"]) in ["nebio", "takara"]:
         barcode = fields[8][bc_locs[0] : bc_locs[1]]
         barcode_qualstring = fields[9][bc_locs[0] : bc_locs[1]]
     else:
