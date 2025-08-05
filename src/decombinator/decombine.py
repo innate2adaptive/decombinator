@@ -123,12 +123,10 @@ def opener_check(inputargs):
         return open
 
 
-def fastq_check(inputargs, opener, samplenam, summaryname, logpath):
+def fastq_check(inputargs, opener, samplenam, summaryname, logpath) -> None:
     """fastq_check(file): Performs a rudimentary sanity check to see whether a file is indeed a FASTQ file"""
 
-    success = True
-
-    with opener(inputargs["infile"], "r") as possfq:
+    with opener(inputargs["infile"], "rt") as possfq:
         # islice used to very quickly check files
         if sum(1 for _ in itertools.islice(possfq, 4)) < 4:
             # Log of empty file required for pipeline
@@ -165,16 +163,20 @@ def fastq_check(inputargs, opener, samplenam, summaryname, logpath):
             read = [i for i in itertools.islice(possfq, 0, 4)]
 
     # @ check
-    if not read[0][0] == "@":
-        success = False
+    if read[0][0] != "@":
+        raise ValueError(
+            f"Expected @ symbol at beginning of file for valid FASTQ. Found {read[0][0]}."
+        )
     # Descriptor check
-    if not read[2][0] == "+":
-        success = False
+    if read[2][0] != "+":
+        raise ValueError(
+            f"Expected + symbol at beginning of third line for valid FASTQ. Found {read[2][0]}."
+        )
     # Read/quality match check
-    if not len(read[1]) == len(read[3]):
-        success = False
-
-    return success
+    if len(read[1]) != len(read[3]):
+        raise ValueError(
+            f"Length of read to match length of read quality. Found read length = {len(read[1])} and read quality length = {len(read[3])}"
+        )
 
 
 def revcomp(read):
@@ -909,16 +911,7 @@ def decombinator(inputargs: dict) -> list:
 
     # Brief FASTQ sanity check
     if inputargs["dontcheck"] == False:
-        if (
-            not fastq_check(inputargs, opener, samplenam, summaryname, logpath)
-            == True
-        ):
-            print(
-                "FASTQ sanity check failed reading",
-                inputargs["infile"],
-                "- please ensure that this file is a properly formatted FASTQ.",
-            )
-            sys.exit()
+        fastq_check(inputargs, opener, samplenam, summaryname, logpath)
 
     # Get Barcode length
     bclength = inputargs["bclength"]
