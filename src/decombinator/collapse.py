@@ -23,7 +23,7 @@
   Required inputs
   -in/--infile : Defines input file.   Takes as input .n12 files produced by Decombinator (v3 or higher),
                     assuming it has been run on suitably barcoded and demultiplexed data.
-  -ol/--oligo  : Specifies the spacer (protocol dependent) as M13, I8, I8_single. The I8 protocol is deprecated.
+  -ol/--oligo  : Specifies the spacer (protocol dependent) as M13, I8, I8_single, NEBIO, or TAKARA. The I8 protocol is deprecated.
 
   Other optional flags:
 

@@ -312,7 +312,7 @@ def add_collapse_arguments(parser: argparse.ArgumentParser):
         type=str,
         required=True,
         default="m13",
-        help='Choose experimental oligo for correct identification of spacers ["M13", "I8", "I8_single", "NEBIO"] (default: M13)',
+        help='Choose experimental oligo for correct identification of spacers ["M13", "I8", "I8_single", "NEBIO", "TAKARA"] (default: M13)',
     )
     parser.add_argument(
         "-wc",
