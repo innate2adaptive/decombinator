@@ -108,12 +108,23 @@ class TestGetBarcodePositions:
         inputargs = {
             "oligo": "nebio",
             "allowNs": False,
-            "bclength": 18,
         }
 
         assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
             0,
-            18,
+            17,
+        ]
+
+    def test_takara(self, counter):
+        bcseq = "CTCGTTAGGTTCGTACGGGGATTGCA"
+        inputargs = {
+            "oligo": "takara",
+            "allowNs": False,
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            0,
+            12,
         ]
 
 
@@ -165,6 +176,18 @@ class TestFindFirstSpacer:
         seq = "CGGGCTTGGTATCGGCCGATCTACGGG"
         oligo_start = 18
         oligo_end = oligo_start + 10
+
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
+
+    def test_takara(self):
+        oligo = {
+            "spcr1": "GTACGGG",
+        }
+        seq = "CTCGTTAGGTTCGTACGGGGATTGCA"
+        oligo_start = 0
+        oligo_end = 19
 
         assert collapse.findFirstSpacer(
             oligo, seq, oligo_start, oligo_end

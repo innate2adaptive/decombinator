@@ -11,7 +11,7 @@
   This version is a modified version of KB's script collapsinator_20141126.py
   (That was itself an improved version of the CollapseTCRs.py script used in the Heather et al HIV TCR paper (DOI: 10.3389/fimmu.2015.00644))
   Version 4.0.2 includes improved clustering routines measuring the similarity in both barcode and TCR sequence of TCR repertoire data
-  
+
   NOTE - from version 4.1 this optionally looks for barcode 6NI86N at the beginning of the read; instead of M13_6N_I8_6N_I8
   (i.e. only one spacer).
   This makes it compatible with the multiplex protocol in which the barcode is incorproated in the RT step
@@ -19,18 +19,18 @@
 ##################
 ###### INPUT #####
 ##################
-  
-  Required inputs 
-  -in/--infile : Defines input file.   Takes as input .n12 files produced by Decombinator (v3 or higher), 
+
+  Required inputs
+  -in/--infile : Defines input file.   Takes as input .n12 files produced by Decombinator (v3 or higher),
                     assuming it has been run on suitably barcoded and demultiplexed data.
-  -ol/--oligo  : Specifies the spacer (protocol dependent) as M13, I8, I8_single. The I8 protocol is deprecated.
-  
+  -ol/--oligo  : Specifies the spacer (protocol dependent) as M13, I8, I8_single, NEBIO, or TAKARA. The I8 protocol is deprecated.
+
   Other optional flags:
-  
-    -s/--supresssummary: Supress the production of a summary file containing details of the run into a 'Logs' directory. 
-  
-    -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip. 
-  
+
+    -s/--supresssummary: Suppress the production of a summary file containing details of the run into a 'Logs' directory.
+
+    -dz/--dontgzip: Suppress the automatic compression of output demultiplexed FASTQ files with gzip.
+
     -dc/--dontcount: Suppress the whether or not to show the running line count, every 100,000 reads. Helps in monitoring progress of large batches.
 
   The other optional flags are somewhat complex, and caution is advised in their alteration.
@@ -41,30 +41,31 @@
     V index, J index, V deletions, J deletions, insert, ID, inter-tag TCR sequence, inter-tag quality, barcode sequence, barcode quality
 
 ##################
-##### OUTPUT #####  
+##### OUTPUT #####
 ##################
-   
+
   A Decombinator index file, giving each error-corrected DCR index, and the frequency with which it appears
   in the final processed data, and an average UMI count, which can be used to estimate the robustness of the
   data for that particular sequence
 
-#######################################################################################################################################################"""
+#######################################################################################################################################################
+"""
 
 import ast
 import collections as coll
 import gzip
-from importlib import metadata
 import os
+import sys
 import time
 import typing
-from scipy import sparse
-import sys
+from importlib import metadata
 
 import networkx as nx
 import polyleven
 import pyrepseq.nn as prsnn
 import regex
 import scipy.sparse
+from scipy import sparse
 
 ########################################################################################################################
 # Functions
@@ -97,7 +98,9 @@ def check_dcr_file(infile, opener):
         return False
     print(os.path.getsize(infile))
     if os.path.getsize(infile) == 0:
-        raise ValueError("Input file appears to be empty; please double-check path.")
+        raise ValueError(
+            "Input file appears to be empty; please double-check path."
+        )
 
     # Check first few lines
     with opener(infile, "rt") as poss_dcr:
@@ -174,6 +177,7 @@ def getOligo(oligo_name):
     oligos["i8"] = {"spcr1": "GTCGTGAT", "spcr2": "GTCGTGAT"}
     oligos["i8_single"] = {"spcr1": "ATCACGAC"}
     oligos["nebio"] = {"spcr1": "TACGGG"}
+    oligos["takara"] = {"spcr1": "GTACGGG"}
 
     if oligo_name.lower() not in oligos:
         print(
@@ -277,7 +281,7 @@ def set_barcode(
     fields: list[str], bc_locs: list[int], inputargs: dict
 ) -> tuple[str, str]:
     # account for N1 barcode being greater or shorter than 6 nt (due to manufacturing errors)
-    if str.lower(inputargs["oligo"]) == "nebio":
+    if str.lower(inputargs["oligo"]) in ["nebio", "takara"]:
         barcode = fields[8][bc_locs[0] : bc_locs[1]]
         barcode_qualstring = fields[9][bc_locs[0] : bc_locs[1]]
     else:
@@ -365,14 +369,20 @@ def get_barcode_positions(
 ) -> list[int]:
     """
     Given a barcode-region sequence, outputs the sequence of the do-docamer barcode.
-    This barcode (theoretically) consists of the concatentation of the two random hexamer sequences contained in the ligation oligo.
+    For m13 and i8 oligos, this barcode (theoretically) consists of the concatentation of the two random hexamer sequences contained in the ligation oligo.
     However errors in sequences and ligation oligo production can mean that the random nucleotides are not always at the expected position.
     This function uses the known sequence of the spacers (which bound each of the two N6s to their 5') to deduce the random sequences.
     Returns a list of four numbers, giving the start and stop positions of N1 and N2 respectively.
     """
-    if str.lower(inputargs["oligo"]) not in ["i8", "i8_single", "m13", "nebio"]:
+    if str.lower(inputargs["oligo"]) not in [
+        "i8",
+        "i8_single",
+        "m13",
+        "nebio",
+        "takara",
+    ]:
         raise ValueError(
-            "The flag for the -ol input must be one of M13, I8, I8_single, or NEBIO"
+            "The flag for the -ol input must be one of M13, I8, I8_single, NEBIO, or TAKARA."
         )
 
     if (
@@ -388,6 +398,9 @@ def get_barcode_positions(
     if str.lower(inputargs["oligo"]) == "nebio":
         oligo_start = 18
         oligo_end = oligo_start + 10
+    elif str.lower(inputargs["oligo"]) == "takara":
+        oligo_start = 0
+        oligo_end = 19
     else:
         oligo_start = 0
         allowance = 10
@@ -401,7 +414,7 @@ def get_barcode_positions(
 
     # sets second spacer based on specified oligo (unless single oligo)
 
-    if str.lower(inputargs["oligo"]) not in ["i8_single", "nebio"]:
+    if str.lower(inputargs["oligo"]) not in ["i8_single", "nebio", "takara"]:
         spacers += findSecondSpacer(oligo, bcseq)
         # sequences which do not have two spacers are logged then removed from analysis
         if not len(spacers) == 2:
@@ -409,9 +422,12 @@ def get_barcode_positions(
             return None
     spacer_positions = getSpacerPositions(bcseq, spacers)
 
-    if str.lower(inputargs["oligo"]) == "nebio":
+    if str.lower(inputargs["oligo"]) in ["nebio", "takara"]:
         # set expected barcode length
-        bclength = inputargs["bclength"]
+        if str.lower(inputargs["oligo"]) == "nebio":
+            bclength = 17
+        else:
+            bclength = 12
         # start and end of barcode positions are set
         b1start = 0
         b1end = bclength
@@ -588,7 +604,10 @@ def read_in_data(
                             barcode + "|" + str(index[0]) + "|" + index[1]
                         ]
 
-                        barcode_lookup[barcode][index[0]] = [index[0], protoseq]
+                        barcode_lookup[barcode][index[0]] = [
+                            index[0],
+                            protoseq,
+                        ]
 
                 group_assigned = True
                 # if assigned to a group, stop and move onto next read
@@ -628,7 +647,7 @@ def read_in_data(
 
 
 def create_clustering_objs(
-    barcode_dcretc: dict[str, list[str]]
+    barcode_dcretc: dict[str, list[str]],
 ) -> tuple[int, list[tuple[str, str]], list[tuple[str, str]]]:
 
     # get number of initial groups
@@ -745,7 +764,9 @@ def write_clusters(clusters):
         count += 1
     os.mkdir(dirname)
 
-    print("   Writing clusters to directory: ", os.path.abspath(dirname), "...")
+    print(
+        "   Writing clusters to directory: ", os.path.abspath(dirname), "..."
+    )
     # write data of each cluster to a separate file and store in clusters directory
     for k in clusters:
         with open(
