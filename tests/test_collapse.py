@@ -170,6 +170,18 @@ class TestFindFirstSpacer:
             oligo, seq, oligo_start, oligo_end
         ) == [oligo["spcr1"]]
 
+    def test_takara(self):
+        oligo = {
+            "spcr1": "GTACGGG",
+        }
+        seq = "CTCGTTAGGTTCGTACGGGGATTGCA"
+        oligo_start = 0
+        oligo_end = oligo_start + 19
+
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
+
 
 class TestReadInData:
 
