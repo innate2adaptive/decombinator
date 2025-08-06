@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - v*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create release for (e.g., v1.2.3)'
+        required: true
+        type: string
+      skip_pypi:
+        description: 'Skip PyPI publication (for manual runs)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -33,7 +44,7 @@ jobs:
   publish-to-pypi:
     name: >-
       publish-to-pypi 📢
-    if: ${{startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '.dev')}}  # only publish to PyPI on tag pushes
+    if: ${{ (startsWith(github.ref, 'refs/tags/') && !contains(github.ref, 'dev')) || (github.event_name == 'workflow_dispatch' && !inputs.skip_pypi) }}
     needs:
     - build
     runs-on: ubuntu-latest
