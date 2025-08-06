@@ -67,7 +67,7 @@ jobs:
     name: >-
       signed-github-release ✍️
     needs:
-    - publish-to-pypi
+    - build
     runs-on: ubuntu-latest
 
     permissions:
