@@ -127,6 +127,31 @@ class TestGetBarcodePositions:
             12,
         ]
 
+    def test_camaglia_alpha(self, counter):
+        bcseq = "GCAAGTTTAGTTTTATATCAGCAGGTTCTGGGTTCTGGATGTTG"
+        inputargs = {
+            "oligo": "camaglia",
+            "allowNs": False,
+            "chain": "a"
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            0,
+            12,
+        ]
+
+    def test_camaglia_beta(self, counter):
+        bcseq = "GAATCGTACCGGTTATATTGGGTGGAGTCACATTTCTCAGATCCTCC"
+        inputargs = {
+            "oligo": "camaglia",
+            "allowNs": False,
+            "chain": "b"
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            0,
+            12,
+        ]
 
 class TestFindFirstSpacer:
 
@@ -193,6 +218,17 @@ class TestFindFirstSpacer:
             oligo, seq, oligo_start, oligo_end
         ) == [oligo["spcr1"]]
 
+    def test_camaglia(self):
+        oligo = {
+            "spcr1": "GGGTGGAGTCACATTTCTCAGATCC",
+        }
+        seq = "GAATCGTACCGGTTATATTGGGTGGAGTCACATTTCTCAGATCCTCC"
+        oligo_start = 0
+        oligo_end = 44
+
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
 
 class TestReadInData:
 
