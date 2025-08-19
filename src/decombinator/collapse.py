@@ -169,7 +169,7 @@ def check_dcr_file(infile, opener):
         return True  # If first few lines all pass, assume the file is fine and carry on with the analysis.
 
 
-def getOligo(oligo_name):
+def getOligo(oligo_name, inputargs):
     # New oligos can be added here, specifying their spacers in the given format, and adding them to
     # the returned list.
     oligos = {}
@@ -178,6 +178,14 @@ def getOligo(oligo_name):
     oligos["i8_single"] = {"spcr1": "ATCACGAC"}
     oligos["nebio"] = {"spcr1": "TACGGG"}
     oligos["takara"] = {"spcr1": "GTACGGG"}
+
+    if str.lower(inputargs["oligo"]) == "camaglia":
+        if inputargs["chain"] == "a":
+            oligos["camaglia"] = {"spcr1": "CAGCAGGTTCTGGGTTCTGGATG"}
+        elif inputargs["chain"] == "b":
+            oligos["camaglia"] = {"spcr1": "GGGTGGAGTCACATTTCTCAGATCC"}
+        else:
+            raise ValueError(f"Oligo set as Camaglia, but chain not a or b. Instead: {inputargs["chain"]}")
 
     if oligo_name.lower() not in oligos:
         print(
@@ -380,6 +388,7 @@ def get_barcode_positions(
         "m13",
         "nebio",
         "takara",
+        "camaglia",
     ]:
         raise ValueError(
             "The flag for the -ol input must be one of M13, I8, I8_single, NEBIO, or TAKARA."
@@ -392,7 +401,7 @@ def get_barcode_positions(
         return
 
     # gets spacer sequences of specified oligo
-    oligo = getOligo(inputargs["oligo"])
+    oligo = getOligo(inputargs["oligo"], inputargs)
 
     # sets first spacer based on specified oligo
     if str.lower(inputargs["oligo"]) == "nebio":
@@ -401,6 +410,9 @@ def get_barcode_positions(
     elif str.lower(inputargs["oligo"]) == "takara":
         oligo_start = 0
         oligo_end = 19
+    elif str.lower(inputargs["oligo"]) == "camaglia":
+        oligo_start = 0
+        oligo_end = 44
     else:
         oligo_start = 0
         allowance = 10
@@ -414,7 +426,7 @@ def get_barcode_positions(
 
     # sets second spacer based on specified oligo (unless single oligo)
 
-    if str.lower(inputargs["oligo"]) not in ["i8_single", "nebio", "takara"]:
+    if str.lower(inputargs["oligo"]) not in ["i8_single", "nebio", "takara", "camaglia"]:
         spacers += findSecondSpacer(oligo, bcseq)
         # sequences which do not have two spacers are logged then removed from analysis
         if not len(spacers) == 2:
@@ -422,7 +434,7 @@ def get_barcode_positions(
             return None
     spacer_positions = getSpacerPositions(bcseq, spacers)
 
-    if str.lower(inputargs["oligo"]) in ["nebio", "takara"]:
+    if str.lower(inputargs["oligo"]) in ["nebio", "takara", "camaglia"]:
         # set expected barcode length
         if str.lower(inputargs["oligo"]) == "nebio":
             bclength = 17
