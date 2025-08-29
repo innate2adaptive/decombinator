@@ -56,6 +56,7 @@ Each mode is outlined below.
 For a ready to run example of `decombinator`, see the `examples/` directory.
 Within this directory there is a `.sh` script which runs `decombinator pipeline` on a small set of paired-end reads.
 This script aligns both alpha and beta chains from this file, and provides expected outputs for comparison.
+It should take under 30s on a laptop computer.
 Please use this to check your installation is configured correctly.
 
 ### `pipeline`
