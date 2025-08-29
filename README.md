@@ -30,6 +30,13 @@ Running `decombinator` is easy. All that is required is HTS read data and a few 
 decombinator pipeline -in XXXX.fq -c b -br R2 -bl 42 -ol M13
 ```
 
+## System Requirements
+
+`decombinator` runs on Linux (Ubuntu and CentOS tested).
+Windows and MacOS are not officially supported but are expected to function correctly.
+For Python and package requirements see `./pyproject.toml`.
+Currently Python versions: 3.9, 3.10, 3.11, and 3.12 are supported.
+
 ## Installation
 
 To install `decombinator` and all required packages, simply create a fresh virtual environment, activate it, and run:
