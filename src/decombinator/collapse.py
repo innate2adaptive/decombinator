@@ -186,15 +186,15 @@ def getOligo(oligo_name, inputargs):
         elif inputargs["chain"] == "b":
             oligos["camaglia"] = {"spcr1": "GGGTGGAGTCACATTTCTCAGATCC"}
         else:
-            raise ValueError(f"Oligo set as Camaglia, but chain not a or b. Instead: {inputargs["chain"]}")
+            raise ValueError(
+                f"Oligo set as Camaglia, but chain not a or b. Instead: {inputargs["chain"]}"
+            )
 
-    # TODO: Change to a raise error
     if oligo_name.lower() not in oligos:
-        print(
-            "Error: Failed to recognise oligo name. Please choose from "
+        raise ValueError(
+            "Failed to recognise oligo name. Please choose from "
             + str(list(oligos.keys()))
         )
-        sys.exit()
 
     return oligos[oligo_name.lower()]
 
@@ -408,8 +408,12 @@ def get_barcode_positions(
     oligo = getOligo(inputargs["oligo"], inputargs)
 
     # sets first spacer based on specified oligo
-    # TODO: Flip this round to reduce overhead on main pipeline?
-    if str.lower(inputargs["oligo"]) not in ["nebio", "takara", "camaglia", "qiagen"]:
+    if str.lower(inputargs["oligo"]) not in [
+        "nebio",
+        "takara",
+        "camaglia",
+        "qiagen",
+    ]:
         # Most samples are not run in the above mode, therefore this orientation reduces if statement resolutions
         oligo_start = 0
         allowance = 10
@@ -427,7 +431,9 @@ def get_barcode_positions(
         oligo_start = 0
         oligo_end = 33
     else:
-        raise ValueError(f"-ol argument unexpected, found: {inputargs["oligo"]}. Please see --help for valid inputs.")
+        raise ValueError(
+            f"-ol argument unexpected, found: {inputargs["oligo"]}. Please see --help for valid inputs."
+        )
     spacers = findFirstSpacer(oligo, bcseq, oligo_start, oligo_end)
 
     # sequences with no first spacer are removed from analysis
@@ -437,7 +443,13 @@ def get_barcode_positions(
 
     # sets second spacer based on specified oligo (unless single oligo)
 
-    if str.lower(inputargs["oligo"]) not in ["i8_single", "nebio", "takara", "camaglia", "qiagen"]:
+    if str.lower(inputargs["oligo"]) not in [
+        "i8_single",
+        "nebio",
+        "takara",
+        "camaglia",
+        "qiagen",
+    ]:
         spacers += findSecondSpacer(oligo, bcseq)
         # sequences which do not have two spacers are logged then removed from analysis
         if not len(spacers) == 2:
@@ -445,7 +457,12 @@ def get_barcode_positions(
             return None
     spacer_positions = getSpacerPositions(bcseq, spacers)
 
-    if str.lower(inputargs["oligo"]) in ["nebio", "takara", "camaglia", "qiagen"]:
+    if str.lower(inputargs["oligo"]) in [
+        "nebio",
+        "takara",
+        "camaglia",
+        "qiagen",
+    ]:
         b1start = 0
         # set expected barcode length
         if str.lower(inputargs["oligo"]) == "nebio":
