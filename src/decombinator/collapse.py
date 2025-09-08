@@ -178,6 +178,7 @@ def getOligo(oligo_name, inputargs):
     oligos["i8_single"] = {"spcr1": "ATCACGAC"}
     oligos["nebio"] = {"spcr1": "TACGGG"}
     oligos["takara"] = {"spcr1": "GTACGGG"}
+    oligos["qiagen"] = {"spcr1": "ATGCATTGGAGTCCT"}
 
     if str.lower(inputargs["oligo"]) == "camaglia":
         if inputargs["chain"] == "a":
@@ -187,6 +188,7 @@ def getOligo(oligo_name, inputargs):
         else:
             raise ValueError(f"Oligo set as Camaglia, but chain not a or b. Instead: {inputargs["chain"]}")
 
+    # TODO: Change to a raise error
     if oligo_name.lower() not in oligos:
         print(
             "Error: Failed to recognise oligo name. Please choose from "
@@ -288,10 +290,11 @@ def logFuzzyMatching(
 def set_barcode(
     fields: list[str], bc_locs: list[int], inputargs: dict
 ) -> tuple[str, str]:
-    # account for N1 barcode being greater or shorter than 6 nt (due to manufacturing errors)
-    if str.lower(inputargs["oligo"]) in ["nebio", "takara"]:
+    # UMI strategies that are not two random hexamers
+    if str.lower(inputargs["oligo"]) in ["nebio", "takara", "qiagen"]:
         barcode = fields[8][bc_locs[0] : bc_locs[1]]
         barcode_qualstring = fields[9][bc_locs[0] : bc_locs[1]]
+    # account for N1 barcode being greater or shorter than 6 nt (due to manufacturing errors)
     else:
         if (bc_locs[1] - bc_locs[0]) == 6:
             barcode = (
@@ -389,9 +392,10 @@ def get_barcode_positions(
         "nebio",
         "takara",
         "camaglia",
+        "qiagen",
     ]:
         raise ValueError(
-            "The flag for the -ol input must be one of M13, I8, I8_single, NEBIO, or TAKARA."
+            "The flag for the -ol input must be one of M13, I8, I8_single, NEBIO, TAKARA, Camaglia or Qiagen."
         )
 
     if (
@@ -404,7 +408,13 @@ def get_barcode_positions(
     oligo = getOligo(inputargs["oligo"], inputargs)
 
     # sets first spacer based on specified oligo
-    if str.lower(inputargs["oligo"]) == "nebio":
+    # TODO: Flip this round to reduce overhead on main pipeline?
+    if str.lower(inputargs["oligo"]) not in ["nebio", "takara", "camaglia", "qiagen"]:
+        # Most samples are not run in the above mode, therefore this orientation reduces if statement resolutions
+        oligo_start = 0
+        allowance = 10
+        oligo_end = allowance + len(oligo["spcr1"])
+    elif str.lower(inputargs["oligo"]) == "nebio":
         oligo_start = 18
         oligo_end = oligo_start + 10
     elif str.lower(inputargs["oligo"]) == "takara":
@@ -413,10 +423,11 @@ def get_barcode_positions(
     elif str.lower(inputargs["oligo"]) == "camaglia":
         oligo_start = 0
         oligo_end = 44
-    else:
+    elif str.lower(inputargs["oligo"]) == "qiagen":
         oligo_start = 0
-        allowance = 10
-        oligo_end = allowance + len(oligo["spcr1"])
+        oligo_end = 33
+    else:
+        raise ValueError(f"-ol argument unexpected, found: {inputargs["oligo"]}. Please see --help for valid inputs.")
     spacers = findFirstSpacer(oligo, bcseq, oligo_start, oligo_end)
 
     # sequences with no first spacer are removed from analysis
@@ -426,7 +437,7 @@ def get_barcode_positions(
 
     # sets second spacer based on specified oligo (unless single oligo)
 
-    if str.lower(inputargs["oligo"]) not in ["i8_single", "nebio", "takara", "camaglia"]:
+    if str.lower(inputargs["oligo"]) not in ["i8_single", "nebio", "takara", "camaglia", "qiagen"]:
         spacers += findSecondSpacer(oligo, bcseq)
         # sequences which do not have two spacers are logged then removed from analysis
         if not len(spacers) == 2:
@@ -434,14 +445,17 @@ def get_barcode_positions(
             return None
     spacer_positions = getSpacerPositions(bcseq, spacers)
 
-    if str.lower(inputargs["oligo"]) in ["nebio", "takara", "camaglia"]:
+    if str.lower(inputargs["oligo"]) in ["nebio", "takara", "camaglia", "qiagen"]:
+        b1start = 0
         # set expected barcode length
         if str.lower(inputargs["oligo"]) == "nebio":
             bclength = 17
+        elif str.lower(inputargs["oligo"]) == "qiagen":
+            # Qiagen uses a variable length UMI
+            bclength = spacer_positions[0]
         else:
             bclength = 12
         # start and end of barcode positions are set
-        b1start = 0
         b1end = bclength
 
         b1len = b1end - b1start
