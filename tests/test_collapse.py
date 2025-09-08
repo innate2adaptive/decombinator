@@ -153,6 +153,18 @@ class TestGetBarcodePositions:
             12,
         ]
 
+    def test_qiagen(self, counter):
+        bcseq = "CGTCATCGCCCCAATTGCATGCATTGGAGTCCTCC"
+        inputargs = {
+            "oligo": "qiagen",
+            "allowNs": False,
+        }
+
+        assert collapse.get_barcode_positions(bcseq, inputargs, counter) == [
+            0,
+            18,
+        ]
+
 class TestFindFirstSpacer:
 
     def test_m13(self):
@@ -225,6 +237,18 @@ class TestFindFirstSpacer:
         seq = "GAATCGTACCGGTTATATTGGGTGGAGTCACATTTCTCAGATCCTCC"
         oligo_start = 0
         oligo_end = 44
+
+        assert collapse.findFirstSpacer(
+            oligo, seq, oligo_start, oligo_end
+        ) == [oligo["spcr1"]]
+
+    def test_qiagen(self):
+        oligo = {
+            "spcr1": "ATGCATTGGAGTCCT",
+        }
+        seq = "CGTCATCGCCCCAATTGCATGCATTGGAGTCCTCC"
+        oligo_start = 0
+        oligo_end = 33
 
         assert collapse.findFirstSpacer(
             oligo, seq, oligo_start, oligo_end
