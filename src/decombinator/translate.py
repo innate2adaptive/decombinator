@@ -17,25 +17,26 @@ and crucially giving TCR gene name output in the raw format (in addition to the 
 """
 
 from __future__ import division
-from time import strftime
+
 import argparse
-import string
-import re
-import sys
 import collections as coll
+import gzip
 import os
+import re
+import string
+import sys
 import urllib
 import warnings
-import gzip
+from time import strftime
+
 import pandas as pd
-from importlib import metadata
 
-
-# Supress Biopython translation warning when translating sequences where length % 3 != 0
+# Suppress Biopython translation warning when translating sequences where length % 3 != 0
 # TODO: Handle translation explicitly
-from Bio import BiopythonWarning
+from Bio import BiopythonWarning, SeqIO
 from Bio.Seq import Seq
-from Bio import SeqIO
+
+from decombinator import __version__
 
 # TODO Potentially add a flag to combine convergent recombinations into a single row?
 
@@ -391,7 +392,7 @@ def cdr3translator(inputargs: dict, data=None) -> list:
     global counts
     counts = coll.Counter()
 
-    print("Running CDR3Translator version", metadata.version("decombinator"))
+    print("Running CDR3Translator version", __version__)
 
     # Get chain information
     if not inputargs["chain"]:
@@ -464,7 +465,10 @@ def cdr3translator(inputargs: dict, data=None) -> list:
     chainnams = {"a": "alpha", "b": "beta", "g": "gamma", "d": "delta"}
 
     print(
-        "Translating", chainnams[chain], "chain CDR3s from", inputargs["infile"]
+        "Translating",
+        chainnams[chain],
+        "chain CDR3s from",
+        inputargs["infile"],
     )
 
     filename_id = os.path.basename(inputargs["infile"]).split(".")[0]

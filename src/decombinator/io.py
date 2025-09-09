@@ -1,9 +1,11 @@
 import argparse
 import gzip
-from importlib import metadata
 import os
-import pandas as pd
 import typing
+
+import pandas as pd
+
+from decombinator import __version__
 
 
 def handle_clash(
@@ -51,7 +53,7 @@ def create_parser():
         "-v",
         "--version",
         action="version",
-        version=metadata.version("decombinator"),
+        version=__version__,
     )
 
     subparsers = parser.add_subparsers(

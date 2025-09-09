@@ -102,13 +102,14 @@ import os
 import string
 import sys
 import urllib
-from importlib import metadata
 from time import strftime, time
 
 import Levenshtein as lev
 from acora import AcoraBuilder
 from Bio import SeqIO
 from Bio.Seq import Seq
+
+from decombinator import __version__
 
 ##########################################################
 ############# FASTQ SANITY CHECK AND PARSING #############
@@ -881,7 +882,7 @@ def sort_permissions(fl):
 def decombinator(inputargs: dict) -> list:
     """Function wrapper for decombinator."""
 
-    print("Running Decombinator version", metadata.version("decombinator"))
+    print("Running Decombinator version", __version__)
 
     opener = opener_check(inputargs)
 

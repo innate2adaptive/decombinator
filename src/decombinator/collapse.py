@@ -58,7 +58,6 @@ import os
 import sys
 import time
 import typing
-from importlib import metadata
 
 import networkx as nx
 import polyleven
@@ -66,6 +65,8 @@ import pyrepseq.nn as prsnn
 import regex
 import scipy.sparse
 from scipy import sparse
+
+from decombinator import __version__
 
 ########################################################################################################################
 # Functions
@@ -950,7 +951,7 @@ def collapsinate(
 def collapsinator(inputargs: dict, data: list = None) -> list:
     """Function wrapper for Collapsinator"""
 
-    print("Running Collapsinator version", metadata.version("decombinator"))
+    print("Running Collapsinator version", __version__)
     if inputargs["extension"] == "n12":
         inputargs["extension"] = "freq"
     suffix = "." + inputargs["extension"]
@@ -1057,7 +1058,7 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
         # Generate string to write to summary file
         summstr = (
             "Property,Value\nVersion,"
-            + str(metadata.version("decombinator"))
+            + str(__version__)
             + "\nDirectory,"
             + os.getcwd()
             + "\nInputFile,"

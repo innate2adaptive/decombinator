@@ -1,10 +1,12 @@
-from .decombine import decombinator
-from .collapse import collapsinator
-from .translate import cdr3translator
-from .io import write_out_intermediate, write_out_translated, cli_args
 from datetime import datetime
-from typing import Optional, Any
-from importlib import metadata
+from typing import Any, Optional
+
+from decombinator import __version__
+
+from .collapse import collapsinator
+from .decombine import decombinator
+from .io import cli_args, write_out_intermediate, write_out_translated
+from .translate import cdr3translator
 
 
 def run(
