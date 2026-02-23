@@ -64,7 +64,6 @@ import networkx as nx
 import polyleven
 import pyrepseq.nn as prsnn
 import regex
-import scipy.sparse
 from scipy import sparse
 
 ########################################################################################################################
@@ -648,15 +647,15 @@ def read_in_data(
 
 def create_clustering_objs(
     barcode_dcretc: dict[str, list[str]],
-) -> tuple[int, list[tuple[str, str]], list[tuple[str, str]]]:
+) -> tuple[int, list[tuple[str, list[str]]], list[tuple[str, str]]]:
 
     # get number of initial groups
     num_initial_groups = len(barcode_dcretc)
 
     # convert barcode_dcretc collection to list format
     barcode_dcretc_list = []
-    for _, (j, k) in enumerate(barcode_dcretc.items()):
-        barcode_dcretc_list.append((j, k))
+    for key, value in barcode_dcretc.items():
+        barcode_dcretc_list.append((key, value))
 
     umi_protoseq_tuple = [
         (x[0].split("|")[0], x[0].split("|")[2]) for x in barcode_dcretc_list
@@ -698,7 +697,7 @@ def make_merge_groups(
 
 def make_clusters(
     merge_groups: sparse.coo_matrix,
-    barcode_dcretc: list[tuple[str, list[str]]],
+    barcode_dcretc_list: list[tuple[str, list[str]]],
     seq_threshold: int,
 ) -> coll.defaultdict[str, list[str]]:
     # Considers clusters as an undirected graph composed of disconnected subgraphs.
@@ -719,8 +718,8 @@ def make_clusters(
 
     for i, j in zip(merge_groups.row, merge_groups.col):
         protoseqs = [
-            barcode_dcretc[i][0].split("|")[2],
-            barcode_dcretc[j][0].split("|")[2],
+            barcode_dcretc_list[i][0].split("|")[2],
+            barcode_dcretc_list[j][0].split("|")[2],
         ]
         if are_seqs_equivalent(
             protoseqs[0], protoseqs[1], percent_seq_threshold
@@ -736,15 +735,16 @@ def make_clusters(
     for subgraph in con_comp:
         # get full barcode barcode information of the first node in the subgraph from barcode_dcretc
         # this will be serve as the dictionary key for the cluster
-        base_node_barcode = barcode_dcretc[list(subgraph)[0]][0]
+        # will be the lowest index number in the component
+        base_node_barcode = barcode_dcretc_list[list(subgraph)[0]][0]
 
         # get the full sequence information of each node in the subgraph from barcode_dcretc and
         # add them to cluster collection with a cluster representative barcode (base_node_barcode)
         for k in list(subgraph):
-            clusters[base_node_barcode] += barcode_dcretc[k][1]
+            clusters[base_node_barcode] += barcode_dcretc_list[k][1]
 
     # add remaining barcode/protoseqs that do not need merging to the clusters
-    for i, bdcretc in enumerate(barcode_dcretc):
+    for i, bdcretc in enumerate(barcode_dcretc_list):
         # if already accounted for in the merged_groups then skip over
         if i in G.nodes:
             continue
