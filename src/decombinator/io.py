@@ -138,6 +138,12 @@ def add_common_arguments(parser: argparse.ArgumentParser):
         action="store_true",
         help="Don't save output files. For use when writing scripts which use the pipeline.",
     )
+    parser.add_argument(
+        "-sa",
+        "--sampling_analysis",
+        action="store_true",
+        help="Saves extra info on R2 V gene and UMI. For use with --writeclusters.",
+    )
 
 
 def add_decombine_arguments(parser: argparse.ArgumentParser):
