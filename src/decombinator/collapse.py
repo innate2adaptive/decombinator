@@ -563,7 +563,21 @@ def read_in_data(
         counts["readdata_success"] += 1
         seq_qualstring = line[7]
         seq_id = line[5]
-        dcretc = "|".join([str(dcr), seq, seq_qualstring, seq_id])
+        if not inputargs["sampling_analysis"]:
+            dcretc = "|".join([str(dcr), seq, seq_qualstring, seq_id])
+        else:
+            pre_collapse_barcode = line[8]
+            v_tail = line[10]
+            dcretc = "|".join(
+                [
+                    str(dcr),
+                    seq,
+                    seq_qualstring,
+                    seq_id,
+                    pre_collapse_barcode,
+                    v_tail,
+                ]
+            )
 
         group_assigned = False
 
