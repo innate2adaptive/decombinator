@@ -976,6 +976,12 @@ def decombinator(inputargs: dict) -> list:
                 bc = record1[1][0:bclength]
                 bcQ = record1[2][0:bclength]
 
+            if inputargs["sampling_analysis"]:
+                length_of_v_to_sample = 31
+                v_tail = record2[1][
+                    bclength : bclength + length_of_v_to_sample
+                ]
+
             if inputargs["nobarcoding"] == False:
                 if (
                     "N" in bc and inputargs["allowNs"] == False
@@ -1026,6 +1032,10 @@ def decombinator(inputargs: dict) -> list:
                         bc,
                         bcQ,
                     ]
+
+                    if inputargs["sampling_analysis"]:
+                        dcr_output.append(v_tail)
+
                     outdata.append(dcr_output)
 
                 else:  # TODO: create non-barcode alternative OR delete non-barcode methodology
