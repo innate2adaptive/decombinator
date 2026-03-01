@@ -421,6 +421,7 @@ def create_args_dict(
     outpath: str = None,
     dontsave: bool = False,
     command: str = None,
+    sampling_analysis: bool = False,
 ) -> dict:
     """
     Creates a function argument dictionary to be used in Decombinator,
@@ -460,6 +461,7 @@ def create_args_dict(
         "outpath": outpath,
         "dontsave": dontsave,
         "command": command,
+        "sampling_analysis": sampling_analysis
     }
 
 
