@@ -41,7 +41,7 @@ class TestClusterUMIs:
 
     def test_merge_order(self, barcode_dcretc_list):
         clusters = collapse.cluster_UMIs(
-            barcode_dcretc_list, {"writeclusters": False}, 2, 25, True
+            barcode_dcretc_list, {"writeclusters": False}, 2, 0.25, True
         )
 
         assert clusters == {
