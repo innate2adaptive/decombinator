@@ -591,54 +591,80 @@ def read_in_data(
 
         if barcode in barcode_lookup:
 
-            for index in barcode_lookup[barcode]:
-                if are_seqs_equivalent(index[1], seq, lev_threshold_fraction):
+            for barcode_index, barcode_protoseq in barcode_lookup[barcode]:
+                if are_seqs_equivalent(
+                    barcode_protoseq, seq, lev_threshold_fraction
+                ):
                     barcode_dcretc[
-                        barcode + "|" + str(index[0]) + "|" + index[1]
+                        barcode
+                        + "|"
+                        + str(barcode_index)
+                        + "|"
+                        + barcode_protoseq
                     ].append(dcretc)
                     protodcretc_list = barcode_dcretc[
-                        barcode + "|" + str(index[0]) + "|" + index[1]
+                        barcode
+                        + "|"
+                        + str(barcode_index)
+                        + "|"
+                        + barcode_protoseq
                     ]
                     seq_counter = coll.Counter(
                         map(lambda x: x.split("|")[1], protodcretc_list)
                     )
-                    protoseq = seq_counter.most_common(1)[0][
+                    new_protoseq = seq_counter.most_common(1)[0][
                         0
                     ]  # find most common sequence in group
 
-                    if not index[1] == protoseq:
+                    if barcode_protoseq != new_protoseq:
                         # if there is a new protoseq, replace record with old protoseq
                         # with identical record with updated  protoseq
                         barcode_dcretc[
-                            barcode + "|" + str(index[0]) + "|" + protoseq
+                            barcode
+                            + "|"
+                            + str(barcode_index)
+                            + "|"
+                            + new_protoseq
                         ] = barcode_dcretc[
-                            barcode + "|" + str(index[0]) + "|" + index[1]
+                            barcode
+                            + "|"
+                            + str(barcode_index)
+                            + "|"
+                            + new_protoseq
                         ]
                         del barcode_dcretc[
-                            barcode + "|" + str(index[0]) + "|" + index[1]
+                            barcode
+                            + "|"
+                            + str(barcode_index)
+                            + "|"
+                            + new_protoseq
                         ]
 
-                        barcode_lookup[barcode][index[0]] = [
-                            index[0],
-                            protoseq,
+                        barcode_lookup[barcode][barcode_index] = [
+                            barcode_index,
+                            new_protoseq,
                         ]
 
-                group_assigned = True
-                # if assigned to a group, stop and move onto next read
-                break
+                    group_assigned = True
+                    # if assigned to a group, stop and move onto next read
+                    break
 
             if not group_assigned:
                 # if no appropriate group found, create new group with correctly incremented index
-                barcode_lookup[barcode].append([index[0] + 1, seq])
+                new_index = len(barcode_lookup[barcode])
+                barcode_lookup[barcode].append([new_index, seq])
                 barcode_dcretc[
-                    "|".join([barcode, str(index[0] + 1), seq])
+                    "|".join([barcode, str(new_index), seq])
                 ].append(dcretc)
                 group_assigned = True
 
         else:
             # if no identical barcode found, create new barcode group with index zero
-            barcode_lookup[barcode].append([0, seq])
-            barcode_dcretc["|".join([barcode, "0", seq])].append(dcretc)
+            first_index = 0
+            barcode_lookup[barcode].append([first_index, seq])
+            barcode_dcretc["|".join([barcode, str(first_index), seq])].append(
+                dcretc
+            )
             group_assigned = True
 
     counts["readdata_barcode_dcretc_keys"] = len(barcode_dcretc.keys())
