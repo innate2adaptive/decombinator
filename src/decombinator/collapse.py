@@ -351,11 +351,11 @@ def check_umi_quality(qualstring: tuple[str], parameters: list[int]) -> bool:
     return number_below_min > parameters[1] or average_quality < parameters[2]
 
 
-def are_seqs_equivalent(seq1, seq2, lev_percent_threshold):
+def are_seqs_equivalent(seq1: str, seq2: str, lev_threshold_fraction: float):
     # Returns True if seqs can be considered the same, False otherwise
     # Definition of equivalent:
-    #   levenshtein distance as a percentage of the shorter of the two seqs is <= threshold
-    threshold = len(min(seq1, seq2, key=len)) * lev_percent_threshold
+    #   levenshtein distance as a fraction of the shorter of the two seqs is <= threshold
+    threshold = len(min(seq1, seq2, key=len)) * lev_threshold_fraction
     return polyleven.levenshtein(seq1, seq2) <= threshold
 
 
@@ -482,7 +482,7 @@ def read_in_data(
     data,
     inputargs,
     barcode_quality_parameters,
-    lev_threshold,
+    lev_threshold_fraction,
     dont_count,
     opener,
 ):
@@ -566,7 +566,7 @@ def read_in_data(
         if not inputargs["sampling_analysis"]:
             dcretc = "|".join([str(dcr), seq, seq_qualstring, seq_id])
         else:
-            pre_collapse_barcode = line[8]
+            full_barcode_region = line[8]
             v_tail = line[10]
             dcretc = "|".join(
                 [
@@ -574,7 +574,8 @@ def read_in_data(
                     seq,
                     seq_qualstring,
                     seq_id,
-                    pre_collapse_barcode,
+                    full_barcode_region,
+                    barcode,
                     v_tail,
                 ]
             )
@@ -591,7 +592,7 @@ def read_in_data(
         if barcode in barcode_lookup:
 
             for index in barcode_lookup[barcode]:
-                if are_seqs_equivalent(index[1], seq, lev_threshold):
+                if are_seqs_equivalent(index[1], seq, lev_threshold_fraction):
                     barcode_dcretc[
                         barcode + "|" + str(index[0]) + "|" + index[1]
                     ].append(dcretc)
@@ -712,7 +713,7 @@ def make_merge_groups(
 def make_clusters(
     merge_groups: sparse.coo_matrix,
     barcode_dcretc_list: list[tuple[str, list[str]]],
-    seq_threshold: int,
+    lev_threshold_fraction: float,
 ) -> coll.defaultdict[str, list[str]]:
     # Considers clusters as an undirected graph composed of disconnected subgraphs.
     # The nodes of the graph are the initial groups of barcode/protosequences. Edges between nodes
@@ -728,15 +729,13 @@ def make_clusters(
     # initialise empty graph
     G = nx.Graph()
 
-    percent_seq_threshold = seq_threshold / 100.0
-
     for i, j in zip(merge_groups.row, merge_groups.col):
         protoseqs = [
             barcode_dcretc_list[i][0].split("|")[2],
             barcode_dcretc_list[j][0].split("|")[2],
         ]
         if are_seqs_equivalent(
-            protoseqs[0], protoseqs[1], percent_seq_threshold
+            protoseqs[0], protoseqs[1], lev_threshold_fraction
         ):
             G.add_edge(i, j)
             n_merged_UMIs += 1
@@ -795,7 +794,7 @@ def cluster_UMIs(
     barcode_dcretc: coll.defaultdict[str, list[str]],
     inputargs: dict[str, typing.Union[str, bool, int]],
     barcode_threshold: int,
-    seq_threshold: int,
+    lev_threshold_fraction: float,
     dont_count: bool,
 ) -> coll.defaultdict[str, list[str]]:
     # input data of form: {'barcode1|index|protoseq': [dcretc1, dcretc2,...], 'barcode2|index|protoseq|: [dcretc1, dcretc2,...], ...}
@@ -818,7 +817,9 @@ def cluster_UMIs(
     )
 
     print("  ", "comparing TCR sequences of similar UMIs...")
-    clusters = make_clusters(matches, barcode_dcretc_list, seq_threshold)
+    clusters = make_clusters(
+        matches, barcode_dcretc_list, lev_threshold_fraction
+    )
 
     print(
         "  ",
@@ -841,7 +842,7 @@ def collapsinate(
     data,
     inputargs,
     barcode_quality_parameters,
-    lev_threshold,
+    lev_threshold_fraction,
     barcode_distance_threshold,
     outpath,
     file_id,
@@ -854,7 +855,7 @@ def collapsinate(
         data,
         inputargs,
         barcode_quality_parameters,
-        lev_threshold,
+        lev_threshold_fraction,
         dont_count,
         opener,
     )
@@ -864,7 +865,7 @@ def collapsinate(
         barcode_dcretc,
         inputargs,
         barcode_distance_threshold,
-        lev_threshold,
+        lev_threshold_fraction,
         dont_count,
     )
 
@@ -942,8 +943,8 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
         inputargs["avgQthreshold"],
     ]
 
-    ## this is the percentage lev distance that is allowed to determine whether two sequences are equivalent
-    lev_threshold = inputargs["percentlevdist"]
+    ## this is the fractional lev distance that is allowed to determine whether two sequences are equivalent
+    lev_threshold_fraction = inputargs["percentlevdist"] / 100
 
     ## this is the number of barcode edits that are allowed to call two barcodes equivalent
     barcode_distance_threshold = inputargs["bcthreshold"]
@@ -963,7 +964,7 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
         data,
         inputargs,
         barcode_quality_parameters,
-        lev_threshold,
+        lev_threshold_fraction,
         barcode_distance_threshold,
         outpath,
         file_id,
