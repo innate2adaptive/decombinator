@@ -171,8 +171,6 @@ def test_tsv_output(
         output_data = f.read()
 
     # Perform comparison
-    print(output_data)
-    print(reference_data)
     assert output_data == reference_data, "Output does not match reference data"
 
 
@@ -213,14 +211,12 @@ def test_log_output(
 
         with open(reference_log, "r") as f:
             comparison_label = "_".join(reference_log.name.split("_")[-2:])
-            print(comparison_label)
             reference_log_lines = f.readlines()[
                 comparison_start[comparison_label]
             ]
 
         with open(output_log, "r") as f:
             comparison_label = "_".join(output_log.name.split("_")[-2:])
-            print(comparison_label)
             output_log_lines = f.readlines()[comparison_start[comparison_label]]
 
         assert output_log_lines == reference_log_lines
