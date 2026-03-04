@@ -794,12 +794,12 @@ def make_clusters(
     return clusters
 
 
-def write_clusters(clusters):
+def write_clusters(clusters, inputargs):
     # create directory to store cluster data without overwriting exiting directories
-    dirname = "clusters"
+    dirname = "clusters_" + inputargs["chain"]
     count = 1
     while os.path.isdir(dirname):
-        dirname = "clusters" + str(count)
+        dirname = dirname + str(count)
         count += 1
     os.mkdir(dirname)
 
@@ -859,7 +859,7 @@ def cluster_UMIs(
 
     # dump clusters to separate files if desired
     if inputargs["writeclusters"]:
-        write_clusters(clusters)
+        write_clusters(clusters, inputargs)
 
     return clusters
 
