@@ -574,8 +574,9 @@ def read_in_data(
                     seq,
                     seq_qualstring,
                     seq_id,
-                    full_barcode_region,
                     barcode,
+                    barcode_qualstring,
+                    full_barcode_region,
                     v_tail,
                 ]
             )
@@ -794,26 +795,41 @@ def make_clusters(
     return clusters
 
 
-def write_clusters(clusters, inputargs):
-    # create directory to store cluster data without overwriting exiting directories
-    dirname = "clusters_" + inputargs["chain"]
+def write_clusters(
+    clusters: coll.defaultdict[str, list[str]],
+    inputargs: dict[str, typing.Union[str, bool, int]],
+) -> None:
+    # create file to store cluster data without overwriting exiting files
+    chain: str = inputargs["chain"]
+    filename = "clusters_" + chain
+    ftype = ".psv.gz"
     count = 1
-    while os.path.isdir(dirname):
-        dirname = dirname + str(count)
+    while os.path.isfile(filename + ftype):
+        filename = filename + str(count)
         count += 1
-    os.mkdir(dirname)
 
+    filename = filename + ftype
     print(
-        "   Writing clusters to directory: ", os.path.abspath(dirname), "..."
+        "   Writing clusters to directory: ", os.path.abspath(filename), "..."
     )
-    # write data of each cluster to a separate file and store in clusters directory
-    for k in clusters:
-        with open(
-            dirname + os.sep + "|".join(k.split("|")[:2]) + ".txt", "w"
-        ) as ofile:
-            for j in clusters[k]:
-                print(j, file=ofile)
-    return 1
+    header_names = [
+        "umi_id",
+        "dcr",
+        "inter_tag",
+        "inter_tag_qual",
+        "read_id",
+        "umi",
+        "umi_qual",
+        "full_oligo",
+        "v_tail",
+    ]
+    # write data of each cluster to file
+    with gzip.open(filename, "wt") as cluster_file:
+        cluster_file.write("|".join(header_names) + "\n")
+        for cluster_id, dcretc_list in clusters.items():
+            cluster_name = ":".join(cluster_id.split("|")[:2])
+            for dcretc in dcretc_list:
+                cluster_file.write(cluster_name + "|" + dcretc + "\n")
 
 
 def cluster_UMIs(
