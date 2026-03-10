@@ -1,5 +1,6 @@
 import collections as coll
 import pathlib
+import typing
 
 import pytest
 
@@ -203,7 +204,7 @@ class TestReadInData:
         return []
 
     @pytest.fixture
-    def pipe_args(self) -> dict[str, str | int]:
+    def pipe_args(self) -> dict[str, typing.Union[str, int]]:
         return {
             "command": "pipeline",
             "lenthreshold": 130,
