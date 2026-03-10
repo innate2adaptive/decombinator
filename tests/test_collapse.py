@@ -278,7 +278,7 @@ class TestReadInData:
     def test_barcode_collision(
         self,
         valid_input: list[list[str]],
-        pipe_args: dict[str, str | int],
+        pipe_args: dict[str, typing.Union[str, int]],
         barcode_quality_parameters: list[int],
     ):
         barcode_dcretc = collapse.read_in_data(
@@ -302,7 +302,7 @@ class TestReadInData:
     def test_barcode_collision_no_tcr_check(
         self,
         valid_input: list[list[str]],
-        pipe_args: dict[str, str | int],
+        pipe_args: dict[str, typing.Union[str, int]],
         barcode_quality_parameters: list[int],
     ):
         barcode_dcretc = collapse.read_in_data(
