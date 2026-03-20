@@ -1,6 +1,6 @@
 [project]
 name = "decombinator"
-version = "5.1.0"
+dynamic = ["version"]
 description = "A fast and efficient tool for the analysis of T-cell receptor repertoire sequences produced by deep sequencing."
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -44,48 +44,36 @@ dependencies = [
 ]
 keywords = ["decombinator", "TCR", "TCRseq", "repertoire", "sequence", "analysis"]
 classifiers = [
-  # How mature is this project?
   "Development Status :: 5 - Production/Stable",
-
-  # Indicate who your project is intended for
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
   "License :: OSI Approved :: MIT License",
-
-  # Specify the Python versions you support here.
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
 ]
-
 [project.optional-dependencies]
 dev = [
     "pytest==8.2.2",
     "pytest-cov==5.0.0",
 ]
-
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
 [tool.pytest.ini_options]
 pythonpath = [
   "./src"
 ]
-
 [tool.black]
 line-length = 79
-
 [project.scripts]
 decombinator = "decombinator.pipeline:main"
-
 [project.urls]
 "Homepage" = "https://github.com/innate2adaptive/Decombinator"
 "Bug Tracker" = "https://github.com/innate2adaptive/Decombinator/issues"
-# Homepage = "https://example.com"
-# Documentation = "https://readthedocs.org"
-# Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
