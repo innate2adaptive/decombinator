@@ -943,7 +943,7 @@ def collapsinate(
 
     counts["number_output_unique_dcrs"] = len(collapsed)
     counts["number_output_total_dcrs"] = sum(collapsed.values())
-    counts["median_barcodes_per_tcr"] = median(collapsed.values())
+    counts["median_barcodes_per_tcr"] = float(median(collapsed.values()))
 
     t1 = time.time()
     print("  ", round(t1 - t0, 2), "seconds")
