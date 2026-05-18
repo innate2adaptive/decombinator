@@ -59,6 +59,7 @@ import sys
 import time
 import typing
 from importlib import metadata
+from statistics import median
 
 import networkx as nx
 import polyleven
@@ -942,6 +943,7 @@ def collapsinate(
 
     counts["number_output_unique_dcrs"] = len(collapsed)
     counts["number_output_total_dcrs"] = sum(collapsed.values())
+    counts["median_barcodes_per_tcr"] = median(collapsed.values())
 
     t1 = time.time()
     print("  ", round(t1 - t0, 2), "seconds")
@@ -1174,6 +1176,8 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
             + str(counts["multi_tcr_barcodes"])
             + "\nMultiTCRBarcodeReads,"
             + str(counts["multi_tcr_barcode_reads"])
+            + "\nMedianUMIsPerTCR,"
+            + str(counts["median_barcodes_per_tcr"])
         )
 
         print(summstr, file=summaryfile)
