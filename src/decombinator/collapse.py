@@ -593,7 +593,7 @@ def read_in_data(
 
         if barcode in barcode_multi_tcr:
             # if barcode already marked as multi-tcr barcode, drop read
-            counts["number_multi_tcr_barcode_reads"] += 1
+            counts["multi_tcr_barcode_reads"] += 1
             continue
 
         if barcode in barcode_lookup:
@@ -659,7 +659,7 @@ def read_in_data(
             if not group_assigned:
                 # If barcode already assigned to non-equivalent TCR, register barcode as multi-
                 # tcr UMI and remove from analysis
-                counts["number_multi_tcr_barcode_reads"] += 1
+                counts["multi_tcr_barcode_reads"] += 1
                 if barcode in barcode_multi_tcr:
                     raise ValueError(
                         "Barcode cannot be added twice to multi_tcr list"
@@ -669,7 +669,6 @@ def read_in_data(
                 del barcode_dcretc[
                     barcode + "|" + str(barcode_index) + "|" + barcode_protoseq
                 ]
-                counts["multi_tcr_barcodes"] += 1
                 continue
 
         else:
@@ -684,6 +683,7 @@ def read_in_data(
     counts["readdata_barcode_dcretc_keys"] = len(barcode_dcretc.keys())
     counts["number_input_unique_dcrs"] = len(input_dcr_counts.keys())
     counts["number_input_total_dcrs"] = sum(input_dcr_counts.values())
+    counts["multi_tcr_barcodes"] = len(barcode_multi_tcr)
 
     t1 = time.time()
     print("   Read in total of", lcount + 1, "lines")
@@ -1170,6 +1170,10 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
             + str(counts["readdata_fail_no_bclocs"])
             + "\nBarcodeFail_LowQuality,"
             + str(counts["readdata_fail_low_barcode_quality"])
+            + "\nMultiTCRBarcodes,"
+            + str(counts["multi_tcr_barcodes"])
+            + "\nMultiTCRBarcodeReads,"
+            + str(counts["multi_tcr_barcode_reads"])
         )
 
         print(summstr, file=summaryfile)
