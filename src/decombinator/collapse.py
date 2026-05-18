@@ -513,6 +513,7 @@ def read_in_data(
     t0 = time.time()
     barcode_dcretc = coll.defaultdict(list)
     barcode_lookup = coll.defaultdict(list)
+    barcode_multi_tcr = set()
 
     input_dcr_counts = coll.Counter()
     ratio = 1
@@ -590,6 +591,11 @@ def read_in_data(
         # where index counts upwards from zero to help disinguish identical barcodes in different groups,
         # protoseq is the most common sequence present in the group, and dcretc are the input reads
 
+        if barcode in barcode_multi_tcr:
+            # if barcode already marked as multi-tcr barcode, drop read
+            counts["multi_tcr_barcode_reads"] += 1
+            continue
+
         if barcode in barcode_lookup:
 
             for barcode_index, barcode_protoseq in barcode_lookup[barcode]:
@@ -631,14 +637,14 @@ def read_in_data(
                             + "|"
                             + str(barcode_index)
                             + "|"
-                            + new_protoseq
+                            + barcode_protoseq
                         ]
                         del barcode_dcretc[
                             barcode
                             + "|"
                             + str(barcode_index)
                             + "|"
-                            + new_protoseq
+                            + barcode_protoseq
                         ]
 
                         barcode_lookup[barcode][barcode_index] = [
@@ -651,13 +657,19 @@ def read_in_data(
                     break
 
             if not group_assigned:
-                # if no appropriate group found, create new group with correctly incremented index
-                new_index = len(barcode_lookup[barcode])
-                barcode_lookup[barcode].append([new_index, seq])
-                barcode_dcretc[
-                    "|".join([barcode, str(new_index), seq])
-                ].append(dcretc)
-                group_assigned = True
+                # If barcode already assigned to non-equivalent TCR, register barcode as multi-
+                # tcr UMI and remove from analysis
+                counts["multi_tcr_barcode_reads"] += 1
+                if barcode in barcode_multi_tcr:
+                    raise ValueError(
+                        "Barcode cannot be added twice to multi_tcr list"
+                    )
+                barcode_multi_tcr.add(barcode)
+                del barcode_lookup[barcode]
+                del barcode_dcretc[
+                    barcode + "|" + str(barcode_index) + "|" + barcode_protoseq
+                ]
+                continue
 
         else:
             # if no identical barcode found, create new barcode group with index zero
@@ -671,6 +683,7 @@ def read_in_data(
     counts["readdata_barcode_dcretc_keys"] = len(barcode_dcretc.keys())
     counts["number_input_unique_dcrs"] = len(input_dcr_counts.keys())
     counts["number_input_total_dcrs"] = sum(input_dcr_counts.values())
+    counts["multi_tcr_barcodes"] = len(barcode_multi_tcr)
 
     t1 = time.time()
     print("   Read in total of", lcount + 1, "lines")
@@ -1157,6 +1170,10 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
             + str(counts["readdata_fail_no_bclocs"])
             + "\nBarcodeFail_LowQuality,"
             + str(counts["readdata_fail_low_barcode_quality"])
+            + "\nMultiTCRBarcodes,"
+            + str(counts["multi_tcr_barcodes"])
+            + "\nMultiTCRBarcodeReads,"
+            + str(counts["multi_tcr_barcode_reads"])
         )
 
         print(summstr, file=summaryfile)
