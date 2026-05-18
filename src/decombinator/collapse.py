@@ -1172,9 +1172,9 @@ def collapsinator(inputargs: dict, data: list = None) -> list:
             + str(counts["readdata_fail_no_bclocs"])
             + "\nBarcodeFail_LowQuality,"
             + str(counts["readdata_fail_low_barcode_quality"])
-            + "\nMultiTCRBarcodes,"
+            + "\nNumberMultiTCRBarcodes,"
             + str(counts["multi_tcr_barcodes"])
-            + "\nMultiTCRBarcodeReads,"
+            + "\nNumberMultiTCRBarcodeReads,"
             + str(counts["multi_tcr_barcode_reads"])
             + "\nMedianUMIsPerTCR,"
             + str(counts["median_barcodes_per_tcr"])
